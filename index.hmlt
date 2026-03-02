@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAMPANHA AUTOMÁTICA</title>
+    <style>
+        :root { --primary: #00ff88; --btc: #f7931a; --bg: #050505; }
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+        .header { padding: 30px 20px; text-align: center; border-bottom: 1px solid #222; }
+        .header h1 { color: var(--primary); margin: 0; font-size: 1.8rem; text-transform: uppercase; letter-spacing: 2px; }
+        .social-row { display: flex; justify-content: center; gap: 15px; margin-top: 15px; }
+        .social-btn { color: white; text-decoration: none; font-size: 0.8rem; background: #111; padding: 8px 15px; border-radius: 20px; border: 1px solid #333; }
+
+        .container { padding: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .card { background: #111; border-radius: 12px; padding: 15px; border: 1px solid #222; text-align: center; transition: 0.3s; }
+        .card:active { transform: scale(0.95); border-color: var(--primary); }
+        
+        .ebook-cover {
+            height: 150px; background: var(--primary); border-radius: 5px 12px 12px 5px;
+            margin-bottom: 10px; display: flex; align-items: center; justify-content: center;
+            color: black; font-weight: bold; font-size: 0.7rem; padding: 5px;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5); text-transform: uppercase;
+        }
+        .card:nth-child(even) .ebook-cover { background: var(--btc); }
+        .price { color: var(--primary); font-weight: bold; margin: 10px 0; font-size: 1.1rem; }
+        .btn-buy { background: var(--primary); color: black; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>CAMPANHA AUTOMÁTICA</h1>
+    <div class="social-row">
+        <!-- SUBSTITUA "SEUPERFIL" PELO SEU NOME DE USUÁRIO REAL -->
+        <a href="https://facebook.com/SEUPERFIL" class="social-btn">Facebook</a>
+        <a href="https://instagram.com/SEUPERFIL" class="social-btn">Instagram</a>
+    </div>
+</div>
+
+<div class="container">
+    <div class="grid" id="produtos"></div>
+</div>
+
+<script>
+    // LISTA DOS SEUS 10 PRODUTOS
+    const produtos = [
+        { id: 1, nome: "Bitcoin Mestre: Guia 50 Págs", preco: "47,90" },
+        { id: 2, nome: "Como Ficar Rico: O Mapa", preco: "67,00" },
+        { id: 3, nome: "App Campanha V1 (APK)", preco: "97,00" },
+        { id: 4, nome: "Segurança Crypto Total", preco: "29,90" },
+        { id: 5, nome: "Ebook Escala 100k", preco: "49,90" },
+        { id: 6, nome: "App Robô Vendas (APK)", preco: "147,00" },
+        { id: 7, nome: "Scripts de Milhões", preco: "19,90" },
+        { id: 8, nome: "Bíblia do Tráfego", preco: "57,00" },
+        { id: 9, nome: "Dominando Blockchain", preco: "37,00" },
+        { id: 10, nome: "Renda Passiva VIP", preco: "87,00" }
+    ];
+
+    // GERA OS CARDS NA TELA
+    document.getElementById('produtos').innerHTML = produtos.map(p => `
+        <div class="card">
+            <div class="ebook-cover">${p.nome}</div>
+            <h3 style="font-size:0.8rem; height:35px; overflow:hidden; margin: 10px 0;">${p.nome}</h3>
+            <div class="price">R$ ${p.preco}</div>
+            <button class="btn-buy" onclick="comprar('${p.nome}')">COMPRAR</button>
+        </div>
+    `).join('');
+
+    // FUNÇÃO QUE ENVIA O PEDIDO PARA O PAINEL ADM
+    function comprar(nome) {
+        alert("SOLICITAÇÃO ENVIADA!\n\nChave PIX: seu-email@pix.com\n\nFaça o pagamento e o ADM liberará seu download no painel.");
+        
+        let pedidos = JSON.parse(localStorage.getItem('pedidos') || '[]');
+        pedidos.push({ 
+            nome: nome, 
+            data: new Date().toLocaleString(),
+            status: 'pendente'
+        });
+        localStorage.setItem('pedidos', JSON.stringify(pedidos));
+    }
+</script>
+
+</body>
+</html>
