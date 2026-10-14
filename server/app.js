@@ -9,7 +9,7 @@ import { buscarFotos, tirarPrint, linkPermitidoParaPrint } from './leao.js'
 import { estudar } from './gato.js'
 import { hospedar, listarPastas, temPasta } from './pasta.js'
 import { enriquecer } from './abelha.js'
-import { gravarVideo } from './video.js'
+import { gravarVideo, servidorGrava } from './video.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
 // Aceita as chaves com outros nomes de variável (ex.: "google" ou "firecrawl" no Vercel):
@@ -35,10 +35,10 @@ const keys = () => ({
   whatsappTemplate: Boolean(process.env.WHATSAPP_TEMPLATE),
   vercel: Boolean(process.env.VERCEL_TOKEN),
   pasta: temPasta(),
-  videoServidor: !process.env.VERCEL, // no Vercel não há navegador: o vídeo é gravado no navegador do usuário
 })
 
-app.get('/status', (c) => c.json({ ok: true, keys: keys() }))
+// videoServidor: o servidor tem navegador para gravar (computador); senão o vídeo é gravado no navegador do usuário.
+app.get('/status', async (c) => c.json({ ok: true, keys: { ...keys(), videoServidor: await servidorGrava() } }))
 
 app.post('/pinguim/buscar', async (c) => {
   const { categoria, cidade } = await c.req.json().catch(() => ({}))

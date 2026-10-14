@@ -25,6 +25,7 @@ export default function GatoPreview({ preview }) {
   const [erroVideo, setErroVideo] = useState(null)
   const videoUrl = useRef(null)
   const quadro = useRef(null)
+  const gravarAqui = useRef(false) // o servidor já falhou: grava direto no navegador
   useEffect(() => () => videoUrl.current && URL.revokeObjectURL(videoUrl.current), [])
 
   useEffect(() => {
@@ -96,11 +97,20 @@ export default function GatoPreview({ preview }) {
     setGravando(true)
     setErroVideo(null)
     try {
-      const status = await fetch('/api/status').then((r) => r.json()).catch(() => null)
-      let blob
+      const clique = performance.now()
+      const status = gravarAqui.current ? null : await fetch('/api/status').then((r) => r.json()).catch(() => null)
+      let blob = null
       if (status?.keys?.videoServidor) {
-        blob = await gravarVideoPrevia(srcDoc, preview.siteId)
-      } else {
+        blob = await gravarVideoPrevia(srcDoc, preview.siteId).catch(() => null) // falhou: grava aqui mesmo
+        if (!blob) {
+          gravarAqui.current = true
+          // O navegador só deixa gravar a tela logo depois de um clique.
+          if (performance.now() - clique > 3500) {
+            throw new Error('O servidor não conseguiu gravar. Clique de novo em "Gravar vídeo da prévia" para gravar aqui no navegador.')
+          }
+        }
+      }
+      if (!blob) {
         setDevice('mobile')
         await new Promise((r) => setTimeout(r, 600)) // espera o quadro virar celular
         blob = await gravarPreviaNoNavegador(quadro.current)

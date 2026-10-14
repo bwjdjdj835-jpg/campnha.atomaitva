@@ -41,6 +41,22 @@ async function caminhoFfmpeg() {
   }
 }
 
+// Este servidor consegue gravar? Só se o navegador existir de verdade (no Vercel não existe).
+let podeGravarCache
+export async function servidorGrava() {
+  if (podeGravarCache !== undefined) return podeGravarCache
+  podeGravarCache = false
+  if (process.env.VERCEL || process.env.NETLIFY) return podeGravarCache
+  try {
+    const { existsSync } = await import('node:fs')
+    const { chromium } = await import('playwright-core')
+    podeGravarCache = existsSync(process.env.CHROMIUM_PATH || chromium.executablePath())
+  } catch {
+    podeGravarCache = false
+  }
+  return podeGravarCache
+}
+
 const suave = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
 
 export async function gravarVideo(html, { segundos = 12 } = {}) {

@@ -57,8 +57,10 @@ e "Leão Dourado" foi unificado como **Leão**.
     caber no limite de ~10 pedidos/min do plano grátis. A busca v2 não aceita `lang`.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
   - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,
-    opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Só quando o app roda no computador
-    (`keys.videoServidor` = não está no Vercel). **No Vercel** o Gato grava no navegador do usuário
+    opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Só quando o servidor tem navegador de verdade
+    (`keys.videoServidor` = `servidorGrava()`: fora de Vercel/Netlify e o executável do Chromium existe); se a
+    gravação no servidor falhar, o Gato cai para a gravação no navegador (pede novo clique se já passou do tempo
+    em que o navegador aceita `getDisplayMedia`). **No Vercel** o Gato grava no navegador do usuário
     (`gravarPreviaNoNavegador` em `src/lib/previa.jsx`: `getDisplayMedia` com `preferCurrentTab`, recorte no iframe
     com Region Capture, `MediaRecorder` em MP4 quando o navegador grava MP4, senão WebM; a prévia recebe
     `postMessage({ tipo: 'passeio-previa' })` e passa um cursor na capa e rola a página). Chrome/Edge no computador.
