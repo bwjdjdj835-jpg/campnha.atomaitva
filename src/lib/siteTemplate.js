@@ -5,6 +5,7 @@
 import siteSource from './ClienteSite.jsx?raw'
 import animacoesCss from './clienteAnimacoes.css?raw'
 import aguaSource from './clienteAgua.js?raw'
+import efeitosSource from './clienteEfeitos.js?raw'
 
 const json = (v) => JSON.stringify(v, null, 2) + '\n'
 
@@ -95,10 +96,12 @@ import ReactDOM from 'react-dom/client'
 import Site from './Site.jsx'
 import dados from './dados.json'
 import { iniciarAgua } from './agua.js'
+import { iniciarEfeitos } from './efeitos.js'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(<Site dados={dados} />)
 iniciarAgua(document)
+if (dados.efeitos !== false) iniciarEfeitos(document)
 `,
     'src/index.css': `@tailwind base;
 @tailwind components;
@@ -107,6 +110,7 @@ iniciarAgua(document)
 ${animacoesCss}`,
     'src/Site.jsx': siteSource,
     'src/agua.js': aguaSource,
+    'src/efeitos.js': efeitosSource,
     'src/dados.json': json(dados),
     'dados.json': json(dados),
     'README.md': `# ${negocio.nome}
@@ -127,6 +131,7 @@ npm run dev
 - \`public/fotos/\` — fotos do negócio.
 - \`src/Site.jsx\` — página única: capa, fotos, contato, mapa e botão fixo de WhatsApp.
 - \`src/agua.js\` — efeito de água na capa (a foto ondula seguindo o cursor).
+- \`src/efeitos.js\` — efeitos interativos (seções entrando ao rolar, luz nos cartões, botões magnéticos, parallax).
 `,
   }
 }

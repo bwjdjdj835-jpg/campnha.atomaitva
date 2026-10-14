@@ -97,13 +97,62 @@ export function dadosDaPaginaMaps(md = '') {
   }
 }
 
+// Avaliações reais do Google, lidas da página do Maps pelo Firecrawl (formato json). Para não inventar nada,
+// só fica a avaliação cujo texto aparece de verdade no texto da página.
+const PEDIDO_AVALIACOES = {
+  type: 'json',
+  prompt:
+    'Extraia SOMENTE avaliações (reviews) de clientes que aparecem escritas nesta página do Google Maps. Para cada uma: texto exato, nota de 1 a 5 e nome do autor. Se não houver avaliações com texto, devolva lista vazia. Não invente nada.',
+  schema: {
+    type: 'object',
+    properties: {
+      avaliacoes: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { texto: { type: 'string' }, nota: { type: 'number' }, autor: { type: 'string' } },
+          required: ['texto', 'autor'],
+        },
+      },
+    },
+    required: ['avaliacoes'],
+  },
+}
+const MAX_DEPOIMENTOS = 5
+const soLetras = (s) =>
+  String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+export function depoimentosConferidos(lista, markdown) {
+  const pagina = soLetras(markdown)
+  const vistos = new Set()
+  const ok = []
+  for (const a of Array.isArray(lista) ? lista : []) {
+    const texto = String(a?.texto || '').trim()
+    const autor = String(a?.autor || '').trim()
+    const trecho = soLetras(texto).slice(0, 40)
+    if (texto.length < 8 || !autor || trecho.length < 8 || !pagina.includes(trecho) || vistos.has(trecho)) continue
+    vistos.add(trecho)
+    const nota = Number(a.nota)
+    ok.push({ texto, autor, nota: nota >= 1 && nota <= 5 ? Math.round(nota) : null, fonte: 'Google Maps' })
+    if (ok.length >= MAX_DEPOIMENTOS) break
+  }
+  return ok
+}
+
+const ehLinkDoMaps = (url) => /google\.[^/]+\/maps|maps\.google\.|maps\.app\.goo\.gl/.test(String(url))
+
 export async function tirarPrint(url) {
   const res = await fetch('https://api.firecrawl.dev/v2/scrape', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}` },
     body: JSON.stringify({
       url,
-      formats: ['screenshot', 'markdown', 'images'],
+      formats: ['screenshot', 'markdown', 'images', ...(ehLinkDoMaps(url) ? [PEDIDO_AVALIACOES] : [])],
       waitFor: 3000,
       location: { country: 'BR', languages: ['pt-BR'] },
     }),
@@ -114,10 +163,11 @@ export async function tirarPrint(url) {
   if (!dados.screenshot) throw new Error('Print (Firecrawl): a página não devolveu imagem')
   const img = await fetch(dados.screenshot)
   if (!img.ok) throw new Error('Print: não consegui baixar a imagem')
-  const ehMaps = /google\.[^/]+\/maps|maps\.google\.|maps\.app\.goo\.gl/.test(dados.metadata?.url || url)
+  const ehMaps = ehLinkDoMaps(dados.metadata?.url || url)
   return {
     pagina: ehMaps ? dadosDaPaginaMaps(dados.markdown) : null,
     fotosMaps: ehMaps ? fotosDaPaginaMaps(dados.images) : [],
+    depoimentos: ehMaps ? depoimentosConferidos(dados.json?.avaliacoes, dados.markdown) : [],
     titulo: dados.metadata?.title || null,
     urlFinal: dados.metadata?.url || url,
     link: dados.screenshot,

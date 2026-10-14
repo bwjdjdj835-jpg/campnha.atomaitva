@@ -3,7 +3,7 @@ import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye
 import { TEMAS } from '../lib/ClienteSite.jsx'
 import { gerarZipFinal, gravarVideoPrevia, guardarVideo, SEM_DOWNLOAD } from '../services/agents.js'
 import { setPipeline } from '../store/pipeline.js'
-import { fotosEmDataUrl, htmlDaPrevia, gravarPreviaNoNavegador, SANDBOX_PREVIA } from '../lib/previa.jsx'
+import { fotosEmDataUrl, htmlDaPrevia, gravarPreviaNoNavegador, SANDBOX_PREVIA, CSS_MINIATURA } from '../lib/previa.jsx'
 
 function marcarSite(siteId, campos) {
   if (!siteId) return
@@ -14,6 +14,9 @@ function marcarSite(siteId, campos) {
 export default function GatoPreview({ preview }) {
   const [tema, setTema] = useState(preview.dados.tema)
   const [conteudo, setConteudo] = useState(preview.dados.conteudo || {})
+  const [efeitos, setEfeitos] = useState(preview.dados.efeitos !== false) // estilo 21st.dev / Code Eagle / GSAP
+  const [hero, setHero] = useState(preview.dados.hero === 'parallax' ? 'parallax' : 'agua') // capa: água ou parallax
+  const [galeria, setGaleria] = useState(preview.dados.galeria === 'bento' ? 'bento' : 'uniforme')
   // Site modelo cujas cores/fonte viram o tema "Do modelo": o seu link colado ou o estilo que o estudo achou.
   const [modelo, setModelo] = useState(preview.modeloInicial || null)
   const [device, setDevice] = useState('desktop')
@@ -47,9 +50,25 @@ export default function GatoPreview({ preview }) {
   }, [conteudo])
 
   const srcDoc = useMemo(
-    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, conteudo: conteudoPrevia }, fotosUrl) : ''),
-    [preview, tema, modelo, conteudoPrevia, fotosUrl],
+    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia }, fotosUrl) : ''),
+    [preview, tema, modelo, efeitos, hero, galeria, conteudoPrevia, fotosUrl],
   )
+  // Miniaturas dos temas lado a lado (mesma prévia real do cliente, só trocando o tema).
+  const temasLado = ['noite', 'claro', 'studio', 'vibrante', ...(modelo ? ['modelo'] : [])]
+  const miniaturas = useMemo(
+    () =>
+      fotosUrl
+        ? Object.fromEntries(
+            temasLado.map((id) => [id, htmlDaPrevia({ ...preview.dados, tema: id, modelo, efeitos: false, hero, galeria, conteudo: conteudoPrevia }, fotosUrl, CSS_MINIATURA)]),
+          )
+        : {},
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [preview, modelo, hero, galeria, conteudoPrevia, fotosUrl],
+  )
+  const escolher = (setter) => (v) => {
+    setter(v)
+    desaprovar()
+  }
 
   function desaprovar() {
     if (aprovado) {
@@ -85,7 +104,7 @@ export default function GatoPreview({ preview }) {
   async function baixarFinal() {
     setGerando(true)
     try {
-      const r = await gerarZipFinal(preview, tema, conteudo, modelo)
+      const r = await gerarZipFinal(preview, tema, conteudo, modelo, efeitos, { hero, galeria })
       setEntregue(r)
       marcarSite(preview.siteId, { zipFinal: r.nomeZip })
     } finally {
@@ -156,7 +175,62 @@ export default function GatoPreview({ preview }) {
         </div>
       </div>
 
+      {/* Os temas lado a lado com a prévia real do cliente */}
+      <div className="px-5 pt-4">
+        <div className="label">Escolha o estilo (prévia real do cliente)</div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          {temasLado.map((id) => (
+            <button
+              key={id}
+              onClick={() => (id === 'modelo' ? usarModelo(modelo) : trocarTema(id))}
+              className={`group overflow-hidden rounded-xl border text-left transition ${tema === id ? 'border-neon ring-2 ring-neon/40' : 'border-white/10 hover:border-white/30'}`}
+            >
+              <div className="relative aspect-[4/5] overflow-hidden bg-black">
+                {miniaturas[id] && (
+                  <iframe
+                    title={`Tema ${TEMAS[id].nome}`}
+                    srcDoc={miniaturas[id]}
+                    sandbox={SANDBOX_PREVIA}
+                    tabIndex={-1}
+                    className="pointer-events-none absolute left-0 top-0 origin-top-left"
+                    style={{ width: '400%', height: '400%', transform: 'scale(0.25)' }}
+                  />
+                )}
+              </div>
+              <div className="px-3 py-2 text-xs text-slate-300 group-hover:text-white">
+                {tema === id ? '✓ ' : ''}
+                {TEMAS[id].nome}
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-slate-500">Capa:</span>
+          {[['agua', 'Foto com água'], ['parallax', 'Foto com parallax']].map(([v, r]) => (
+            <button key={v} onClick={() => escolher(setHero)(v)} className={`px-3 py-1.5 rounded-full border transition ${hero === v ? 'border-neon bg-neon/10 text-white' : 'border-white/10 text-slate-400 hover:text-white'}`}>
+              {r}
+            </button>
+          ))}
+          <span className="ml-3 text-slate-500">Galeria:</span>
+          {[['uniforme', 'Fotos do mesmo tamanho'], ['bento', 'Bento']].map(([v, r]) => (
+            <button key={v} onClick={() => escolher(setGaleria)(v)} className={`px-3 py-1.5 rounded-full border transition ${galeria === v ? 'border-neon bg-neon/10 text-white' : 'border-white/10 text-slate-400 hover:text-white'}`}>
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="px-5 pt-4 flex flex-wrap gap-2">
+        <button
+          onClick={() => {
+            setEfeitos(!efeitos)
+            desaprovar()
+          }}
+          title="Seções entrando ao rolar, título letra por letra, luz nos cartões, botões magnéticos, faixa de serviços correndo e fotos com parallax"
+          className={`text-xs px-3 py-1.5 rounded-full border transition ${efeitos ? 'border-neon bg-neon/10 text-white' : 'border-white/10 text-slate-400 hover:text-white'}`}
+        >
+          {efeitos ? '✨ Efeitos interativos: ligados' : 'Efeitos interativos: desligados'}
+        </button>
         {Object.entries(TEMAS).filter(([id]) => id !== 'modelo' || modelo).map(([id, t]) => (
           <button
             key={id}

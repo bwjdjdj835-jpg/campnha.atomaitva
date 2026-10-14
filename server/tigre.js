@@ -3,7 +3,8 @@
 // depois do clique), sem disparo em massa, e "não contatar" é respeitado.
 //
 // Cada integração é opcional:
-//   ANTHROPIC_API_KEY  → Claude escreve as mensagens e lê as respostas (sem ela: modelos fixos + palavras-chave)
+//   GROQ_API_KEY       → IA da Groq escreve as mensagens e lê as respostas (tem prioridade; GROQ_MODEL troca o modelo)
+//   ANTHROPIC_API_KEY  → Claude faz o mesmo, só se não houver Groq (sem nenhuma: modelos fixos + palavras-chave)
 //   ZAPI_INSTANCE_ID + ZAPI_TOKEN (+ ZAPI_CLIENT_TOKEN) → envio pela Z-API (tem prioridade)
 //   WHATSAPP_TOKEN + WHATSAPP_PHONE_NUMBER_ID → envio pela API oficial da Meta
 //   (sem nenhum dos dois: o usuário envia pelo próprio WhatsApp)
@@ -12,9 +13,34 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { z } from 'zod'
-import { MODELOS, classificarPorPalavras } from '../src/lib/tigreTextos.js'
+import { MODELOS, classificarPorPalavras, opcaoDeAtendente, respostaPorPalavras } from '../src/lib/tigreTextos.js'
 
 const MODELO = 'claude-opus-5-5'
+const MODELO_GROQ = () => process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+
+// Qual IA usar: Groq primeiro (a chave do usuário), Claude só sem Groq, senão nenhuma.
+export const provedorIA = () => (process.env.GROQ_API_KEY ? 'groq' : process.env.ANTHROPIC_API_KEY ? 'claude' : null)
+
+// Groq: API no formato da OpenAI (https://console.groq.com/docs/api-reference#chat-create).
+async function groq({ system, user, json = false }) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: MODELO_GROQ(),
+      temperature: json ? 0 : 0.7,
+      max_tokens: 600,
+      ...(json ? { response_format: { type: 'json_object' } } : {}),
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(`Groq: ${data.error?.message || res.statusText}`)
+  return String(data.choices?.[0]?.message?.content || '').trim()
+}
 
 let cliente = null
 const claude = () => (cliente ??= new Anthropic())
@@ -35,18 +61,46 @@ function textoDa(resposta) {
 
 export async function gerarMensagem({ tipo, negocio, historico = [], url }) {
   if (tipo === 'link') return { texto: MODELOS.link(negocio, url), fonte: 'modelo' }
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return { texto: (MODELOS[tipo] || MODELOS.primeiro)(negocio), fonte: 'modelo' }
-  }
+  // Opção de "falar com atendente" no menu do robô (ex.: "3"), vinda da última mensagem dele.
+  const ultimaDoCliente = [...historico].reverse().find((m) => m.de === 'cliente')?.texto || ''
+  const opcao = tipo === 'pessoa' ? opcaoDeAtendente(ultimaDoCliente) : ''
+  // Texto pronto (sem IA ou IA fora do ar): a resposta olha a última mensagem do cliente.
+  const pronto = () => (tipo === 'resposta' ? respostaPorPalavras(ultimaDoCliente, negocio) : (MODELOS[tipo] || MODELOS.primeiro)(negocio, opcao))
+  const ia = provedorIA()
+  if (!ia) return { texto: pronto(), fonte: 'modelo' }
   const pedido = {
     primeiro:
       'Escreva a PRIMEIRA mensagem de contato oferecendo um site exclusivo com as fotos do negócio e perguntando se querem ver uma prévia. Use como base: "' +
       MODELOS.primeiro(negocio) +
       '"',
     fechamento: 'O cliente demonstrou interesse. Escreva a mensagem de fechamento dizendo que o link do site é enviado assim que o pagamento for confirmado.',
-    resposta: 'Escreva a próxima resposta ao cliente, respondendo o que ele disse na última mensagem.',
+    resposta:
+      'Escreva a próxima resposta ao cliente, respondendo exatamente o que ele disse na ÚLTIMA mensagem, como um vendedor humano, educado e sem pressão. Casos: perguntou preço → não invente valor, diga que depende do que precisam e ofereça mandar a prévia/combinar; pediu para ver → diga que vai mandar o vídeo da prévia agora; quer fechar → explique que o site vai ao ar e o link é enviado assim que o pagamento for confirmado; perguntou quem é ou como achou o número → apresente-se (cria sites para comércios da região, achou o negócio no Google Maps); desconfiou de golpe → tranquilize (não precisa pagar nada para ver a prévia); número errado ou engano → peça desculpa e encerre; está ocupado → diga para chamar quando puder; mensagem confusa → peça para explicar de um jeito simples. Nunca insista depois de um não.',
+    despedida:
+      'O cliente recusou de novo. Escreva UMA mensagem curta agradecendo a atenção e encerrando a conversa com simpatia, sem oferecer nada e sem insistir. Base: "' +
+      MODELOS.despedida(negocio) +
+      '"',
+    olhada:
+      'O cliente disse que não quer o site agora, mas NÃO pediu para parar de receber mensagens. Escreva UMA resposta curta e gentil: aceite o não, sem insistir, sem desconto e sem pressão, e só convide a dar uma olhada no projeto (a prévia do site) que já foi feito, sem compromisso. Base: "' +
+      MODELOS.olhada(negocio) +
+      '"',
+    pessoa:
+      'Quem respondeu a última mensagem foi um ROBÔ (resposta automática, menu ou assistente virtual do WhatsApp Business), não uma pessoa. Escreva uma mensagem curta e educada pedindo para falar com o responsável ou com alguém da equipe, dizendo só que é sobre um site que preparamos para eles. Não ofereça nada ainda nem repita a oferta inteira. Use "o responsável" ou "alguém da equipe" (não suponha nome nem gênero).' +
+      (opcao ? ` O menu do robô tem a opção ${opcao} para falar com atendente: comece a mensagem com "${opcao}" sozinho na primeira linha.` : ' Se o menu do robô tiver uma opção para falar com atendente, comece a mensagem com o número dessa opção sozinho na primeira linha.') +
+      ' Base: "' +
+      MODELOS.pessoa(negocio, opcao) +
+      '"',
   }[tipo]
   const conversa = historico.map((m) => `${m.de === 'cliente' ? 'Cliente' : 'Nós'}: ${m.texto}`).join('\n')
+  const conteudo = `Dados do negócio (JSON): ${JSON.stringify(negocio)}\n\nConversa até agora:\n${conversa || '(nenhuma mensagem ainda)'}\n\n${pedido || MODELOS.primeiro(negocio)}\nResponda só com o texto da mensagem.`
+  if (ia === 'groq') {
+    try {
+      return { texto: await groq({ system: SISTEMA, user: conteudo }), fonte: 'groq' }
+    } catch (e) {
+      // Groq fora do ar, chave errada ou limite: usa o texto pronto e avisa.
+      return { texto: pronto(), fonte: 'modelo', aviso: e.message }
+    }
+  }
   const resposta = await claude().beta.messages.create({
     model: MODELO,
     max_tokens: 2000,
@@ -54,37 +108,50 @@ export async function gerarMensagem({ tipo, negocio, historico = [], url }) {
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
     system: SISTEMA,
-    messages: [
-      {
-        role: 'user',
-        content: `Dados do negócio (JSON): ${JSON.stringify(negocio)}\n\nConversa até agora:\n${conversa || '(nenhuma mensagem ainda)'}\n\n${pedido}\nResponda só com o texto da mensagem.`,
-      },
-    ],
+    messages: [{ role: 'user', content: conteudo }],
   })
   return { texto: textoDa(resposta), fonte: 'claude' }
 }
 
 const Classificacao = z.object({
-  intencao: z.enum(['interesse', 'nao_contatar', 'duvida', 'recusa', 'outro']),
+  intencao: z.enum(['interesse', 'nao_contatar', 'duvida', 'recusa', 'bot', 'outro']),
   resumo: z.string(),
 })
 
+const CLASSIFICAR =
+  'Classifique a resposta recebida no WhatsApp depois de oferecermos um site a um comerciante. "bot" = quem respondeu foi um robô: resposta automática, menu de opções, assistente virtual, "em breve retornaremos", boas-vindas automáticas. "nao_contatar" = uma pessoa pediu para parar de receber mensagens (na dúvida entre recusa e nao_contatar, escolha nao_contatar). "interesse" = quer ver, saber preço ou fechar. "duvida" = pergunta sem decidir. "recusa" = não quer, mas sem pedir para parar. Resumo em uma frase curta em português.'
+
 export async function classificarResposta(texto) {
-  if (!process.env.ANTHROPIC_API_KEY) return { ...classificarPorPalavras(texto), fonte: 'palavras' }
+  const ia = provedorIA()
+  const comOpcao = (r) => (r.intencao === 'bot' ? { ...r, opcao: opcaoDeAtendente(texto) } : r)
+  if (!ia) return { ...classificarPorPalavras(texto), fonte: 'palavras' }
+  if (ia === 'groq') {
+    try {
+      const bruto = await groq({
+        system: `${CLASSIFICAR}\nResponda só com JSON: {"intencao": "interesse|nao_contatar|duvida|recusa|bot|outro", "resumo": "..."}`,
+        user: texto,
+        json: true,
+      })
+      const r = Classificacao.safeParse(JSON.parse(bruto))
+      if (r.success) return { ...comOpcao(r.data), fonte: 'groq' }
+    } catch {
+      /* resposta fora do formato: cai para as palavras-chave */
+    }
+    return { ...classificarPorPalavras(texto), fonte: 'palavras' }
+  }
   const resposta = await claude().beta.messages.parse({
     model: MODELO,
     max_tokens: 2000,
     output_config: { effort: 'low', format: betaZodOutputFormat(Classificacao) },
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    system:
-      'Classifique a resposta de um comerciante a uma oferta de site. "nao_contatar" = pediu para parar de receber mensagens (na dúvida entre recusa e nao_contatar, escolha nao_contatar). "interesse" = quer ver, saber preço ou fechar. "duvida" = pergunta sem decidir. "recusa" = não quer, mas sem pedir para parar. Resumo em uma frase curta em português.',
+    system: CLASSIFICAR,
     messages: [{ role: 'user', content: texto }],
   })
   if (resposta.stop_reason === 'refusal' || !resposta.parsed_output) {
     return { ...classificarPorPalavras(texto), fonte: 'palavras' }
   }
-  return { ...resposta.parsed_output, fonte: 'claude' }
+  return { ...comOpcao(resposta.parsed_output), fonte: 'claude' }
 }
 
 export const provedorWhatsApp = () =>

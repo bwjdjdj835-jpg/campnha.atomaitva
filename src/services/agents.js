@@ -20,7 +20,7 @@ import { siteFiles } from '../lib/siteTemplate.js'
 import { temaSugerido } from '../lib/ClienteSite.jsx'
 import { conteudoSugerido } from '../lib/conteudoSugerido.js'
 import { salvarZip, lerZip } from '../lib/zipStore.js'
-import { MODELOS, classificarPorPalavras } from '../lib/tigreTextos.js'
+import { MODELOS, classificarPorPalavras, opcaoDeAtendente, respostaPorPalavras } from '../lib/tigreTextos.js'
 import { auditar } from '../lib/auditoria.js'
 import { tipoDoLink, acharLeadPorLink, nomeDoTitulo, recortarCapaDoMaps, linkBuscaMaps } from '../lib/links.js'
 
@@ -220,6 +220,9 @@ async function leao(inputs, log, { leads }) {
 
   // Sem foto nenhuma? Recorta a foto de capa do print do Google Maps.
   const printMaps = prints.find((p) => p.origem === 'maps')
+  // Avaliações reais do Google lidas da página do Maps (o servidor só manda as que estão escritas lá).
+  const depoimentos = printMaps?.depoimentos || []
+  if (depoimentos.length) log('ok', `${depoimentos.length} avaliação(ões) real(is) do Google para a seção de depoimentos`)
   if (!fotos.length && printMaps) {
     const capa = await recortarCapaDoMaps(blobDeBase64(printMaps.base64, printMaps.tipo)).catch(() => null)
     if (capa) {
@@ -263,6 +266,7 @@ async function leao(inputs, log, { leads }) {
     },
     imagens,
     prints: printsDados,
+    ...(depoimentos.length ? { conteudo: { depoimentos } } : {}),
   }
 
   const pasta = lead.demo ? null : await hospedarPasta(`${slugify(lead.nome)}-${siteId.slice(5)}`, dados, fotos, prints, log)
@@ -277,7 +281,7 @@ async function leao(inputs, log, { leads }) {
   prints.forEach((p, i) => root.file(`public${printsDados[i].arquivo}`, p.base64, { base64: true }))
 
   const blob = await zip.generateAsync({ type: 'blob' })
-  baixar(blob, nomeZip)
+  if (!inputs.semDownload) baixar(blob, nomeZip) // modo automático: não baixa um ZIP por site
   const guardado = await salvarZip(siteId, blob)
 
   log('ok', `ZIP pronto: ${nomeZip} (${(blob.size / 1024).toFixed(0)} KB)${lead.demo ? ' — DEMO' : ''}`)
@@ -421,9 +425,15 @@ export async function lerPacoteLeao(blob) {
 }
 
 // ---------- 🐈‍⬛ Estudo longo do Gato ----------
-// O Gato estuda ~3 minutos antes de gerar: estudo inicial + uma rodada por minuto (limite do plano grátis do
-// Firecrawl, ~10 pedidos/min). "Encerrar estudo" (botão na página) corta o tempo e gera com o que já leu.
-const DURACAO_ESTUDO = 3 * 60_000
+// Estudo antes de gerar (campo "Estudo"): 3 min (padrão) = inicial + 2 rodadas (uma por minuto — o plano grátis do
+// Firecrawl aceita ~10 pedidos/min); 5 min = 4 rodadas; 70 s = 1 rodada; rápido = só a inicial. "Encerrar" corta o tempo.
+const ESTUDOS = {
+  3: { duracao: 3 * 60_000, rodadas: [1, 2] },
+  5: { duracao: 5 * 60_000, rodadas: [1, 2, 3, 4] },
+  70: { duracao: 70_000, rodadas: [1] },
+}
+let DURACAO_ESTUDO = ESTUDOS[3].duracao
+const CONFIANCA_MINIMA = 0.5 // leitura de cores do Firecrawl abaixo disso não entra no estilo
 let encerrarAgora = false
 export const encerrarEstudo = () => (encerrarAgora = true)
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
@@ -441,20 +451,29 @@ async function esperarEstudo(inicio, ate, log) {
   }
 }
 
-// O estilo que mais aparece nos sites estudados: esquema (claro/escuro) da maioria, cores do site mais
-// completo desse esquema e a fonte mais usada.
+// O estilo que mais aparece nos sites estudados — com critério:
+//   - só entram leituras de cor confiáveis (confianca >= CONFIANCA_MINIMA, quando o Firecrawl informa)
+//     e com cor principal diferente do fundo (senão é leitura quebrada);
+//   - esquema (claro/escuro) da maioria; cores do site MAIS confiável desse grupo; fonte mais usada.
 export function estiloDoEstudo(lidos) {
-  const ok = lidos.filter((m) => !m.erro && m.estilo?.cores?.primaria)
+  const ok = lidos.filter(
+    (m) =>
+      !m.erro &&
+      m.estilo?.cores?.primaria &&
+      m.estilo.cores.primaria !== m.estilo.cores.fundo &&
+      (m.confianca == null || m.confianca >= CONFIANCA_MINIMA),
+  )
   if (ok.length < 2) return null
   const escuros = ok.filter((m) => m.estilo.esquema === 'escuro')
   const grupo = escuros.length * 2 >= ok.length ? escuros : ok.filter((m) => m.estilo.esquema === 'claro')
-  const base = grupo.find((m) => m.estilo.cores.fundo && m.estilo.fonte) || grupo[0]
+  const nota = (m) => (m.confianca ?? 0.6) + (m.estilo.cores.fundo ? 0.1 : 0) + (m.estilo.fonte ? 0.1 : 0)
+  const base = [...grupo].sort((a, b) => nota(b) - nota(a))[0]
   const fontes = {}
   for (const m of ok) if (m.estilo.fonte) fontes[m.estilo.fonte] = (fontes[m.estilo.fonte] || 0) + 1
   const fonte = Object.entries(fontes).sort((a, b) => b[1] - a[1])[0]?.[0] || base.estilo.fonte
   return {
     url: 'estudo',
-    titulo: `Estilo do estudo (${ok.length} sites do ramo)`,
+    titulo: `Estilo do estudo (${ok.length} sites do ramo, base: ${base.fonte})`,
     fonte: base.fonte,
     secoes: [],
     estilo: { ...base.estilo, fonte },
@@ -473,6 +492,10 @@ function somarSecoes(secoes, lidos) {
   }
   return [...mapa.values()].sort((a, b) => b.vezes - a.vezes)
 }
+
+// Modo automático: o estudo do Gato é feito uma vez por nicho e reaproveitado nos outros sites do mesmo nicho.
+const estudoDoNicho = new Map()
+const chaveNicho = (c) => String(c || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
 async function gato(inputs, log, { sites, leads = [] }) {
   encerrarAgora = false
@@ -516,13 +539,16 @@ async function gato(inputs, log, { sites, leads = [] }) {
     .split(/[\s,]+/)
     .filter((x) => /^https?:\/\//i.test(x))
   if (linksModelos.length > 4) log('warn', `Você colou ${linksModelos.length} sites modelo — leio os 4 primeiros (limite do Firecrawl por minuto)`)
+  const guardado = inputs.reaproveitar ? estudoDoNicho.get(chaveNicho(dados.negocio.categoria)) : null
   const inicioEstudo = Date.now()
-  log('info', 'Firecrawl: pesquisando sites de desenvolvedores, 21st.dev, Code Eagle, GSAP, modelos grátis e cursos de como montar um site completo')
+  if (guardado) log('ok', `Reaproveitando o estudo já feito para "${dados.negocio.categoria}" (sem gastar Firecrawl de novo)`)
+  else log('info', 'Firecrawl: pesquisando sites de desenvolvedores, 21st.dev, Code Eagle, GSAP, modelos grátis e cursos de como montar um site completo')
   let referencias = []
   let cursos = []
   let secoes = []
   let modelos = []
-  try {
+  if (guardado) ({ referencias, cursos, secoes, modelos } = guardado)
+  else try {
     ;({ referencias, cursos = [], secoes = [], modelos = [] } = await api('/gato/estudar', {
       categoria: dados.negocio.categoria,
       modelos: linksModelos.slice(0, 4),
@@ -539,12 +565,14 @@ async function gato(inputs, log, { sites, leads = [] }) {
     log('warn', `${e.message.replace(/\.$/, '')} — seguindo com os padrões base`)
   }
 
-  // Estudo longo: mais 2 rodadas (uma por minuto) lendo sites reais do ramo, até completar 3 minutos.
-  const estudados = []
-  const estudoLongo = inputs.estudo !== '0' && (referencias.length || modelos.length)
+  // Estudo longo: rodadas (uma por minuto) lendo sites reais do ramo, até completar o tempo escolhido.
+  const estudados = guardado ? [...guardado.estudados] : []
+  const estudoLongo = !guardado && inputs.estudo !== '0' && (referencias.length || modelos.length)
+  const plano = ESTUDOS[inputs.estudo] || ESTUDOS[3] // padrão: 3 minutos
+  DURACAO_ESTUDO = plano.duracao
   if (estudoLongo) {
     log('info', `Estudo de ${mmss(DURACAO_ESTUDO)}: lendo sites de verdade do ramo (cores, fontes e seções) — ou clique em "Encerrar estudo"`)
-    for (const rodada of [1, 2]) {
+    for (const rodada of plano.rodadas) {
       await esperarEstudo(inicioEstudo, rodada * 60_000, log)
       if (encerrarAgora) break
       try {
@@ -552,7 +580,8 @@ async function gato(inputs, log, { sites, leads = [] }) {
         const r = await api('/gato/aprofundar', { categoria: dados.negocio.categoria, rodada, lidos })
         for (const m of r.lidos) {
           estudados.push(m)
-          log('info', `Site estudado: ${m.fonte} — ${m.estilo.esquema}, cor ${m.estilo.cores.primaria || '—'}, fonte ${m.estilo.fonte || '—'}`)
+          const fraca = m.confianca != null && m.confianca < CONFIANCA_MINIMA
+          log('info', `Site estudado: ${m.fonte} — ${m.estilo.esquema}, cor ${m.estilo.cores.primaria || '—'}, fonte ${m.estilo.fonte || '—'}${fraca ? ' (leitura de cor fraca — não entra no estilo)' : ''}`)
         }
         if (!r.lidos.length) log('warn', `Rodada ${rodada}: nenhum site novo do ramo para ler`)
       } catch (e) {
@@ -564,6 +593,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
     secoes = somarSecoes(secoes, estudados)
   }
   encerrarAgora = false
+  if (inputs.reaproveitar && !guardado) estudoDoNicho.set(chaveNicho(dados.negocio.categoria), { referencias, cursos, secoes, modelos, estudados })
 
   // Estilo do site: o seu modelo (link colado) tem prioridade; senão, o estilo que o estudo achou.
   const seuModelo = modelos.find((m) => !m.erro && m.estilo?.cores?.primaria)
@@ -580,7 +610,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
   }
 
   log('info', `Fotos do cliente: ${fotos.length ? `${fotos.length} — a 1ª vira a capa, as outras a galeria` : 'nenhuma — capa em cor sólida'}`)
-  log('info', 'Site amplo: capa com água (a foto ondula seguindo o cursor), destaques, Sobre, Diferenciais, Serviços, galeria em mosaico, Como funciona, faixa de WhatsApp, Perguntas frequentes, contato e mapa')
+  log('info', `Site premium: nav de vidro, capa em tela cheia com o nome subindo palavra por palavra, faixa de serviços, números animados, Sobre, Diferenciais, lista de Serviços, galeria, Como funciona${dados.conteudo?.depoimentos?.length ? `, ${dados.conteudo.depoimentos.length} avaliação(ões) reais do Google` : ''}, Perguntas frequentes e chamada final "Agende →" com mapa`)
   const tema = dados.tema || temaSugerido(dados.negocio.categoria)
   log('info', `Tema sugerido para "${dados.negocio.categoria || 'negócio'}": ${tema} (dá para trocar na prévia)`)
   log('warn', 'Prévia pronta — confira e clique em "Aprovar prévia" para liberar o ZIP final')
@@ -645,10 +675,13 @@ export async function enviarVideoPelaApi({ telefone, video, legenda }) {
 }
 
 // Só é chamado depois do clique em "Aprovar prévia".
-export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo, modelo = preview.dados.modelo) {
+export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo, modelo = preview.dados.modelo, efeitos = true, estilo = {}, { baixarZip = true } = {}) {
   const dados = {
     ...preview.dados,
     tema,
+    efeitos,
+    hero: estilo.hero || 'agua',
+    galeria: estilo.galeria || 'uniforme',
     conteudo,
     modelo: tema === 'modelo' ? modelo : undefined,
     gerador: 'Gato Negro — Central de Agentes',
@@ -662,7 +695,7 @@ export async function gerarZipFinal(preview, tema, conteudo = preview.dados.cont
   for (const [path, content] of Object.entries(siteFiles(dados))) root.file(path, content)
   for (const f of [...preview.fotos, ...(preview.prints || [])]) root.file(`public${f.caminho}`, f.blob)
   const blob = await zip.generateAsync({ type: 'blob' })
-  baixar(blob, nomeZip)
+  if (baixarZip) baixar(blob, nomeZip)
   if (preview.siteId) await salvarZip(`${preview.siteId}:final`, blob) // o Tigre publica a partir daqui
   return { nomeZip, tamanho: blob.size }
 }
@@ -687,7 +720,13 @@ export async function rascunho(tipo, negocio, historico = [], url) {
     return await api('/tigre/mensagem', { tipo, negocio, historico, url })
   } catch (e) {
     if (e.code !== 'OFFLINE') throw e
-    const texto = tipo === 'link' ? MODELOS.link(negocio, url) : (MODELOS[tipo] || MODELOS.primeiro)(negocio)
+    const ultima = [...historico].reverse().find((m) => m.de === 'cliente')?.texto
+    const texto =
+      tipo === 'link'
+        ? MODELOS.link(negocio, url)
+        : tipo === 'resposta'
+          ? respostaPorPalavras(ultima, negocio)
+          : (MODELOS[tipo] || MODELOS.primeiro)(negocio, tipo === 'pessoa' ? opcaoDeAtendente(ultima) : '')
     return { texto, fonte: 'modelo' }
   }
 }
@@ -790,7 +829,7 @@ async function abelha(inputs, log, { sites }) {
 }
 
 // Injeta só o que o usuário marcou. `aceitos` = { sobre: bool, horarios: bool, servicos: [nomes] }.
-export async function gerarColmeia(resultado, aceitos) {
+export async function gerarColmeia(resultado, aceitos, { baixarZip = true } = {}) {
   const { campos, fontes } = resultado
   const conteudo = { ...(resultado.dados.conteudo || {}) }
   const usadas = []
@@ -821,7 +860,7 @@ export async function gerarColmeia(resultado, aceitos) {
   root.file('conteudo.json', JSON.stringify({ ...conteudo, fontes: usadas }, null, 2) + '\n')
   root.file('AUDITORIA.md', relatorio(dados, resultado.auditoria, depois, usadas, fontes))
   const blob = await zip.generateAsync({ type: 'blob' })
-  baixar(blob, nomeZip)
+  if (baixarZip) baixar(blob, nomeZip)
   if (resultado.siteId) await salvarZip(`${resultado.siteId}:final`, blob) // o Tigre publica a versão enriquecida
   return { nomeZip, tamanho: blob.size, nota: depois.nota }
 }

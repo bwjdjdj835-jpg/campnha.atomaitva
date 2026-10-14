@@ -162,6 +162,8 @@ async function lerModelo(url) {
       fonte: /^[\w -]{2,40}$/.test(String(fonte || '')) ? fonte : null,
       cantos: b.spacing?.borderRadius || null,
     },
+    // Quanto o Firecrawl confia na leitura das cores (0 a 1). O estudo descarta leituras fracas.
+    confianca: typeof b.confidence?.colors === 'number' ? b.confidence.colors : typeof b.confidence?.overall === 'number' ? b.confidence.overall : null,
   }
 }
 
@@ -199,16 +201,19 @@ const MAX_POR_RODADA = 6
 const NAO_E_SITE_DO_RAMO =
   /(^|\.)(dribbble|behance|awwwards|webflow|framer|themeforest|html5up|templatemo|free-css|onepagelove|colorlib|21st|nextcodeeagle|gsap|instagram|facebook|youtube|wikipedia|pinterest|tiktok|linkedin|medium|reclameaqui|google|guiamais|apontador|ifood|tripadvisor|booksy|trinks|wix|canva|hostinger|shopify|wordpress)\./
 
+// Uma dupla de buscas diferente por rodada (o estudo de 5 min faz 4 rodadas).
+const BUSCAS_POR_RODADA = [
+  (c) => [`site ${c}`, `${c} agendamento whatsapp site oficial`],
+  (c) => [`melhores sites de ${c}`, `${c} premium site`],
+  (c) => [`${c} site moderno design`, `${c} página oficial serviços`],
+  (c) => [`${c} site elegante sofisticado`, `${c} site profissional galeria de fotos`],
+]
 const buscasDaRodada = (categoria, rodada) =>
-  rodada <= 1
-    ? [
-        { query: `site ${categoria}`, country: 'BR', limit: 8 },
-        { query: `${categoria} agendamento whatsapp site oficial`, country: 'BR', limit: 6 },
-      ]
-    : [
-        { query: `melhores sites de ${categoria}`, country: 'BR', limit: 8 },
-        { query: `${categoria} premium site`, country: 'BR', limit: 6 },
-      ]
+  BUSCAS_POR_RODADA[Math.min(Math.max(rodada, 1), BUSCAS_POR_RODADA.length) - 1](categoria).map((query, i) => ({
+    query,
+    country: 'BR',
+    limit: i === 0 ? 8 : 6,
+  }))
 
 export async function aprofundar(categoria, rodada = 1, jaLidos = []) {
   const lidosHosts = new Set(jaLidos.map((u) => hostDe(u)))

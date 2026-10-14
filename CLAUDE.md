@@ -63,9 +63,11 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/gato/aprofundar` (`aprofundar(categoria, rodada, lidos)`) — uma rodada do **estudo de 3 minutos**:
     2 buscas BR de sites reais do ramo (sem vitrines/redes/diretórios, `NAO_E_SITE_DO_RAMO`) + leitura com `branding`
     de até 6 páginas iniciais novas (8 pedidos). O Gato (`gato()` em `src/services/agents.js`) faz o estudo inicial e
-    chama a rodada 1 no minuto 1 e a 2 no minuto 2, termina aos 3:00 (`DURACAO_ESTUDO`); campo "Estudo" (3 min ou
-    rápido) e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`). `estiloDoEstudo` escolhe o esquema da maioria,
-    as cores do site mais completo dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
+    uma rodada por minuto (`ESTUDOS`: **3 min** = rodadas 1–2, padrão escolhido pelo usuário; 5 min = rodadas 1–4;
+    70 s = rodada 1; rápido = só a inicial); cada rodada usa uma dupla de buscas diferente (`BUSCAS_POR_RODADA`);
+    campo "Estudo" e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`).
+    `estiloDoEstudo` só usa leituras com `confianca` de cor ≥ `CONFIANCA_MINIMA` (0,5, vinda do `branding.confidence`)
+    e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
     (prioridade) → estilo do estudo → tema por segmento.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
   - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,
@@ -80,8 +82,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/abelha/enriquecer` (`server/abelha.js`) — busca o negócio no Firecrawl e extrai sobre/horário/serviços
     (Claude com structured output; sem chave, só horário por regex). Todo campo volta com a URL da fonte; campo que
     aponta para fonte inexistente é descartado.
-  - `POST /api/tigre/{mensagem,classificar,enviar,publicar}` (`server/tigre.js`): Claude (`claude-opus-5-5`,
-    effort low, `fallbacks: "default"`) escreve mensagens e lê respostas (sem chave: `src/lib/tigreTextos.js`);
+  - `POST /api/tigre/{mensagem,classificar,enviar,publicar}` (`server/tigre.js`): a IA escreve mensagens e lê respostas —
+    **Groq primeiro** (`GROQ_API_KEY`, apelido "groq"/`gsk_`, modelo `GROQ_MODEL` ou `llama-3.3-70b-versatile`, API no formato
+    OpenAI; decisão do usuário para não gastar créditos do Claude); Claude (`claude-opus-5-5`, effort low,
+    `fallbacks: "default"`) só sem Groq; sem chave (ou Groq falhando): `src/lib/tigreTextos.js`;
     envio pela Z-API (`ZAPI_*`, prioridade) ou WhatsApp Cloud API da Meta (1º contato só por template
     `WHATSAPP_TEMPLATE`); deploy no Vercel. `/enviar` exige
     `aprovado: true` e `/publicar` exige `pagamentoConfirmado: true`.
@@ -95,13 +99,42 @@ e "Leão Dourado" foi unificado como **Leão**.
   o Tigre gera a mensagem sugerida → "Abrir no meu WhatsApp" (wa.me com o texto) / "Copiar mensagem" + "Já enviei";
   vídeo por "Compartilhar no WhatsApp" (Web Share no celular) ou "Baixar o vídeo". O envio pela API (Z-API/Meta)
   só aparece se o usuário marcar a caixa de risco (`central-agentes:tigre-envio-api` no localStorage). Resposta colada é
-  classificada (interesse → alerta + rascunho de fechamento; pedido de parar → `nao_contatar`, contato bloqueado).
+  classificada (interesse → alerta + rascunho de fechamento; pedido de parar → `nao_contatar`, contato bloqueado;
+  **recusa leve** ("não quero agora", "no momento não", "fica pra próxima") → UMA mensagem `olhada` ("só dá uma olhadinha
+  no projeto, sem compromisso", `MODELOS.olhada`), marcada com `tipo: 'olhada'`; se recusar de novo, o Tigre não sugere
+  mais nada). Na dúvida entre recusa e parar, vale parar (`OPT_OUT` vem antes de `RECUSA`).
+  **Robô** (resposta automática, menu, assistente virtual — regex `BOT`, intenção `bot`, status "Respondeu um robô") →
+  rascunho `pessoa` pedindo para falar com o responsável/alguém da equipe; `opcaoDeAtendente` acha no menu o número da
+  opção "falar com atendente" (inclusive 2️⃣) e põe na 1ª linha da mensagem.
+  **Conversa contínua:** toda resposta colada ("Ler e sugerir resposta") gera a próxima mensagem — interesse, dúvida e
+  "outro" usam o rascunho `resposta` (a IA responde a última mensagem; sem IA, `respostaPorPalavras`: preço sem inventar
+  valor, "quem é?", golpe, engano, "pode mandar", fechar, ocupado, "como funciona", saudação). Recusou de novo depois
+  da `olhada` → `despedida` (agradece e encerra). Só "parar" não gera nada.
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
-- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo):
-  capa grande com água, destaques (nota, horário, cidade, WhatsApp — só dados reais), Sobre, Serviços, galeria em
-  mosaico, faixa de contato com foto de fundo, contato + mapa, botão fixo de WhatsApp.
+- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo),
+  **modelo premium** (pedido do usuário a partir de um roteiro do Lovable; cada seção só aparece com dado):
+  barra de progresso, nav flutuante de vidro, hero em tela cheia (`dados.hero`: 'agua' padrão ou 'parallax') com o nome
+  subindo palavra por palavra (`.anim-palavra`) + granulado (`.granulado`) + `conteudo.slogan`, faixa marquee de
+  serviços, números com contador (`data-contar`: nota e nº de avaliações), Sobre editorial, Diferenciais
+  (string ou `{titulo,texto}`), lista grande de Serviços com hover (string ou `{nome,descricao,preco}`), galeria
+  (`dados.galeria`: 'uniforme' padrão ou 'bento'), Como funciona, **depoimentos em carrossel** (`conteudo.depoimentos`
+  `[{texto,nota,autor}]`, `data-carrossel`), FAQ, chamada final gigante "Agende →" + contato + mapa P&B que ganha cor
+  no hover, botão fixo de WhatsApp. Links da nav com `target="_self"` (a prévia tem `<base target="_blank">`).
+- Depoimentos reais: o print do Maps no Leão (`tirarPrint`) pede também o formato `json` do Firecrawl com as
+  avaliações; `depoimentosConferidos` só aceita a avaliação cujo texto aparece no markdown da página (nunca inventa),
+  no máx. 5; o Leão grava em `dados.conteudo.depoimentos`.
+- Gato: "Escolha o estilo" mostra os temas lado a lado em miniaturas reais (`htmlDaPrevia(..., CSS_MINIATURA)`) e os
+  seletores Capa (água/parallax) e Galeria (uniforme/bento); `gerarZipFinal(..., { hero, galeria })` grava a escolha.
   Vai como texto (`?raw`) para `src/Site.jsx` do ZIP e renderiza a prévia — prévia aprovada = site entregue.
   `src/lib/siteTemplate.js` monta o resto do projeto React + Vite + Tailwind.
+- Efeitos interativos do site do cliente (estilo 21st.dev / Code Eagle / GSAP, sem bibliotecas):
+  `src/lib/clienteEfeitos.js` (vai no ZIP como `src/efeitos.js`; roda na prévia junto com a água) liga
+  `[data-revelar]` (entra ao rolar, filhos `[data-cascata]` em cascata), `[data-brilho]` (luz segue o cursor),
+  `[data-magnetico]` (botões) e `[data-parallax]` (fotos); CSS em `clienteAnimacoes.css` (+ título letra por letra
+  `.anim-letra` e faixa de serviços `.faixa-correr`). O `ClienteSite` só põe esses atributos se `dados.efeitos !== false`
+  (`fx()`); o Gato tem o botão "Efeitos interativos: ligados/desligados" e o ZIP final guarda a escolha.
+- Galeria uniforme: todas as fotos em 4:3 do mesmo tamanho; colunas pela quantidade (4 → 4, 2 → 2, senão 3) e última
+  linha centralizada (flex-wrap).
 - Página inicial: `WaterRipple.jsx` (ondas de água em canvas seguindo o cursor/dedo no hero).
 - Capa do site do cliente: `src/lib/clienteAgua.js` (JS puro, vai no ZIP como `src/agua.js`) — a foto de capa ondula
   seguindo o cursor (refração em canvas), gota de abertura, garoa a cada 8 s; para sozinho e volta à foto nítida.
@@ -128,7 +161,26 @@ e "Leão Dourado" foi unificado como **Leão**.
   `<iframe srcDoc>` (desktop/celular, troca de tema) com CSS compilado embutido (`src/lib/cliente.css` +
   `tailwind.cliente.config.js`, sem CDN). "Aprovar prévia" é obrigatório para liberar o ZIP final
   (`*-final.zip`); trocar o tema depois de aprovar exige nova aprovação.
-- Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`;
+- **Selo de contato** (`src/lib/contato.js`, `contatoDoLead`): cada comércio mostra "⏳ Aguardando resposta", "🙅 Não quer
+  site ainda", "🔥 Interessado", "⛔ Não contatar" etc. pela conversa do Tigre (site do lead, ou mesmo telefone/nome) ou
+  por marcação manual na lista do Pinguim ("Já mandei mensagem" / "Não quer site ainda", em `contatos` pela chave do
+  telefone — vale quando o Pinguim acha o comércio de novo). Contatados vão para o fim da lista; o selo aparece também
+  nos seletores do Leão e do Tigre e em "Sites gerados".
+- **Modo automático** (`/automatico`, `src/pages/Automatico.jsx` + `src/services/automatico.js`, pedido do usuário):
+  cidade + lista de nichos (padrão `NICHOS_PADRAO`, começa em barbearia) → para cada nicho o Pinguim busca, cada lead
+  real com telefone, sem selo de contato e com conferência `nao`/`sem_firecrawl` passa por Leão (`semDownload`) → Gato
+  (`reaproveitar`: estudo 1 vez por nicho, `estudoDoNicho`) + `gerarZipFinal(..., { baixarZip: false })` → Abelha
+  (aceita só campos com fonte, `gerarColmeia(..., { baixarZip: false })`) → vídeo → `rascunho('primeiro')` guardado em
+  `conversas[siteId].rascunho`. O site fica com status `revisar`; **nada é enviado**. Limite do Firecrawl: `gastar(n)`
+  (8 pedidos/min). Vídeo: servidor local grava sozinho; no Vercel `pedirGravacaoDaAba()` UMA vez no clique de começar e
+  `gravarComFluxo(stream, iframe)` por cliente (iframe fixo no canto). Nichos concluídos ficam em `pipeline.auto.feitos`
+  (continua de onde parou; "Recomeçar do 1º nicho"). Wake Lock + aviso ao fechar a aba.
+  **Tela inicial:** botão "Iniciar inteligência artificial automática" — pede a gravação da aba no próprio clique
+  (`guardarFluxo`), abre `/automatico?iniciar=1` (começa sozinho com `pegarFluxo()` e as opções salvas) e, ao terminar
+  com clientes prontos, abre o Tigre.
+  No Tigre, `FilaAprovacao.jsx` lista os `revisar` (vídeo + mensagem): "Aprovar prévia e mensagem" → status `aprovado`
+  e abre o `TigrePainel` com o rascunho; "Ajustar no Gato" / "Descartar".
+- Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência).
 
 ## Próximos passos (em ordem)

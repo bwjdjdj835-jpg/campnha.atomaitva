@@ -1,19 +1,53 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Play } from 'lucide-react'
+import { ArrowRight, Play, Bot, Loader2 } from 'lucide-react'
+import { guardarFluxo } from '../services/automatico.js'
+import { pedirGravacaoDaAba } from '../lib/previa.jsx'
 import { agents } from '../data/agents.js'
 import OrchestraHub from '../components/OrchestraHub.jsx'
 import AgentBadge from '../components/AgentBadge.jsx'
 import { usePipeline } from '../store/pipeline.js'
 import WaterRipple from '../components/WaterRipple.jsx'
 
+const opcoesAuto = () => {
+  try {
+    return JSON.parse(localStorage.getItem('central-agentes:automatico') || '{}')
+  } catch {
+    return {}
+  }
+}
+
 export default function Dashboard() {
   const { leads, sites } = usePipeline()
+  const navigate = useNavigate()
+  const [iniciando, setIniciando] = useState(false)
+  const [videoServidor, setVideoServidor] = useState(false)
+  useEffect(() => {
+    fetch('/api/status')
+      .then((r) => r.json())
+      .then((d) => setVideoServidor(Boolean(d.keys?.videoServidor)))
+      .catch(() => {})
+  }, [])
+  const auto = opcoesAuto()
+  const primeiroNicho = (auto.nichos || 'barbearia').split('\n')[0]
+
+  // Pede a gravação da aba aqui mesmo (o navegador só pergunta logo depois de um clique) e abre o automático,
+  // que começa sozinho e no fim leva para o Tigre.
+  async function iniciarAutomatico() {
+    setIniciando(true)
+    let fluxo
+    if (auto.comVideo !== false && !videoServidor) {
+      fluxo = await pedirGravacaoDaAba().catch(() => null)
+    }
+    guardarFluxo(fluxo)
+    navigate('/automatico?iniciar=1')
+  }
 
   const stats = [
     { label: 'Leads sem site', value: leads.length },
     { label: 'Sites gerados', value: sites.length },
-    { label: 'Aguardando aprovação', value: sites.filter((s) => s.status === 'preview').length },
+    { label: 'Aguardando aprovação', value: sites.filter((s) => ['preview', 'revisar'].includes(s.status)).length },
     { label: 'Vendas fechadas', value: sites.filter((s) => ['vendido', 'publicado'].includes(s.status)).length },
   ]
 
@@ -34,9 +68,17 @@ export default function Dashboard() {
               Cinco agentes em sequência: acham comércios sem site, constroem, refinam o design,
               auditam o conteúdo e fecham a venda — com sua aprovação em cada etapa crítica.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/agente/pinguim" className="btn-primary">
-                <Play size={18} /> Começar pelo Pinguim
+            <button onClick={iniciarAutomatico} disabled={iniciando} className="btn-primary mt-8 w-full sm:w-auto text-base py-4 px-6">
+              {iniciando ? <Loader2 size={20} className="animate-spin" /> : <Bot size={20} />} Iniciar inteligência artificial automática
+            </button>
+            <p className="mt-2 text-xs text-slate-400">
+              Roda os 5 agentes sozinhos em {auto.cidade || 'Cacoal - RO'}, começando em {primeiroNicho}, e no fim abre o 🐯 Tigre
+              com o vídeo e a mensagem de cada cliente. Nada é enviado sem você.{' '}
+              <Link to="/automatico" className="text-neon hover:underline">Ajustar cidade e nichos</Link>
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link to="/agente/pinguim" className="btn-ghost border border-white/10">
+                <Play size={18} /> Fazer passo a passo
               </Link>
               <Link to="/projeto" className="btn-ghost border border-white/10">
                 Ver ferramentas do projeto
