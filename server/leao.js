@@ -14,8 +14,31 @@ const ehFotoDoGoogle = (url) => {
   }
 }
 
+// Fotos que aparecem na página do Google Maps do negócio (lidas pelo Firecrawl). As do próprio lugar
+// ficam em googleusercontent.com/grass-cs/ ou /p/; as /a-/ são avatares de quem avaliou e ficam de fora.
+// O fim do link (=w300-h225-…) é o tamanho: trocamos por uma versão grande.
+const MAX_FOTOS_MAPS = 8
+
+export function fotosDaPaginaMaps(imagens = []) {
+  const vistas = new Set()
+  const fotos = []
+  for (const url of imagens) {
+    if (!ehFotoDoGoogle(url)) continue
+    const u = new URL(url)
+    if (!/^\/(grass-cs|p|gps-cs-s|gps-proxy)\//.test(u.pathname)) continue
+    const base = url.replace(/=[^/=]*$/, '')
+    if (vistas.has(base)) continue
+    vistas.add(base)
+    fotos.push(`${base}=w1600-h1200-k-no`)
+    if (fotos.length >= MAX_FOTOS_MAPS) break
+  }
+  return fotos
+}
+
 async function baixarLink(url) {
-  const img = await fetch(url)
+  let img = await fetch(url)
+  // Se o tamanho grande não existir, tenta o link sem o sufixo de tamanho.
+  if (!img.ok && /=w\d+-h\d+-k-no$/.test(url)) img = await fetch(url.replace(/=[^/=]*$/, ''))
   if (!img.ok) return null
   const tipo = img.headers.get('content-type') || 'image/jpeg'
   if (!tipo.startsWith('image/')) return null
@@ -80,7 +103,7 @@ export async function tirarPrint(url) {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}` },
     body: JSON.stringify({
       url,
-      formats: ['screenshot', 'markdown'],
+      formats: ['screenshot', 'markdown', 'images'],
       waitFor: 3000,
       location: { country: 'BR', languages: ['pt-BR'] },
     }),
@@ -94,6 +117,7 @@ export async function tirarPrint(url) {
   const ehMaps = /google\.[^/]+\/maps|maps\.google\.|maps\.app\.goo\.gl/.test(dados.metadata?.url || url)
   return {
     pagina: ehMaps ? dadosDaPaginaMaps(dados.markdown) : null,
+    fotosMaps: ehMaps ? fotosDaPaginaMaps(dados.images) : [],
     titulo: dados.metadata?.title || null,
     urlFinal: dados.metadata?.url || url,
     link: dados.screenshot,

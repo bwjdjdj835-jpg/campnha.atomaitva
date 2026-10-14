@@ -119,6 +119,21 @@ const ext = (tipo) => ({ 'image/png': 'png', 'image/webp': 'webp' })[tipo] || 'j
 const blobDeBase64 = (b64, tipo) => new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: tipo })
 const ORIGEM = { maps: 'Google Maps', instagram: 'Instagram', facebook: 'Facebook' }
 
+async function baixarFotos(lista, log) {
+  const fotos = []
+  for (const item of lista.slice(0, 8)) {
+    try {
+      const [f] = (await api('/leao/fotos', { fotos: [item] })).fotos
+      if (f) fotos.push(f)
+    } catch (e) {
+      log('warn', `Foto não baixada: ${e.message.replace(/\.$/, '')}`)
+      if (e.code === 'OFFLINE') break
+    }
+  }
+  log(fotos.length ? 'ok' : 'warn', `${fotos.length} de ${Math.min(lista.length, 8)} foto(s) recebida(s)`)
+  return fotos
+}
+
 // Acha o lead: pelo link colado (Maps, Instagram ou WhatsApp do Pinguim) ou pela lista.
 async function leadDoLeao(inputs, log, leads) {
   if (!inputs.link?.trim()) {
@@ -170,18 +185,16 @@ async function leao(inputs, log, { leads }) {
   log('info', `Lendo dados do lead: ${lead.nome}${lead.demo ? ' (DEMO)' : ''}`)
   log('info', `Nome: ${lead.nome} · Telefone: ${lead.telefone}`)
 
+  // Fotos da ficha do Google (Places/SerpApi). Uma por requisição: várias fotos grandes juntas
+  // passariam do limite de resposta da função do Vercel (~4,5 MB).
   let fotos = []
   if (lead.fotos?.length) {
     log('info', `Baixando ${lead.fotos.length} foto(s) da ficha do Google`)
-    try {
-      fotos = (await api('/leao/fotos', { fotos: lead.fotos })).fotos
-      log('ok', `${fotos.length} foto(s) recebida(s)`)
-    } catch (e) {
-      log('warn', `Fotos indisponíveis: ${e.message}`)
-    }
+    fotos = await baixarFotos(lead.fotos, log)
   }
 
   // Prints das páginas do negócio (hospedados pelo Firecrawl) — vão no ZIP em public/prints/.
+  // O da página do Google Maps também traz as fotos do lugar que aparecem lá.
   if (!lead.demo) {
     for (const [origem, link] of [['maps', lead.maps], ['instagram', lead.instagram]]) {
       if (!link || prints.some((p) => p.origem === origem)) continue
@@ -193,6 +206,15 @@ async function leao(inputs, log, { leads }) {
         if (e.code === 'NO_KEY' || e.code === 'OFFLINE') break
       }
     }
+  }
+
+  const fotosMaps = prints.find((p) => p.origem === 'maps')?.fotosMaps || []
+  if (!fotos.length && fotosMaps.length) {
+    log('info', `A ficha do Google não trouxe fotos — baixando ${fotosMaps.length} foto(s) da página do Google Maps`)
+    fotos = await baixarFotos(fotosMaps, log)
+  }
+  if (!fotos.length && !lead.demo && !prints.length) {
+    log('warn', 'Sem fotos: o Google não mandou fotos e o Firecrawl não está ligado para ler a página do Maps (configure FIRECRAWL_API_KEY)')
   }
 
   // Sem foto nenhuma? Recorta a foto de capa do print do Google Maps.

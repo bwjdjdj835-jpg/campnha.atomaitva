@@ -39,7 +39,11 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/leao/fotos` — baixa fotos da ficha (Places Photos ou links googleusercontent.com vindos da SerpApi;
     outros hosts são recusados) sem expor chaves (`server/leao.js`).
   - `POST /api/leao/print` — print da página (Google Maps/Instagram/Facebook, lista fechada) via Firecrawl
-    `formats: ['screenshot','markdown']`; da página do Maps lê telefone, endereço e nota (`dadosDaPaginaMaps`).
+    `formats: ['screenshot','markdown','images']`; da página do Maps lê telefone, endereço e nota (`dadosDaPaginaMaps`)
+    e as fotos do lugar (`fotosDaPaginaMaps`: googleusercontent `grass-cs`/`p`, sem avatares `/a-/`, pedidas em 1600px).
+    A chave do Google do usuário não recebe `places.photos` (nem da Torre Eiffel) — sem faturamento; por isso o Leão
+    usa essas fotos da página do Maps quando a ficha vem sem foto. `/leao/fotos` é chamado uma foto por vez
+    (a resposta da função do Vercel tem limite de ~4,5 MB).
   - `POST /api/leao/hospedar` + `GET /api/leao/pastas` (`server/pasta.js`) — **pasta online** no Vercel Blob
     (`BLOB_READ_WRITE_TOKEN`, store público): o Leão sobe `sites/<slug>-<id>/fotos/*`, `prints/*` e `dados.json`
     (cada imagem ganha `hospedada` com o link). Um arquivo por requisição (limite ~4,5 MB da função).
@@ -67,7 +71,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   Rascunho → "Aprovar e enviar" (API) ou "Abrir no meu WhatsApp" + "Já enviei". Resposta colada é
   classificada (interesse → alerta + rascunho de fechamento; pedido de parar → `nao_contatar`, contato bloqueado).
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
-- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 3 temas: noite/claro/vibrante).
+- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 4 temas: noite/claro/studio/vibrante):
+  capa grande com água, destaques (nota, horário, cidade, WhatsApp — só dados reais), Sobre, Serviços, galeria em
+  mosaico, faixa de contato com foto de fundo, contato + mapa, botão fixo de WhatsApp.
   Vai como texto (`?raw`) para `src/Site.jsx` do ZIP e renderiza a prévia — prévia aprovada = site entregue.
   `src/lib/siteTemplate.js` monta o resto do projeto React + Vite + Tailwind.
 - Página inicial: `WaterRipple.jsx` (ondas de água em canvas seguindo o cursor/dedo no hero).
