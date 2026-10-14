@@ -26,6 +26,9 @@ export default function Automatico() {
   const [estudo, setEstudo] = useState(salvo.v === 3 ? salvo.estudo : '1')
   const [abelha, setAbelha] = useState(salvo.v === 3 ? Boolean(salvo.abelha) : false)
   const [duracao, setDuracao] = useState(salvo.duracao || '20') // segundos do vídeo de cada cliente
+  // 'manual' (padrão, pedido do usuário): você grava o vídeo no notebook e envia na Área do Administrador.
+  const [videoModo, setVideoModo] = useState(salvo.videoModo || 'manual')
+  const manual = videoModo === 'manual'
   const [rodando, setRodando] = useState(false)
   const [logs, setLogs] = useState([])
   const [etapa, setEtapa] = useState(null)
@@ -117,7 +120,7 @@ export default function Automatico() {
     const lista = nichos.split('\n').map((n) => n.trim()).filter(Boolean)
     if (!cidade.trim() || !lista.length) return
     try {
-      localStorage.setItem(CHAVE, JSON.stringify({ v: 3, cidade, nichos, porNicho, estudo, abelha, duracao }))
+      localStorage.setItem(CHAVE, JSON.stringify({ v: 3, cidade, nichos, porNicho, estudo, abelha, duracao, videoModo }))
     } catch {
       /* sem storage */
     }
@@ -126,7 +129,7 @@ export default function Automatico() {
     pararRef.current = false
     // A autorização para gravar precisa vir logo depois do clique: pede uma vez, vale para a rodada inteira.
     // Vídeo é obrigatório (cliente só fica pronto com vídeo e mensagem): sem autorização para gravar, nem começa.
-    if (!keys?.videoServidor) {
+    if (!keys?.videoServidor && !(manual && modo === 'rodada')) {
       let f = fluxoPronto
       if (f === undefined) f = await pedirGravacaoDaAba().catch(() => null)
       if (!f) {
@@ -137,7 +140,7 @@ export default function Automatico() {
     }
     setRodando(true)
     try {
-      const ui = { log, etapa: setEtapa, parar: () => pararRef.current, gravar }
+      const ui = { log, etapa: setEtapa, parar: () => pararRef.current, gravar, videoManual: manual && modo === 'rodada' }
       const r =
         modo === 'regravar'
           ? await regravarVideos(ui)
@@ -230,6 +233,13 @@ export default function Automatico() {
               </select>
             </div>
             <div className="sm:col-span-2">
+              <label className="label" htmlFor="auto-video">Vídeo de cada cliente</label>
+              <select id="auto-video" className="input" value={videoModo} onChange={(e) => setVideoModo(e.target.value)} disabled={rodando}>
+                <option value="manual">Eu gravo no meu notebook e envio (padrão)</option>
+                <option value="auto">O app grava sozinho</option>
+              </select>
+            </div>
+            <div className={`sm:col-span-2 ${manual ? 'hidden' : ''}`}>
               <label className="label" htmlFor="auto-duracao">Duração do vídeo de cada cliente</label>
               <select id="auto-duracao" className="input" value={duracao} onChange={(e) => setDuracao(e.target.value)} disabled={rodando}>
                 <option value="15">15 segundos</option>
@@ -242,7 +252,14 @@ export default function Automatico() {
             <input type="checkbox" className="accent-cyan-400 w-4 h-4" checked={abelha} onChange={(e) => setAbelha(e.target.checked)} disabled={rodando} />
             🐝 Abelha completa o site com dados públicos que têm fonte (horário, sobre, serviços) — deixa mais lento
           </label>
-          {keys && !keys.videoServidor && (
+          {manual && (
+            <p className="text-xs text-slate-400">
+              O app acha os comércios, monta o site e escreve a mensagem. Na <strong className="text-slate-200">Área do
+              Administrador</strong>, cada cliente tem "Abrir prévia para gravar": grave com o gravador do Windows
+              (<strong className="text-slate-200">Win + Alt + R</strong>) e clique em "Enviar o vídeo gravado".
+            </p>
+          )}
+          {!manual && keys && !keys.videoServidor && (
             <p className="text-xs text-slate-400">
               Ao começar, o Chrome pergunta se pode <strong className="text-slate-200">compartilhar esta aba</strong>: escolha
               "Esta aba" e clique em Compartilhar. É <strong className="text-slate-200">uma vez só</strong> para todos os vídeos.

@@ -102,8 +102,17 @@ export const proximoNicho = (nichos) => nichos.find((n) => !nichosFeitos().inclu
 // Botão de começar (tela inicial ou Área do Administrador): pede a gravação da aba no próprio clique — o navegador
 // só pergunta logo depois de um clique — e deixa guardada para a página do automático, que começa sozinha.
 // videoServidor: já lido do /api/status pela página (o servidor local grava sozinho, sem pedir nada).
-export async function prepararInicio({ videoServidor = false } = {}) {
-  guardarFluxo(!videoServidor ? await pedirGravacaoDaAba().catch(() => null) : undefined)
+// manual: você grava o vídeo no notebook — não pede para compartilhar a aba.
+export async function prepararInicio({ videoServidor = false, manual = false } = {}) {
+  guardarFluxo(!manual && !videoServidor ? await pedirGravacaoDaAba().catch(() => null) : undefined)
+}
+// Modo de vídeo salvo nas opções do automático ('manual' = você grava, padrão; 'auto' = o app grava).
+export const videoManualNasOpcoes = () => {
+  try {
+    return (JSON.parse(localStorage.getItem('central-agentes:automatico') || '{}').videoModo || 'manual') === 'manual'
+  } catch {
+    return true
+  }
 }
 export const recomecarNichos = () => setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [], listas: {} } }))
 // O nicho já começou e ainda tem comércios na lista guardada (a próxima rodada continua nele).
@@ -316,6 +325,14 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
 // prontos; sem vídeo fica `sem_video` (Área do Administrador → "Gravar os vídeos que faltam"). → true se ficou pronto.
 async function finalizar({ siteId, nome }, { nicho }, ui) {
   const { log, etapa, gravar } = ui
+  // Modo "eu gravo no meu notebook" (padrão, pedido do usuário): sem gravação automática — o cliente vai para
+  // aprovação só com a mensagem, e lá você abre a prévia, grava com o gravador do Windows e envia o vídeo.
+  if (ui.videoManual) {
+    await escreverMensagem(siteId, nome, nicho, etapa)
+    marcarSite(siteId, { status: 'revisar', videoManual: true })
+    log('ok', `✅ ${nome}: site e mensagem prontos — grave o vídeo da prévia e aprove na Área do Administrador`)
+    return true
+  }
   etapa({ nicho, comercio: nome, passo: '🎬 Gravando o vídeo da prévia' })
   let temVideo = false
   try {
@@ -331,14 +348,7 @@ async function finalizar({ siteId, nome }, { nicho }, ui) {
     log('warn', `🎬 Vídeo: ${e.message}`)
   }
 
-  const conversa = lerPipeline().conversas?.[siteId]
-  if (!conversa?.rascunho) {
-    etapa({ nicho, comercio: nome, passo: '🐯 Tigre escrevendo a mensagem' })
-    const p = lerPipeline()
-    const site = p.sites.find((x) => x.id === siteId)
-    const msg = await rascunho('primeiro', negocioDoSite(site, p.leads))
-    setPipeline((s) => ({ conversas: { ...s.conversas, [siteId]: { status: 'novo', mensagens: [], rascunho: msg.texto, auto: true } } }))
-  }
+  await escreverMensagem(siteId, nome, nicho, etapa)
   if (!temVideo) {
     marcarSite(siteId, { status: 'sem_video' })
     log('warn', `🎬 ${nome}: sem vídeo — fica em "Falta o vídeo" na Área do Administrador até gravar`)
@@ -347,6 +357,15 @@ async function finalizar({ siteId, nome }, { nicho }, ui) {
   marcarSite(siteId, { status: 'revisar' })
   log('ok', `✅ ${nome}: vídeo e mensagem prontos — aguardando sua aprovação na Área do Administrador`)
   return true
+}
+
+async function escreverMensagem(siteId, nome, nicho, etapa) {
+  if (lerPipeline().conversas?.[siteId]?.rascunho) return
+  etapa({ nicho, comercio: nome, passo: '🐯 Tigre escrevendo a mensagem' })
+  const p = lerPipeline()
+  const site = p.sites.find((x) => x.id === siteId)
+  const msg = await rascunho('primeiro', negocioDoSite(site, p.leads))
+  setPipeline((s) => ({ conversas: { ...s.conversas, [siteId]: { status: 'novo', mensagens: [], rascunho: msg.texto, auto: true } } }))
 }
 
 // Grava de novo os vídeos que faltaram (status `sem_video`). Mesma página, mesma autorização de gravação.
@@ -368,7 +387,7 @@ export async function regravarVideos(ui) {
 // Clientes antigos marcados como prontos sem vídeo ou sem mensagem: arruma (sem vídeo → `sem_video`; sem mensagem → escreve).
 export async function conferirProntos() {
   for (const site of lerPipeline().sites.filter((s) => s.status === 'revisar')) {
-    if (!(await videoDoSite(site.id))) {
+    if (!site.videoManual && !(await videoDoSite(site.id))) {
       marcarSite(site.id, { status: 'sem_video' })
       continue
     }
