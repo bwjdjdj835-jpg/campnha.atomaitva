@@ -90,13 +90,15 @@ export function pegarFluxo() {
 export const nichosFeitos = () => lerPipeline().auto?.feitos || []
 export const recomecarNichos = () => setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [] } }))
 
-// opcoes: { cidade, nichos, porNicho, estudo, abelha }
+// opcoes: { cidade, nichos, porNicho, estudo ('nenhum' | '0' | '70' | '3'), abelha }
 // ui: { log(level, msg), etapa({ nicho, comercio, passo }), parar() → bool, gravar(html, siteId) → Blob | null }
 export async function rodarAutomatico(opcoes, ui) {
   const { log, etapa, parar } = ui
   const onLog = (l) => log(l.level, l.msg)
   const { cidade, nichos, porNicho, estudo, abelha } = opcoes
   const resumo = { prontos: 0, pulados: 0, erros: 0 }
+  // Vídeo + mensagem de um cliente rodam enquanto o próximo site já está sendo montado (um vídeo por vez).
+  let filaFinal = Promise.resolve()
 
   for (const nicho of nichos) {
     if (parar()) break
@@ -169,14 +171,22 @@ export async function rodarAutomatico(opcoes, ui) {
       }
 
       try {
-        await fazerCliente(lead, { nicho, estudo, abelha }, ui, onLog)
+        const pronto = await montarSite(lead, { nicho, estudo, abelha }, ui, onLog)
         feitos++
-        resumo.prontos++
+        filaFinal = filaFinal.then(() =>
+          finalizar(pronto, { nicho }, ui)
+            .then(() => resumo.prontos++)
+            .catch((e) => {
+              resumo.erros++
+              log('error', `${pronto.nome}: ${e.message}`)
+            }),
+        )
       } catch (e) {
         resumo.erros++
         log('error', `${nome}: ${e.message} — seguindo para o próximo`)
       }
     }
+    await filaFinal
     if (!parar()) {
       setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [...new Set([...(s.auto?.feitos || []), chave(nicho)])] } }))
       log('ok', `✔ ${nicho}: ${feitos} cliente(s) pronto(s) para aprovar`)
@@ -187,26 +197,27 @@ export async function rodarAutomatico(opcoes, ui) {
 
 const estudados = new Set() // nichos cujo estudo do Gato já foi feito nesta rodada (os próximos reaproveitam)
 
-async function fazerCliente(lead, { nicho, estudo, abelha }, ui, onLog) {
-  const { log, etapa, parar, gravar } = ui
+// Site pronto para o vídeo: Leão → Gato (→ Abelha, se ligada). Devolve { siteId, nome }.
+async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
+  const { log, etapa, parar } = ui
   const nome = lead.nome
   const passo = (p) => etapa({ nicho, comercio: nome, passo: p })
 
   passo('🦁 Leão montando o site com as fotos')
-  await gastar(2, log, parar)
+  await gastar(lead.instagram ? 2 : 1, log, parar)
   const rl = await runAgent('leao', { lead: lead.id, semDownload: true }, onLog, lerPipeline())
   aplicar(rl)
   const siteId = rl.site.id
 
   passo('🐈‍⬛ Gato fazendo a prévia')
   const nichoGato = chave(lead.categoria || nicho)
-  if (!estudados.has(nichoGato)) await gastar(9, log, parar)
+  if (estudo !== 'nenhum' && !estudados.has(nichoGato)) await gastar(9, log, parar)
   const rg = await runAgent('gato', { site: siteId, estudo, reaproveitar: true }, onLog, lerPipeline())
   estudados.add(nichoGato)
   aplicar(rg)
   const pv = rg.preview
   await gerarZipFinal(pv, pv.dados.tema, pv.dados.conteudo, pv.modeloInicial || undefined, true, { hero: 'agua', galeria: 'uniforme' }, { baixarZip: false })
-  marcarSite(siteId, { status: 'revisar', tema: pv.dados.tema, auto: true })
+  marcarSite(siteId, { status: 'preparando', tema: pv.dados.tema, auto: true })
 
   if (abelha && !parar()) {
     passo('🐝 Abelha completando com dados que têm fonte')
@@ -220,7 +231,13 @@ async function fazerCliente(lead, { nicho, estudo, abelha }, ui, onLog) {
     }
   }
 
-  passo('🎬 Gravando o vídeo da prévia')
+  return { siteId, nome }
+}
+
+// Vídeo da prévia + 1ª mensagem do Tigre. O cliente fica aguardando sua aprovação na Área do Administrador.
+async function finalizar({ siteId, nome }, { nicho }, ui) {
+  const { log, etapa, gravar } = ui
+  etapa({ nicho, comercio: nome, passo: '🎬 Gravando o vídeo da prévia' })
   try {
     const pacote = await lerPacoteLeao(await lerZip(`${siteId}:final`))
     const html = htmlDaPrevia(pacote.dados, await fotosEmDataUrl(pacote.fotos))
@@ -233,12 +250,13 @@ async function fazerCliente(lead, { nicho, estudo, abelha }, ui, onLog) {
     log('warn', `🎬 Vídeo: ${e.message}`)
   }
 
-  passo('🐯 Tigre escrevendo a mensagem')
+  etapa({ nicho, comercio: nome, passo: '🐯 Tigre escrevendo a mensagem' })
   const p = lerPipeline()
   const site = p.sites.find((x) => x.id === siteId)
   const msg = await rascunho('primeiro', negocioDoSite(site, p.leads))
   setPipeline((s) => ({ conversas: { ...s.conversas, [siteId]: { status: 'novo', mensagens: [], rascunho: msg.texto, auto: true } } }))
-  log('ok', `✅ ${nome}: site, vídeo e mensagem prontos — aguardando sua aprovação no 🐯 Tigre`)
+  marcarSite(siteId, { status: 'revisar' })
+  log('ok', `✅ ${nome}: vídeo e mensagem prontos — aguardando sua aprovação na Área do Administrador`)
 }
 
 export const pararEstudo = encerrarEstudo

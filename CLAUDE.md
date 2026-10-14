@@ -178,8 +178,16 @@ e "Leão Dourado" foi unificado como **Leão**.
   **Tela inicial:** botão "Iniciar inteligência artificial automática" — pede a gravação da aba no próprio clique
   (`guardarFluxo`), abre `/automatico?iniciar=1` (começa sozinho com `pegarFluxo()` e as opções salvas) e, ao terminar
   com clientes prontos, abre o Tigre.
-  No Tigre, `FilaAprovacao.jsx` lista os `revisar` (vídeo + mensagem): "Aprovar prévia e mensagem" → status `aprovado`
-  e abre o `TigrePainel` com o rascunho; "Ajustar no Gato" / "Descartar".
+  **Rápido por padrão** (pedido do usuário: "só gravar o vídeo e mandar mensagem"): estudo do Gato `nenhum` (sem
+  Firecrawl, tema do segmento) e Abelha desligada (opções `v: 2` em `central-agentes:automatico`); vídeo de 9 s; o
+  vídeo + mensagem de um cliente (`finalizar`) roda enquanto o próximo site é montado (`montarSite`, fila `filaFinal`).
+  Status do site: `preparando` → `revisar` (vídeo e mensagem prontos). O quadro de gravação fica montado a rodada
+  inteira (`gravarComFluxo` só recorta de novo se o quadro mudar e tem tempo máximo em cada passo — antes o 2º vídeo travava).
+  Ao terminar abre a **Área do Administrador** (`/admin`, `src/pages/Admin.jsx`, contador no menu): cartões "Para aprovar"
+  com vídeo, mensagem editável, "Aprovar e abrir no WhatsApp" (wa.me com DDI 55) / no celular "Aprovar e mandar vídeo +
+  mensagem" (Web Share), "Baixar vídeo", "Copiar", "Ver prévia", "Gerar outra", "Ajustar no Gato", "Descartar";
+  "Já enviei" registra a mensagem (+ vídeo) na conversa (status `contatado`, site `aprovado`). Aba "Enviados" com selo e
+  "Responder no Tigre" (`/agente/tigre?cliente=<id>` abre a conversa). O Tigre também mostra a fila (`FilaAprovacao.jsx`).
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência).
 

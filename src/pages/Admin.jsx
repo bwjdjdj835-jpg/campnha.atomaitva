@@ -1,0 +1,287 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ShieldCheck, CheckCircle2, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
+import { usePipeline, setPipeline } from '../store/pipeline.js'
+import { videoDoSite, negocioDoSite, rascunho, lerPacoteLeao } from '../services/agents.js'
+import { lerZip } from '../lib/zipStore.js'
+import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA } from '../lib/previa.jsx'
+import { SELO_CONTATO } from '../lib/contato.js'
+
+// 🛡️ Área do Administrador: tudo o que a IA fez no modo automático passa por aqui.
+// Você confere o vídeo da prévia e a mensagem de cada cliente, aprova e manda pelo seu WhatsApp. Nada sai sozinho.
+
+const marcarSite = (id, campos) => setPipeline((s) => ({ sites: s.sites.map((x) => (x.id === id ? { ...x, ...campos } : x)) }))
+function atualizarConversa(siteId, fn) {
+  setPipeline((s) => {
+    const atual = s.conversas?.[siteId] || { status: 'novo', mensagens: [] }
+    return { conversas: { ...s.conversas, [siteId]: { ...atual, ...fn(atual) } } }
+  })
+}
+// wa.me precisa do DDI 55.
+const foneWhats = (n) => {
+  const d = String(n.whatsapp || n.telefone || '').replace(/\D/g, '')
+  return d.length === 10 || d.length === 11 ? `55${d}` : d
+}
+
+export default function Admin() {
+  const { sites, leads, conversas = {} } = usePipeline()
+  const [aba, setAba] = useState('aprovar')
+  const paraAprovar = sites.filter((s) => s.status === 'revisar')
+  const preparando = sites.filter((s) => s.status === 'preparando').length
+  const enviados = sites.filter((s) => conversas[s.id]?.mensagens?.some((m) => m.de === 'nos'))
+  const conta = (...st) => sites.filter((s) => st.includes(conversas[s.id]?.status)).length
+  const numeros = [
+    ['Para aprovar', paraAprovar.length, 'text-neon'],
+    ['Aguardando resposta', conta('contatado', 'bot', 'duvida'), 'text-sky-300'],
+    ['Interessados', conta('interessado'), 'text-emerald-300'],
+    ['Não querem agora', conta('recusou'), 'text-orange-300'],
+    ['Vendas', conta('vendido', 'publicado'), 'text-emerald-200'],
+  ]
+
+  return (
+    <div className="space-y-6">
+      <section className="glass circuit-bg p-6 sm:p-8">
+        <div className="flex flex-wrap items-center gap-4">
+          <ShieldCheck size={44} className="text-neon" />
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-mono tracking-[0.3em] text-neon">ÁREA DO ADMINISTRADOR</div>
+            <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold text-white">Aprove o que a IA fez</h1>
+            <p className="mt-1 text-sm text-slate-400">
+              Confira o vídeo e a mensagem de cada cliente. Aprovou → abre o seu WhatsApp com a mensagem pronta. Nada é enviado sem você.
+            </p>
+          </div>
+          <Link to="/automatico" className="btn-ghost border border-white/10 text-sm">
+            <Bot size={16} /> Modo automático
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {numeros.map(([rotulo, n, cor]) => (
+          <div key={rotulo} className="glass p-4">
+            <div className={`font-display text-2xl font-bold tabular-nums ${cor}`}>{n}</div>
+            <div className="text-[11px] uppercase tracking-wider text-slate-400">{rotulo}</div>
+          </div>
+        ))}
+      </section>
+
+      <div className="flex gap-2">
+        {[
+          ['aprovar', `Para aprovar (${paraAprovar.length})`],
+          ['enviados', `Enviados (${enviados.length})`],
+        ].map(([id, rotulo]) => (
+          <button
+            key={id}
+            onClick={() => setAba(id)}
+            className={`btn-ghost border text-sm ${aba === id ? 'border-neon/50 text-neon bg-neon/10' : 'border-white/10'}`}
+          >
+            {rotulo}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'aprovar' && (
+        <div className="space-y-4">
+          {preparando > 0 && (
+            <div className="glass flex items-center gap-2 px-5 py-3 text-sm text-sky-200">
+              <Loader2 size={16} className="animate-spin" /> {preparando} cliente(s) sendo preparado(s) pelo automático (vídeo e mensagem)…
+            </div>
+          )}
+          {paraAprovar.length === 0 ? (
+            <div className="glass p-10 text-center text-slate-400">
+              Nada para aprovar agora.{' '}
+              <Link to="/automatico" className="text-neon hover:underline">Rode o modo automático</Link> para a IA preparar novos clientes.
+            </div>
+          ) : (
+            paraAprovar.map((s) => <CartaoAprovar key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} />)
+          )}
+        </div>
+      )}
+
+      {aba === 'enviados' && (
+        <section className="glass overflow-hidden">
+          {enviados.length === 0 ? (
+            <p className="p-10 text-center text-slate-400">Nenhuma mensagem enviada ainda.</p>
+          ) : (
+            <ul>
+              {enviados.map((s) => {
+                const c = conversas[s.id]
+                const selo = SELO_CONTATO[c.status] || SELO_CONTATO.contatado
+                const ultima = [...c.mensagens].reverse().find((m) => m.de === 'cliente')
+                return (
+                  <li key={s.id} className="flex flex-wrap items-center gap-3 border-t border-white/5 first:border-t-0 px-5 py-3 text-sm">
+                    <span className="font-medium text-white">{s.nome}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${selo.cor}`}>{selo.texto}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-400">{ultima ? `“${ultima.texto}”` : 'Sem resposta ainda'}</span>
+                    <Link to={`/agente/tigre?cliente=${s.id}`} className="btn-ghost border border-white/10 !py-1 !px-3 text-xs">
+                      <MessageCircle size={14} /> Responder no Tigre
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+    </div>
+  )
+}
+
+function CartaoAprovar({ site, negocio, conversa }) {
+  const [video, setVideo] = useState(null) // { blob, url }
+  const [texto, setTexto] = useState(conversa?.rascunho || '')
+  const [abriu, setAbriu] = useState(false)
+  const [previa, setPrevia] = useState(null) // HTML ou 'carregando'
+  const [ocupado, setOcupado] = useState(false)
+  const [copiado, setCopiado] = useState(false)
+  const fone = foneWhats(negocio)
+
+  useEffect(() => {
+    let url = null
+    videoDoSite(site.id).then((blob) => blob && setVideo({ blob, url: (url = URL.createObjectURL(blob)) }))
+    return () => url && URL.revokeObjectURL(url)
+  }, [site.id])
+
+  const ext = video?.blob.type.includes('mp4') ? 'mp4' : 'webm'
+  const arquivo = video && new File([video.blob], `previa-${site.nome}.${ext}`, { type: video.blob.type })
+  const podeCompartilhar = arquivo && typeof navigator !== 'undefined' && navigator.canShare?.({ files: [arquivo] })
+
+  // O cartão fica aqui até você confirmar "Já enviei" (aí o site vira aprovado e o cliente vai para "Enviados").
+  function aprovar() {
+    atualizarConversa(site.id, () => ({ rascunho: texto }))
+    setAbriu(true)
+  }
+
+  // Celular: manda o vídeo e a mensagem juntos (folha de compartilhar → WhatsApp → contato).
+  async function compartilhar() {
+    try {
+      await navigator.share({ files: [arquivo], text: texto })
+      aprovar()
+    } catch {
+      /* cancelado */
+    }
+  }
+
+  function jaEnviei() {
+    const at = new Date().toISOString()
+    atualizarConversa(site.id, (c) => ({
+      mensagens: [
+        ...c.mensagens,
+        { de: 'nos', texto, via: 'whatsapp-manual', at },
+        ...(video ? [{ de: 'nos', texto: '🎬 Vídeo da prévia', via: 'whatsapp-manual', at }] : []),
+      ],
+      status: 'contatado',
+      rascunho: undefined,
+    }))
+    marcarSite(site.id, { status: 'aprovado', aprovadoEm: at })
+  }
+
+  async function outraMensagem() {
+    setOcupado(true)
+    try {
+      setTexto((await rascunho('primeiro', negocio)).texto)
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  async function verPrevia() {
+    if (previa) return setPrevia(null)
+    setPrevia('carregando')
+    try {
+      const p = await lerPacoteLeao(await lerZip(`${site.id}:final`))
+      setPrevia(htmlDaPrevia(p.dados, await fotosEmDataUrl(p.fotos)))
+    } catch {
+      setPrevia(null)
+    }
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(texto)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      /* sem permissão: o texto está na caixa para copiar à mão */
+    }
+  }
+
+  return (
+    <article className="glass p-5">
+      <div className="flex flex-col md:flex-row gap-5">
+        {video ? (
+          <video src={video.url} controls playsInline className="w-full md:w-48 rounded-xl border border-white/10 bg-black self-start" />
+        ) : (
+          <div className="grid w-full md:w-48 h-56 place-items-center rounded-xl border border-dashed border-white/10 px-3 text-center text-xs text-slate-500">
+            Sem vídeo — grave no Gato
+          </div>
+        )}
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex flex-wrap items-baseline gap-x-3">
+            <h3 className="font-display text-lg font-semibold text-white">{site.nome}</h3>
+            <span className="font-mono text-xs text-slate-400">{negocio.telefone || 'sem telefone'}</span>
+            {negocio.categoria && <span className="text-xs text-slate-500">{negocio.categoria}</span>}
+          </div>
+          <label className="label" htmlFor={`msg-${site.id}`}>Mensagem (dá para editar)</label>
+          <textarea id={`msg-${site.id}`} rows={4} className="input" value={texto} onChange={(e) => setTexto(e.target.value)} />
+          <div className="flex flex-wrap gap-2">
+            {podeCompartilhar && (
+              <button className="btn-primary !py-2 !px-4 text-sm" onClick={compartilhar} disabled={!texto.trim()}>
+                <Share2 size={16} /> Aprovar e mandar vídeo + mensagem
+              </button>
+            )}
+            <a
+              className={`${podeCompartilhar ? 'btn-ghost border border-white/10' : 'btn-primary !py-2 !px-4'} text-sm ${!texto.trim() || !fone ? 'pointer-events-none opacity-40' : ''}`}
+              href={`https://wa.me/${fone}?text=${encodeURIComponent(texto)}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={aprovar}
+            >
+              <CheckCircle2 size={16} /> Aprovar e abrir no WhatsApp
+            </a>
+            {video && (
+              <a className="btn-ghost border border-white/10 text-sm" href={video.url} download={arquivo.name}>
+                <Download size={16} /> Baixar vídeo
+              </a>
+            )}
+            <button className="btn-ghost border border-white/10 text-sm" onClick={copiar} disabled={!texto.trim()}>
+              {copiado ? <CheckCircle2 size={16} /> : <Copy size={16} />} {copiado ? 'Copiada!' : 'Copiar mensagem'}
+            </button>
+          </div>
+          {abriu ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
+              <span className="flex-1">Mandou a mensagem{video ? ' e o vídeo' : ''} no WhatsApp?</span>
+              <button className="btn-primary !py-1.5 !px-3 text-sm" onClick={jaEnviei}>
+                <CheckCircle2 size={16} /> Já enviei
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">
+              {podeCompartilhar
+                ? 'No celular: "Aprovar e mandar vídeo + mensagem" abre o compartilhar — escolha o WhatsApp e o contato.'
+                : 'No computador: "Aprovar e abrir no WhatsApp" abre a conversa com a mensagem pronta; depois arraste o vídeo baixado para a conversa.'}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2 border-t border-white/5 pt-3">
+            <button className="btn-ghost text-xs" onClick={verPrevia}>
+              {previa ? <EyeOff size={14} /> : <Eye size={14} />} {previa ? 'Esconder prévia' : 'Ver prévia do site'}
+            </button>
+            <button className="btn-ghost text-xs" onClick={outraMensagem} disabled={ocupado}>
+              {ocupado ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Gerar outra mensagem
+            </button>
+            <Link to={`/agente/gato?site=${site.id}`} className="btn-ghost text-xs">
+              <ExternalLink size={14} /> Ajustar no Gato
+            </Link>
+            <button className="btn-ghost text-xs text-rose-300 hover:bg-rose-400/10 ml-auto" onClick={() => marcarSite(site.id, { status: 'descartado' })}>
+              <Trash2 size={14} /> Descartar
+            </button>
+          </div>
+        </div>
+      </div>
+      {previa === 'carregando' && <div className="mt-4 grid place-items-center py-10"><Loader2 className="animate-spin text-neon" /></div>}
+      {previa && previa !== 'carregando' && (
+        <iframe title={`Prévia — ${site.nome}`} srcDoc={previa} sandbox={SANDBOX_PREVIA} className="mt-4 w-full h-[70vh] rounded-xl border border-white/10 bg-white" />
+      )}
+    </article>
+  )
+}

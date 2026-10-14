@@ -22,8 +22,9 @@ export default function Automatico() {
   const [cidade, setCidade] = useState(salvo.cidade || 'Cacoal - RO')
   const [nichos, setNichos] = useState(salvo.nichos || NICHOS_PADRAO.join('\n'))
   const [porNicho, setPorNicho] = useState(salvo.porNicho || '5')
-  const [estudo, setEstudo] = useState(salvo.estudo || '3')
-  const [abelha, setAbelha] = useState(salvo.abelha !== false)
+  // v2: o automático ficou rápido por padrão (sem estudo do Gato e sem Abelha) — só site, vídeo e mensagem.
+  const [estudo, setEstudo] = useState(salvo.v === 2 ? salvo.estudo : 'nenhum')
+  const [abelha, setAbelha] = useState(salvo.v === 2 ? Boolean(salvo.abelha) : false)
   const [comVideo, setComVideo] = useState(salvo.comVideo !== false)
   const [rodando, setRodando] = useState(false)
   const [logs, setLogs] = useState([])
@@ -79,15 +80,12 @@ export default function Automatico() {
     }
     const f = fluxo.current
     if (!f || f.getVideoTracks()[0]?.readyState !== 'live') return null
+    // O quadro fica montado a rodada inteira (o recorte da gravação fica preso a ele); só troca a página dentro.
     const pronto = new Promise((r) => (carregou.current = r))
     setEstudio(html)
     await Promise.race([pronto, new Promise((r) => setTimeout(r, 8000))])
-    await new Promise((r) => setTimeout(r, 2500)) // fotos e efeitos da capa aparecerem
-    try {
-      return await gravarComFluxo(f, quadro.current, 12000)
-    } finally {
-      setEstudio(null)
-    }
+    await new Promise((r) => setTimeout(r, 1200)) // fotos e capa aparecerem
+    return gravarComFluxo(f, quadro.current, 9000)
   }
 
   // Veio do botão "Iniciar inteligência artificial automática" da tela inicial: começa sozinho.
@@ -112,7 +110,7 @@ export default function Automatico() {
     const lista = nichos.split('\n').map((n) => n.trim()).filter(Boolean)
     if (!cidade.trim() || !lista.length) return
     try {
-      localStorage.setItem(CHAVE, JSON.stringify({ cidade, nichos, porNicho, estudo, abelha, comVideo }))
+      localStorage.setItem(CHAVE, JSON.stringify({ v: 2, cidade, nichos, porNicho, estudo, abelha, comVideo }))
     } catch {
       /* sem storage */
     }
@@ -137,16 +135,17 @@ export default function Automatico() {
       )
       setResumo(r)
       log(pararRef.current ? 'warn' : 'ok', `${pararRef.current ? 'Parado' : 'Rodada concluída'}: ${r.prontos} cliente(s) pronto(s) para aprovar · ${r.pulados} pulado(s) · ${r.erros} com erro`)
-      // Terminou com clientes prontos: vai para o Tigre, onde estão os vídeos e as mensagens de cada um.
+      // Terminou com clientes prontos: vai para a Área do Administrador, onde você aprova vídeo e mensagem de cada um.
       if (!pararRef.current && r.prontos > 0) {
-        log('ok', 'Abrindo o 🐯 Tigre com os clientes prontos…')
-        setTimeout(() => navigate('/agente/tigre'), 2500)
+        log('ok', 'Abrindo a Área do Administrador com os clientes prontos…')
+        setTimeout(() => navigate('/admin'), 2000)
       }
     } catch (e) {
       log('error', e.message)
     } finally {
       fluxo.current?.getTracks().forEach((t) => t.stop())
       fluxo.current = null
+      setEstudio(null)
       setEtapa(null)
       setRodando(false)
     }
@@ -181,7 +180,7 @@ export default function Automatico() {
         <p className="mt-3 text-slate-400 max-w-2xl mx-auto">
           Nicho por nicho: o 🐧 Pinguim acha os comércios sem site, o 🦁 Leão monta, o 🐈‍⬛ Gato faz a prévia, a 🐝 Abelha
           completa, o vídeo é gravado e o 🐯 Tigre escreve a mensagem. <strong className="text-white">Nada é enviado</strong> — no
-          fim você aprova cada cliente no Tigre e manda pelo seu WhatsApp.
+          fim você aprova cada cliente na Área do Administrador e manda pelo seu WhatsApp.
         </p>
       </section>
 
@@ -207,15 +206,16 @@ export default function Automatico() {
             <div>
               <label className="label" htmlFor="auto-estudo">Estudo do Gato (1 vez por nicho)</label>
               <select id="auto-estudo" className="input" value={estudo} onChange={(e) => setEstudo(e.target.value)} disabled={rodando}>
-                <option value="3">3 minutos (padrão)</option>
+                <option value="nenhum">Sem estudo — mais rápido (padrão)</option>
+                <option value="0">Estudo rápido</option>
                 <option value="70">70 segundos</option>
-                <option value="0">Rápido</option>
+                <option value="3">3 minutos</option>
               </select>
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" className="accent-cyan-400 w-4 h-4" checked={abelha} onChange={(e) => setAbelha(e.target.checked)} disabled={rodando} />
-            🐝 Abelha completa o site com dados públicos que têm fonte (horário, sobre, serviços)
+            🐝 Abelha completa o site com dados públicos que têm fonte (horário, sobre, serviços) — deixa mais lento
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" className="accent-cyan-400 w-4 h-4" checked={comVideo} onChange={(e) => setComVideo(e.target.checked)} disabled={rodando} />
@@ -271,8 +271,8 @@ export default function Automatico() {
           </div>
           <div className="glass p-5 space-y-3">
             <h3 className="text-sm font-semibold text-white">Clientes</h3>
-            <Link to="/agente/tigre" className="flex items-center gap-2 rounded-xl border border-neon/30 px-3 py-2 text-sm text-neon hover:bg-neon/10">
-              🐯 {aprovar.length} aguardando sua aprovação <ArrowRight size={14} className="ml-auto" />
+            <Link to="/admin" className="flex items-center gap-2 rounded-xl border border-neon/30 px-3 py-2 text-sm text-neon hover:bg-neon/10">
+              🛡️ {aprovar.length} aguardando sua aprovação <ArrowRight size={14} className="ml-auto" />
             </Link>
             {placar.map(([st, lista]) => (
               <details key={st} className="text-sm">
@@ -295,7 +295,7 @@ export default function Automatico() {
       {estudio && (
         <div className="fixed bottom-4 right-4 z-50 rounded-2xl border border-neon/40 bg-black shadow-glow overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-neon">
-            <Video size={14} className="animate-pulse" /> Gravando a prévia — não feche esta aba
+            <Video size={14} className="animate-pulse" /> Estúdio de gravação — não feche esta aba
           </div>
           <iframe
             ref={quadro}

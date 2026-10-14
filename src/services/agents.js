@@ -539,9 +539,14 @@ async function gato(inputs, log, { sites, leads = [] }) {
     .split(/[\s,]+/)
     .filter((x) => /^https?:\/\//i.test(x))
   if (linksModelos.length > 4) log('warn', `Você colou ${linksModelos.length} sites modelo — leio os 4 primeiros (limite do Firecrawl por minuto)`)
-  const guardado = inputs.reaproveitar ? estudoDoNicho.get(chaveNicho(dados.negocio.categoria)) : null
+  // estudo "nenhum" (modo automático rápido): sem pesquisa — tema do segmento, sem gastar Firecrawl nem tempo.
+  const semEstudo = inputs.estudo === 'nenhum'
+  const guardado = semEstudo
+    ? { referencias: [], cursos: [], secoes: [], modelos: [], estudados: [] }
+    : inputs.reaproveitar ? estudoDoNicho.get(chaveNicho(dados.negocio.categoria)) : null
   const inicioEstudo = Date.now()
-  if (guardado) log('ok', `Reaproveitando o estudo já feito para "${dados.negocio.categoria}" (sem gastar Firecrawl de novo)`)
+  if (semEstudo) log('info', 'Modo rápido: sem estudo de referências — tema pronto do segmento')
+  else if (guardado) log('ok', `Reaproveitando o estudo já feito para "${dados.negocio.categoria}" (sem gastar Firecrawl de novo)`)
   else log('info', 'Firecrawl: pesquisando sites de desenvolvedores, 21st.dev, Code Eagle, GSAP, modelos grátis e cursos de como montar um site completo')
   let referencias = []
   let cursos = []

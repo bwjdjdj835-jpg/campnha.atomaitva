@@ -100,12 +100,18 @@ export async function pedirGravacaoDaAba() {
 
 // Grava `ms` do quadro (iframe) usando um fluxo já autorizado. Não encerra o fluxo (dá para gravar o próximo).
 // O vídeo é recortado só no quadro (Region Capture) e a prévia faz o passeio. MP4 quando o navegador grava MP4.
+const recortes = new WeakMap() // faixa → quadro em que já está recortada (recortar de novo o mesmo quadro pode travar)
+const noMaximo = (promessa, ms) => Promise.race([promessa, new Promise((r) => setTimeout(r, ms))])
+
 export async function gravarComFluxo(stream, iframe, ms = 12000) {
   const [faixa] = stream.getVideoTracks()
   if (!faixa || faixa.readyState === 'ended') throw new Error('A gravação da aba foi encerrada — autorize de novo.')
-  if (window.CropTarget && faixa.cropTo) {
+  if (window.CropTarget && faixa.cropTo && recortes.get(faixa) !== iframe) {
     try {
-      await faixa.cropTo(await window.CropTarget.fromElement(iframe))
+      await noMaximo(
+        (async () => faixa.cropTo(await window.CropTarget.fromElement(iframe)))().then(() => recortes.set(faixa, iframe)),
+        3000,
+      )
     } catch {
       /* sem recorte: grava a aba inteira */
     }
@@ -122,7 +128,8 @@ export async function gravarComFluxo(stream, iframe, ms = 12000) {
     faixa.addEventListener('ended', () => (clearTimeout(t), resolve()), { once: true })
   })
   if (gravador.state !== 'inactive') gravador.stop()
-  await parou
+  await noMaximo(parou, 3000)
+  if (!partes.length) throw new Error('A gravação não captou nada — deixe esta aba aberta e na frente.')
   return new Blob(partes, { type: (tipo || 'video/webm').split(';')[0] })
 }
 
