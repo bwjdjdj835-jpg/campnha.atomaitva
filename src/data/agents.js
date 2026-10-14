@@ -76,7 +76,7 @@ export const agents = [
         key: 'estudo',
         label: 'Estudo na internet antes de gerar',
         opcoes: [
-          { valor: '3', texto: 'Estudar 3 minutos (recomendado) — lê sites reais do ramo, modelos e cursos' },
+          { valor: '3', texto: 'Estudar 70 segundos (recomendado) — lê sites reais do ramo, modelos e cursos' },
           { valor: '0', texto: 'Rápido (~20 s) — só a pesquisa inicial' },
         ],
         lembrar: true,
@@ -95,7 +95,7 @@ export const agents = [
       'Ler dados estruturados do ZIP',
       'Pesquisar modelos de desenvolvedores, sites grátis e cursos (Firecrawl)',
       'Ler seus sites modelo: seções, cores e fontes',
-      'Estudar 3 minutos: sites reais do ramo (estilo mais usado)',
+      'Estudar 70 s: sites reais do ramo (estilo mais usado, só leituras confiáveis)',
       'Montar o site em React + Tailwind',
       'Mostrar prévia ao vivo e aguardar aprovação',
     ],

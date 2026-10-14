@@ -162,6 +162,8 @@ async function lerModelo(url) {
       fonte: /^[\w -]{2,40}$/.test(String(fonte || '')) ? fonte : null,
       cantos: b.spacing?.borderRadius || null,
     },
+    // Quanto o Firecrawl confia na leitura das cores (0 a 1). O estudo descarta leituras fracas.
+    confianca: typeof b.confidence?.colors === 'number' ? b.confidence.colors : typeof b.confidence?.overall === 'number' ? b.confidence.overall : null,
   }
 }
 

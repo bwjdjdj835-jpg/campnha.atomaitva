@@ -63,9 +63,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/gato/aprofundar` (`aprofundar(categoria, rodada, lidos)`) — uma rodada do **estudo de 3 minutos**:
     2 buscas BR de sites reais do ramo (sem vitrines/redes/diretórios, `NAO_E_SITE_DO_RAMO`) + leitura com `branding`
     de até 6 páginas iniciais novas (8 pedidos). O Gato (`gato()` em `src/services/agents.js`) faz o estudo inicial e
-    chama a rodada 1 no minuto 1 e a 2 no minuto 2, termina aos 3:00 (`DURACAO_ESTUDO`); campo "Estudo" (3 min ou
-    rápido) e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`). `estiloDoEstudo` escolhe o esquema da maioria,
-    as cores do site mais completo dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
+    chama 1 rodada no minuto 1 (`RODADAS`), termina aos 70 s (`DURACAO_ESTUDO`; o usuário pediu menos que 3 min para
+    gastar menos crédito); campo "Estudo" (70 s ou rápido) e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`).
+    `estiloDoEstudo` só usa leituras com `confianca` de cor ≥ `CONFIANCA_MINIMA` (0,5, vinda do `branding.confidence`)
+    e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
     (prioridade) → estilo do estudo → tema por segmento.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
   - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,

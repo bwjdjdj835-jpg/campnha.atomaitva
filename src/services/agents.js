@@ -421,9 +421,11 @@ export async function lerPacoteLeao(blob) {
 }
 
 // ---------- 🐈‍⬛ Estudo longo do Gato ----------
-// O Gato estuda ~3 minutos antes de gerar: estudo inicial + uma rodada por minuto (limite do plano grátis do
-// Firecrawl, ~10 pedidos/min). "Encerrar estudo" (botão na página) corta o tempo e gera com o que já leu.
-const DURACAO_ESTUDO = 3 * 60_000
+// O Gato estuda ~70 s antes de gerar: estudo inicial + 1 rodada no minuto 1 (o plano grátis do Firecrawl aceita
+// ~10 pedidos/min; 70 s gasta ~1/3 menos créditos que 3 min). "Encerrar estudo" corta o tempo e gera com o que já leu.
+const DURACAO_ESTUDO = 70_000
+const RODADAS = [1]
+const CONFIANCA_MINIMA = 0.5 // leitura de cores do Firecrawl abaixo disso não entra no estilo
 let encerrarAgora = false
 export const encerrarEstudo = () => (encerrarAgora = true)
 const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
@@ -441,20 +443,29 @@ async function esperarEstudo(inicio, ate, log) {
   }
 }
 
-// O estilo que mais aparece nos sites estudados: esquema (claro/escuro) da maioria, cores do site mais
-// completo desse esquema e a fonte mais usada.
+// O estilo que mais aparece nos sites estudados — com critério:
+//   - só entram leituras de cor confiáveis (confianca >= CONFIANCA_MINIMA, quando o Firecrawl informa)
+//     e com cor principal diferente do fundo (senão é leitura quebrada);
+//   - esquema (claro/escuro) da maioria; cores do site MAIS confiável desse grupo; fonte mais usada.
 export function estiloDoEstudo(lidos) {
-  const ok = lidos.filter((m) => !m.erro && m.estilo?.cores?.primaria)
+  const ok = lidos.filter(
+    (m) =>
+      !m.erro &&
+      m.estilo?.cores?.primaria &&
+      m.estilo.cores.primaria !== m.estilo.cores.fundo &&
+      (m.confianca == null || m.confianca >= CONFIANCA_MINIMA),
+  )
   if (ok.length < 2) return null
   const escuros = ok.filter((m) => m.estilo.esquema === 'escuro')
   const grupo = escuros.length * 2 >= ok.length ? escuros : ok.filter((m) => m.estilo.esquema === 'claro')
-  const base = grupo.find((m) => m.estilo.cores.fundo && m.estilo.fonte) || grupo[0]
+  const nota = (m) => (m.confianca ?? 0.6) + (m.estilo.cores.fundo ? 0.1 : 0) + (m.estilo.fonte ? 0.1 : 0)
+  const base = [...grupo].sort((a, b) => nota(b) - nota(a))[0]
   const fontes = {}
   for (const m of ok) if (m.estilo.fonte) fontes[m.estilo.fonte] = (fontes[m.estilo.fonte] || 0) + 1
   const fonte = Object.entries(fontes).sort((a, b) => b[1] - a[1])[0]?.[0] || base.estilo.fonte
   return {
     url: 'estudo',
-    titulo: `Estilo do estudo (${ok.length} sites do ramo)`,
+    titulo: `Estilo do estudo (${ok.length} sites do ramo, base: ${base.fonte})`,
     fonte: base.fonte,
     secoes: [],
     estilo: { ...base.estilo, fonte },
@@ -539,12 +550,12 @@ async function gato(inputs, log, { sites, leads = [] }) {
     log('warn', `${e.message.replace(/\.$/, '')} — seguindo com os padrões base`)
   }
 
-  // Estudo longo: mais 2 rodadas (uma por minuto) lendo sites reais do ramo, até completar 3 minutos.
+  // Estudo longo: mais 1 rodada (no minuto 1) lendo sites reais do ramo, até completar 70 s.
   const estudados = []
   const estudoLongo = inputs.estudo !== '0' && (referencias.length || modelos.length)
   if (estudoLongo) {
     log('info', `Estudo de ${mmss(DURACAO_ESTUDO)}: lendo sites de verdade do ramo (cores, fontes e seções) — ou clique em "Encerrar estudo"`)
-    for (const rodada of [1, 2]) {
+    for (const rodada of RODADAS) {
       await esperarEstudo(inicioEstudo, rodada * 60_000, log)
       if (encerrarAgora) break
       try {
@@ -552,7 +563,8 @@ async function gato(inputs, log, { sites, leads = [] }) {
         const r = await api('/gato/aprofundar', { categoria: dados.negocio.categoria, rodada, lidos })
         for (const m of r.lidos) {
           estudados.push(m)
-          log('info', `Site estudado: ${m.fonte} — ${m.estilo.esquema}, cor ${m.estilo.cores.primaria || '—'}, fonte ${m.estilo.fonte || '—'}`)
+          const fraca = m.confianca != null && m.confianca < CONFIANCA_MINIMA
+          log('info', `Site estudado: ${m.fonte} — ${m.estilo.esquema}, cor ${m.estilo.cores.primaria || '—'}, fonte ${m.estilo.fonte || '—'}${fraca ? ' (leitura de cor fraca — não entra no estilo)' : ''}`)
         }
         if (!r.lidos.length) log('warn', `Rodada ${rodada}: nenhum site novo do ramo para ler`)
       } catch (e) {
