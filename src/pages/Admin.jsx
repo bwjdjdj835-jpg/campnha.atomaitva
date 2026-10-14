@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ShieldCheck, CheckCircle2, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ShieldCheck, CheckCircle2, Play, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { videoDoSite, negocioDoSite, rascunho, lerPacoteLeao } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
+import { NICHOS_PADRAO, proximoNicho, prepararInicio } from '../services/automatico.js'
+import { lerOpcoes } from './Automatico.jsx'
 
 // 🛡️ Área do Administrador: tudo o que a IA fez no modo automático passa por aqui.
 // Você confere o vídeo da prévia e a mensagem de cada cliente, aprova e manda pelo seu WhatsApp. Nada sai sozinho.
@@ -26,6 +28,23 @@ const foneWhats = (n) => {
 export default function Admin() {
   const { sites, leads, conversas = {} } = usePipeline()
   const [aba, setAba] = useState('aprovar')
+  const navigate = useNavigate()
+  const [iniciando, setIniciando] = useState(false)
+  const [videoServidor, setVideoServidor] = useState(false)
+  useEffect(() => {
+    fetch('/api/status')
+      .then((r) => r.json())
+      .then((d) => setVideoServidor(Boolean(d.keys?.videoServidor)))
+      .catch(() => {})
+  }, [])
+  // Um nicho por vez: o próximo só começa depois que você aprova (ou descarta) todos os clientes do nicho atual.
+  const opcoesAuto = lerOpcoes()
+  const proximo = proximoNicho((opcoesAuto.nichos || NICHOS_PADRAO.join('\n')).split('\n').map((n) => n.trim()).filter(Boolean))
+  async function comecarProximo() {
+    setIniciando(true)
+    await prepararInicio({ comVideo: opcoesAuto.comVideo !== false, videoServidor })
+    navigate('/automatico?iniciar=1')
+  }
   const paraAprovar = sites.filter((s) => s.status === 'revisar')
   const preparando = sites.filter((s) => s.status === 'preparando').length
   const enviados = sites.filter((s) => conversas[s.id]?.mensagens?.some((m) => m.de === 'nos'))
@@ -82,19 +101,34 @@ export default function Admin() {
 
       {aba === 'aprovar' && (
         <div className="space-y-4">
+          {preparando === 0 && paraAprovar.length === 0 && proximo && (
+            <div className="glass flex flex-wrap items-center gap-4 border-neon/30 p-5">
+              <div className="flex-1 min-w-0">
+                <div className="font-display text-lg font-semibold text-white">Tudo aprovado! ✅</div>
+                <p className="text-sm text-slate-400">Próximo nicho da lista: <strong className="text-white">{proximo}</strong>. O Chrome vai pedir para compartilhar esta aba (para gravar os vídeos).</p>
+              </div>
+              <button className="btn-primary text-base py-3 px-5" onClick={comecarProximo} disabled={iniciando}>
+                {iniciando ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />} Começar: {proximo}
+              </button>
+            </div>
+          )}
+          {paraAprovar.length > 0 && proximo && (
+            <p className="text-sm text-slate-400">
+              Aprove (ou descarte) os {paraAprovar.length} cliente(s) abaixo para liberar o próximo nicho: <strong className="text-slate-200">{proximo}</strong>.
+            </p>
+          )}
+          {preparando === 0 && paraAprovar.length === 0 && !proximo && (
+            <div className="glass p-5 text-sm text-slate-300">
+              🎉 Todos os nichos da lista foram feitos. Para fazer de novo ou trocar a lista,{' '}
+              <Link to="/automatico" className="text-neon hover:underline">abra o modo automático</Link>.
+            </div>
+          )}
           {preparando > 0 && (
             <div className="glass flex items-center gap-2 px-5 py-3 text-sm text-sky-200">
               <Loader2 size={16} className="animate-spin" /> {preparando} cliente(s) sendo preparado(s) pelo automático (vídeo e mensagem)…
             </div>
           )}
-          {paraAprovar.length === 0 ? (
-            <div className="glass p-10 text-center text-slate-400">
-              Nada para aprovar agora.{' '}
-              <Link to="/automatico" className="text-neon hover:underline">Rode o modo automático</Link> para a IA preparar novos clientes.
-            </div>
-          ) : (
-            paraAprovar.map((s) => <CartaoAprovar key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} />)
-          )}
+          {paraAprovar.map((s) => <CartaoAprovar key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} />)}
         </div>
       )}
 

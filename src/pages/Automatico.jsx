@@ -135,9 +135,9 @@ export default function Automatico() {
       )
       setResumo(r)
       log(pararRef.current ? 'warn' : 'ok', `${pararRef.current ? 'Parado' : 'Rodada concluída'}: ${r.prontos} cliente(s) pronto(s) para aprovar · ${r.pulados} pulado(s) · ${r.erros} com erro`)
-      // Terminou com clientes prontos: vai para a Área do Administrador, onde você aprova vídeo e mensagem de cada um.
+      // Terminou o nicho: vai para a Área do Administrador. O próximo nicho só começa quando você aprovar lá.
       if (!pararRef.current && r.prontos > 0) {
-        log('ok', 'Abrindo a Área do Administrador com os clientes prontos…')
+        log('ok', `Nicho "${r.nicho}" pronto. Aprove os clientes na Área do Administrador${r.proximo ? ` — depois é só clicar em começar "${r.proximo}"` : ''}.`)
         setTimeout(() => navigate('/admin'), 2000)
       }
     } catch (e) {

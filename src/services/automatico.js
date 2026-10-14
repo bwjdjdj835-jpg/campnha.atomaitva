@@ -8,7 +8,7 @@ import { runAgent, conferirSite, gerarZipFinal, gerarColmeia, lerPacoteLeao, gua
 import { lerZip } from '../lib/zipStore.js'
 import { lerPipeline, setPipeline } from '../store/pipeline.js'
 import { contatoDoLead } from '../lib/contato.js'
-import { fotosEmDataUrl, htmlDaPrevia, CSS_GRAVACAO } from '../lib/previa.jsx'
+import { fotosEmDataUrl, htmlDaPrevia, CSS_GRAVACAO, pedirGravacaoDaAba } from '../lib/previa.jsx'
 
 export const NICHOS_PADRAO = [
   'barbearia',
@@ -88,9 +88,20 @@ export function pegarFluxo() {
 }
 
 export const nichosFeitos = () => lerPipeline().auto?.feitos || []
+// Próximo nicho da lista que ainda não foi feito (null = todos feitos).
+export const proximoNicho = (nichos) => nichos.find((n) => !nichosFeitos().includes(chave(n))) || null
+
+// Botão de começar (tela inicial ou Área do Administrador): pede a gravação da aba no próprio clique — o navegador
+// só pergunta logo depois de um clique — e deixa guardada para a página do automático, que começa sozinha.
+// videoServidor: já lido do /api/status pela página (o servidor local grava sozinho, sem pedir nada).
+export async function prepararInicio({ comVideo = true, videoServidor = false } = {}) {
+  guardarFluxo(comVideo && !videoServidor ? await pedirGravacaoDaAba().catch(() => null) : undefined)
+}
 export const recomecarNichos = () => setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [] } }))
 
 // opcoes: { cidade, nichos, porNicho, estudo ('1' = 1 minuto, padrão | '0' | 'nenhum' | '3min'), abelha }
+// Um nicho por vez (pedido do usuário): para depois do 1º nicho que deixar cliente pronto — o próximo só começa
+// quando você aprova na Área do Administrador. Nicho sem nenhum cliente pronto passa direto para o seguinte.
 // ui: { log(level, msg), etapa({ nicho, comercio, passo }), parar() → bool, gravar(html, siteId) → Blob | null }
 export async function rodarAutomatico(opcoes, ui) {
   const { log, etapa, parar } = ui
@@ -190,8 +201,12 @@ export async function rodarAutomatico(opcoes, ui) {
     if (!parar()) {
       setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [...new Set([...(s.auto?.feitos || []), chave(nicho)])] } }))
       log('ok', `✔ ${nicho}: ${feitos} cliente(s) pronto(s) para aprovar`)
+      resumo.nicho = nicho
+      if (resumo.prontos > 0) break // espera sua aprovação antes do próximo nicho
+      log('info', `${nicho}: nenhum cliente novo — indo para o próximo nicho`)
     }
   }
+  resumo.proximo = proximoNicho(nichos)
   return resumo
 }
 

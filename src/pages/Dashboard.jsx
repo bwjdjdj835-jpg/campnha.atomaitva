@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, Play, Bot, Loader2 } from 'lucide-react'
-import { guardarFluxo } from '../services/automatico.js'
-import { pedirGravacaoDaAba } from '../lib/previa.jsx'
+import { prepararInicio } from '../services/automatico.js'
 import { agents } from '../data/agents.js'
 import OrchestraHub from '../components/OrchestraHub.jsx'
 import AgentBadge from '../components/AgentBadge.jsx'
@@ -36,13 +35,10 @@ export default function Dashboard() {
   // que começa sozinho e no fim leva para a Área do Administrador.
   async function iniciarAutomatico() {
     setIniciando(true)
-    let fluxo
-    if (auto.comVideo !== false && !videoServidor) {
-      fluxo = await pedirGravacaoDaAba().catch(() => null)
-    }
-    guardarFluxo(fluxo)
+    await prepararInicio({ comVideo: auto.comVideo !== false, videoServidor })
     navigate('/automatico?iniciar=1')
   }
+
 
   const stats = [
     { label: 'Leads sem site', value: leads.length },

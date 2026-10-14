@@ -184,6 +184,11 @@ e "Leão Dourado" foi unificado como **Leão**.
   vídeo + mensagem de um cliente (`finalizar`) roda enquanto o próximo site é montado (`montarSite`, fila `filaFinal`).
   Status do site: `preparando` → `revisar` (vídeo e mensagem prontos). O quadro de gravação fica montado a rodada
   inteira (`gravarComFluxo` só recorta de novo se o quadro mudar e tem tempo máximo em cada passo — antes o 2º vídeo travava).
+  **Um nicho por vez** (pedido do usuário): `rodarAutomatico` para depois do 1º nicho com cliente pronto (nicho sem
+  cliente passa direto) e devolve `resumo.proximo` (`proximoNicho`). O próximo só começa pela Área do Administrador,
+  quando não há nada para aprovar nem sendo preparado: botão "Começar: <nicho>" → `prepararInicio` (pede a gravação no
+  clique; a tela inicial usa o mesmo) → `/automatico?iniciar=1`. Antes, o automático seguia sozinho para o nicho
+  seguinte e, se você saísse da página para aprovar, a gravação era encerrada (salão ficou sem vídeo).
   Ao terminar abre a **Área do Administrador** (`/admin`, `src/pages/Admin.jsx`, contador no menu): cartões "Para aprovar"
   com vídeo e mensagem editável em **dois passos** (o wa.me só leva texto, e compartilhar vídeo + texto juntos faz o
   WhatsApp largar o vídeo): 1️⃣ vídeo — "Mandar o vídeo no WhatsApp" (Web Share só com o arquivo) / "Salvar vídeo (MP4)"
