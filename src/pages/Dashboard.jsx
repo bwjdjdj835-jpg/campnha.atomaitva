@@ -32,7 +32,7 @@ export default function Dashboard() {
   const primeiroNicho = (auto.nichos || 'barbearia').split('\n')[0]
 
   // Pede a gravação da aba aqui mesmo (o navegador só pergunta logo depois de um clique) e abre o automático,
-  // que começa sozinho e no fim leva para a Área do Administrador.
+  // que começa sozinho e no fim leva para a Aranha Administradora.
   async function iniciarAutomatico() {
     setIniciando(true)
     await prepararInicio({ videoServidor, manual: videoManualNasOpcoes() })
@@ -68,7 +68,7 @@ export default function Dashboard() {
               {iniciando ? <Loader2 size={20} className="animate-spin" /> : <Bot size={20} />} Iniciar inteligência artificial automática
             </button>
             <p className="mt-2 text-xs text-slate-400">
-              Roda os 5 agentes sozinhos em {auto.cidade || 'Cacoal - RO'}, começando em {primeiroNicho}, e no fim abre a 🛡️ Área do Administrador
+              Roda os 5 agentes sozinhos em {auto.cidade || 'Cacoal - RO'}, começando em {primeiroNicho}, e no fim abre a 🛡️ Aranha Administradora
               com o vídeo e a mensagem de cada cliente. Nada é enviado sem você.{' '}
               <Link to="/automatico" className="text-neon hover:underline">Ajustar cidade e nichos</Link>
             </p>

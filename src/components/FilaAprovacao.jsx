@@ -11,7 +11,7 @@ const marcarSite = (id, campos) => setPipeline((s) => ({ sites: s.sites.map((x) 
 // Aprovar abre a conversa do Tigre logo abaixo (mensagem + vídeo) para você mandar pelo seu WhatsApp.
 export default function FilaAprovacao({ onAbrir }) {
   const { sites, leads, conversas } = usePipeline()
-  // Só quem tem vídeo e mensagem prontos (os antigos sem vídeo vão para "Falta o vídeo" na Área do Administrador).
+  // Só quem tem vídeo e mensagem prontos (os antigos sem vídeo vão para "Falta o vídeo" na Aranha Administradora).
   useEffect(() => {
     conferirProntos()
   }, [])

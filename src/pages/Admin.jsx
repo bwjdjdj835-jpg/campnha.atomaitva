@@ -10,7 +10,7 @@ import { lerResposta, registrarEnviada } from '../services/tigreConversa.js'
 import { NICHOS_PADRAO, proximoNicho, prepararInicio, conferirProntos, nichoEmAndamento, videoManualNasOpcoes } from '../services/automatico.js'
 import { lerOpcoes } from './Automatico.jsx'
 
-// 🛡️ Área do Administrador: tudo o que a IA fez no modo automático passa por aqui.
+// 🛡️ Aranha Administradora: tudo o que a IA fez no modo automático passa por aqui.
 // Você confere o vídeo da prévia e a mensagem de cada cliente, aprova e manda pelo seu WhatsApp. Nada sai sozinho.
 
 const marcarSite = (id, campos) => setPipeline((s) => ({ sites: s.sites.map((x) => (x.id === id ? { ...x, ...campos } : x)) }))
@@ -72,10 +72,10 @@ export default function Admin() {
     <div className="space-y-6">
       <section className="glass circuit-bg p-6 sm:p-8">
         <div className="flex flex-wrap items-center gap-4">
-          <ShieldCheck size={44} className="text-neon" />
+          <span className="text-5xl leading-none" aria-hidden="true">🕷️</span>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-mono tracking-[0.3em] text-neon">ÁREA DO ADMINISTRADOR</div>
-            <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold text-white">Aprove o que a IA fez</h1>
+            <div className="text-xs font-mono tracking-[0.3em] text-neon">🕷️ ARANHA ADMINISTRADORA · ÚLTIMO AGENTE</div>
+            <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold text-white">Confirme o que os agentes fizeram</h1>
             <p className="mt-1 text-sm text-slate-400">
               Confira o vídeo e a mensagem de cada cliente. Aprovou → abre o seu WhatsApp com a mensagem pronta. Nada é enviado sem você.
             </p>
@@ -112,6 +112,7 @@ export default function Admin() {
 
       {aba === 'aprovar' && (
         <div className="space-y-4">
+          <RelatorioRodada />
           {semVideo.length > 0 && (
             <div className="glass border-amber-400/30 p-5 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -333,7 +334,8 @@ function CartaoAprovar({ site, negocio, conversa }) {
             <span className="font-mono text-xs text-slate-400">{negocio.telefone || 'sem telefone'}</span>
             {negocio.categoria && <span className="text-xs text-slate-500">{negocio.categoria}</span>}
           </div>
-          <label className="label" htmlFor={`msg-${site.id}`}>Mensagem (dá para editar)</label>
+          <ArquivosDosAgentes site={site} temVideo={Boolean(video)} />
+          <label className="label" htmlFor={`msg-${site.id}`}>🐯 Mensagem do Tigre (dá para editar)</label>
           <textarea id={`msg-${site.id}`} rows={4} className="input" value={texto} onChange={(e) => setTexto(e.target.value)} />
           {/* Sem vídeo: você grava a prévia no notebook e envia aqui. */}
           {!video && (
@@ -389,7 +391,7 @@ function CartaoAprovar({ site, negocio, conversa }) {
 
           {/* Passo 2: mensagem */}
           <div className="rounded-xl border border-white/10 px-4 py-3 space-y-2">
-            <div className="text-sm font-medium text-white">{video ? '2️⃣' : '1️⃣'} Mensagem</div>
+            <div className="text-sm font-medium text-white">2️⃣ Mensagem</div>
             <div className="flex flex-wrap gap-2">
               <a
                 className={`btn-primary !py-2 !px-4 text-sm ${!texto.trim() || !fone ? 'pointer-events-none opacity-40' : ''}`}
@@ -530,5 +532,94 @@ function ConversaRapida({ site, negocio, conversa }) {
         </div>
       )}
     </li>
+  )
+}
+
+// O que cada agente entregou para este cliente: dá para baixar o arquivo do Leão e do Gato a qualquer hora.
+function ArquivosDosAgentes({ site, temVideo }) {
+  const [tem, setTem] = useState({ leao: false, gato: false })
+  useEffect(() => {
+    Promise.all([lerZip(site.id), lerZip(`${site.id}:final`)]).then(([leao, gato]) => setTem({ leao: Boolean(leao), gato: Boolean(gato) }))
+  }, [site.id])
+  async function baixar(chave, nome) {
+    const blob = await lerZip(chave)
+    if (!blob) return
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = nome
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
+  }
+  const base = (site.zip || `${site.nome}.zip`).replace(/(-final)?\.zip$/, '')
+  const item = (ok, rotulo, acao) => (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ${ok ? 'bg-emerald-400/10 text-emerald-200' : 'bg-white/5 text-slate-500'}`}>
+      {ok ? '✓' : '…'} {rotulo}
+      {ok && acao && (
+        <button className="ml-1 underline decoration-dotted hover:text-white" onClick={acao}>
+          baixar
+        </button>
+      )}
+    </span>
+  )
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {item(true, '🐧 Pinguim: achou (sem site)')}
+      {item(tem.leao, '🦁 Leão: site (ZIP)', () => baixar(site.id, `${base}.zip`))}
+      {item(tem.gato, '🐈‍⬛ Gato: site final (ZIP)', () => baixar(`${site.id}:final`, `${base}-final.zip`))}
+      {item(temVideo, '🎬 Vídeo')}
+      {item(true, '🐯 Tigre: mensagem')}
+    </div>
+  )
+}
+
+const MOTIVO = {
+  pronto: ['✅', 'pronto para você confirmar'],
+  sem_video: ['🎬', 'falta o vídeo'],
+  tem_site: ['🌐', 'já tem site'],
+  possivel_site: ['⚠️', 'possível site — confira no Pinguim'],
+  sem_telefone: ['📵', 'sem telefone'],
+  ja_contatado: ['⏳', 'você já procurou'],
+  ja_feito: ['🦁', 'site já feito antes'],
+  erro_conferir: ['❓', 'não deu para conferir se tem site'],
+  erro: ['❌', 'erro'],
+  erro_busca: ['❌', 'erro na busca do Pinguim'],
+}
+
+// O que aconteceu com cada comércio na última rodada do automático.
+function RelatorioRodada() {
+  const { auto } = usePipeline()
+  const r = auto?.relatorio
+  const [aberto, setAberto] = useState(false)
+  if (!r) return null
+  const conta = {}
+  for (const i of r.itens || []) conta[i.resultado] = (conta[i.resultado] || 0) + 1
+  return (
+    <section className="glass p-5 space-y-3">
+      <button className="flex w-full flex-wrap items-center gap-2 text-left" onClick={() => setAberto(!aberto)}>
+        <span className="font-semibold text-white">📋 Relatório da última rodada — {r.nicho}</span>
+        <span className="text-xs text-slate-500">{new Date(r.em).toLocaleString('pt-BR')}</span>
+        <span className="ml-auto text-xs text-neon">{aberto ? 'esconder' : 'ver cada comércio'}</span>
+      </button>
+      <div className="flex flex-wrap gap-1.5">
+        {Object.entries(conta).map(([k, n]) => (
+          <span key={k} className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-slate-300">
+            {MOTIVO[k]?.[0] || '•'} {n} {MOTIVO[k]?.[1] || k}
+          </span>
+        ))}
+        {!r.itens?.length && <span className="text-xs text-slate-400">Nenhum comércio novo nesta busca.</span>}
+      </div>
+      {aberto && (
+        <ul className="space-y-1 text-sm">
+          {(r.itens || []).map((i, k) => (
+            <li key={k} className="flex flex-wrap gap-x-2 text-slate-300">
+              <span>{MOTIVO[i.resultado]?.[0] || '•'}</span>
+              <span className="text-white">{i.nome}</span>
+              <span className="text-slate-500">— {MOTIVO[i.resultado]?.[1] || i.resultado}</span>
+              {i.detalhe && <span className="min-w-0 truncate text-xs text-slate-500">{i.detalhe}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

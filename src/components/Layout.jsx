@@ -45,7 +45,7 @@ export default function Layout() {
         <Bot size={18} /> Automático
       </NavItem>
       <NavItem to="/admin" onClick={close}>
-        <ShieldCheck size={18} /> <span className="flex-1">Administrador</span>
+        <span className="text-lg w-5 text-center">🕷️</span> <span className="flex-1">Aranha Administradora</span>
         {paraAprovar > 0 && <span className="rounded-full bg-neon/20 px-2 text-[11px] text-neon">{paraAprovar}</span>}
       </NavItem>
       <div className="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest text-slate-500">Agentes</div>

@@ -218,7 +218,13 @@ e "Leão Dourado" foi unificado como **Leão**.
   quando não há nada para aprovar nem sendo preparado: botão "Começar: <nicho>" → `prepararInicio` (pede a gravação no
   clique; a tela inicial usa o mesmo) → `/automatico?iniciar=1`. Antes, o automático seguia sozinho para o nicho
   seguinte e, se você saísse da página para aprovar, a gravação era encerrada (salão ficou sem vídeo).
-  Ao terminar abre a **Área do Administrador** (`/admin`, `src/pages/Admin.jsx`, contador no menu): cartões "Para aprovar"
+  **Para no fim de CADA nicho**, mesmo sem cliente novo, e em erro da busca do Pinguim (não pula de nicho em silêncio):
+  `resumo.itens` (`anotar`: pronto, sem_video, tem_site, possivel_site, sem_telefone, ja_contatado, ja_feito,
+  erro_conferir, erro, erro_busca) vai para `auto.relatorio`; a Aranha mostra "📋 Relatório da última rodada". Cada cartão
+  mostra o que cada agente entregou (`ArquivosDosAgentes`: 🐧 Pinguim, 🦁 Leão ZIP e 🐈‍⬛ Gato ZIP final com "baixar",
+  🎬 vídeo, 🐯 mensagem). A Área do Administrador passou a se chamar **🕷️ Aranha Administradora** (último agente,
+  pedido do usuário).
+  Ao terminar abre a **Aranha Administradora** (antes "Área do Administrador") (`/admin`, `src/pages/Admin.jsx`, contador no menu): cartões "Para aprovar"
   com vídeo e mensagem editável em **dois passos** (o wa.me só leva texto, e compartilhar vídeo + texto juntos faz o
   WhatsApp largar o vídeo): 1️⃣ vídeo — "Mandar o vídeo no WhatsApp" (Web Share só com o arquivo) / "Salvar vídeo (MP4)"
   (Downloads; anexar pelo 📎); 2️⃣ mensagem — "Aprovar e abrir no WhatsApp" (wa.me com DDI 55) / "Copiar"; mais "Ver
