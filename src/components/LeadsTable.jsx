@@ -7,7 +7,7 @@ import { lerPipeline, setPipeline, usePipeline } from '../store/pipeline.js'
 import { SELO_CONTATO, chaveContato, contatoDoLead } from '../lib/contato.js'
 
 // O plano grátis do Firecrawl aceita ~10 pedidos por minuto; cada negócio usa até 2 (nome e telefone).
-const PEDIDOS_POR_MINUTO = 8
+const PEDIDOS_POR_MINUTO = 9 // plano grátis: 10 buscas/min (fica 1 de folga)
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function atualizarLead(id, campos) {
