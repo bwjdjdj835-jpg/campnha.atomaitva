@@ -184,7 +184,12 @@ e "Leão Dourado" foi unificado como **Leão**.
   1º site de cada nicho (os outros reaproveitam; `nenhum` = sem estudo) e Abelha desligada (opções `v: 3` em
   `central-agentes:automatico`); vídeo de 9 s; o
   vídeo + mensagem de um cliente (`finalizar`) roda enquanto o próximo site é montado (`montarSite`, fila `filaFinal`).
-  Status do site: `preparando` → `revisar` (vídeo e mensagem prontos). O quadro de gravação fica montado a rodada
+  Status do site: `preparando` → `revisar` **só com vídeo E mensagem** (pedido do usuário); sem vídeo → `sem_video`
+  (lista "Falta o vídeo" na Área do Administrador, botão "Gravar os vídeos que faltam" → `/automatico?regravar=1` →
+  `regravarVideos`; cada um dá para descartar). `conferirProntos()` (Admin e fila do Tigre) arruma os antigos:
+  `revisar` sem vídeo → `sem_video`, sem mensagem → escreve. Vídeo é obrigatório: sem autorização para gravar o
+  automático nem começa, e parar de compartilhar a aba para a rodada. O próximo nicho só libera com "Para aprovar" e
+  "Falta o vídeo" vazios. O quadro de gravação fica montado a rodada
   inteira (`gravarComFluxo` só recorta de novo se o quadro mudar e tem tempo máximo em cada passo — antes o 2º vídeo travava).
   **Um nicho por vez** (pedido do usuário): `rodarAutomatico` para depois do 1º nicho com cliente pronto (nicho sem
   cliente passa direto) e devolve `resumo.proximo` (`proximoNicho`). O próximo só começa pela Área do Administrador,

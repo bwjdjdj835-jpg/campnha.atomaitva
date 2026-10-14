@@ -35,7 +35,7 @@ export default function Dashboard() {
   // que começa sozinho e no fim leva para a Área do Administrador.
   async function iniciarAutomatico() {
     setIniciando(true)
-    await prepararInicio({ comVideo: auto.comVideo !== false, videoServidor })
+    await prepararInicio({ videoServidor })
     navigate('/automatico?iniciar=1')
   }
 

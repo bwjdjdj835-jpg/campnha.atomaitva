@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShieldCheck, CheckCircle2, Play, Inbox, Ban, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
+import { ShieldCheck, CheckCircle2, Play, Inbox, Ban, Video, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { videoDoSite, negocioDoSite, rascunho, lerPacoteLeao } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
 import { lerResposta, registrarEnviada } from '../services/tigreConversa.js'
-import { NICHOS_PADRAO, proximoNicho, prepararInicio } from '../services/automatico.js'
+import { NICHOS_PADRAO, proximoNicho, prepararInicio, conferirProntos } from '../services/automatico.js'
 import { lerOpcoes } from './Automatico.jsx'
 
 // 🛡️ Área do Administrador: tudo o que a IA fez no modo automático passa por aqui.
@@ -43,11 +43,21 @@ export default function Admin() {
   const proximo = proximoNicho((opcoesAuto.nichos || NICHOS_PADRAO.join('\n')).split('\n').map((n) => n.trim()).filter(Boolean))
   async function comecarProximo() {
     setIniciando(true)
-    await prepararInicio({ comVideo: opcoesAuto.comVideo !== false, videoServidor })
+    await prepararInicio({ videoServidor })
     navigate('/automatico?iniciar=1')
+  }
+  async function gravarQueFaltam() {
+    setIniciando(true)
+    await prepararInicio({ videoServidor })
+    navigate('/automatico?regravar=1')
   }
   const paraAprovar = sites.filter((s) => s.status === 'revisar')
   const preparando = sites.filter((s) => s.status === 'preparando').length
+  const semVideo = sites.filter((s) => s.status === 'sem_video')
+  // Só fica em "Para aprovar" quem tem vídeo e mensagem; os antigos sem vídeo vão para "Falta o vídeo".
+  useEffect(() => {
+    conferirProntos()
+  }, [])
   const enviados = sites.filter((s) => conversas[s.id]?.mensagens?.some((m) => m.de === 'nos'))
   const conta = (...st) => sites.filter((s) => st.includes(conversas[s.id]?.status)).length
   const numeros = [
@@ -102,7 +112,31 @@ export default function Admin() {
 
       {aba === 'aprovar' && (
         <div className="space-y-4">
-          {preparando === 0 && paraAprovar.length === 0 && proximo && (
+          {semVideo.length > 0 && (
+            <div className="glass border-amber-400/30 p-5 space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <Video size={18} className="text-amber-300" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-white">Falta o vídeo ({semVideo.length})</div>
+                  <p className="text-xs text-slate-400">Só entram para aprovação com vídeo e mensagem prontos. O Chrome vai pedir para compartilhar esta aba.</p>
+                </div>
+                <button className="btn-primary !py-2 !px-4 text-sm" onClick={gravarQueFaltam} disabled={iniciando}>
+                  {iniciando ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />} Gravar os vídeos que faltam
+                </button>
+              </div>
+              <ul className="flex flex-wrap gap-2">
+                {semVideo.map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">
+                    {s.nome}
+                    <button title="Descartar" className="text-rose-300 hover:text-rose-200" onClick={() => marcarSite(s.id, { status: 'descartado' })}>
+                      <Trash2 size={12} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {preparando === 0 && paraAprovar.length === 0 && semVideo.length === 0 && proximo && (
             <div className="glass flex flex-wrap items-center gap-4 border-neon/30 p-5">
               <div className="flex-1 min-w-0">
                 <div className="font-display text-lg font-semibold text-white">Tudo aprovado! ✅</div>
@@ -113,12 +147,12 @@ export default function Admin() {
               </button>
             </div>
           )}
-          {paraAprovar.length > 0 && proximo && (
+          {(paraAprovar.length > 0 || semVideo.length > 0) && proximo && (
             <p className="text-sm text-slate-400">
-              Aprove (ou descarte) os {paraAprovar.length} cliente(s) abaixo para liberar o próximo nicho: <strong className="text-slate-200">{proximo}</strong>.
+              Aprove (ou descarte) os {paraAprovar.length + semVideo.length} cliente(s) desta página para liberar o próximo nicho: <strong className="text-slate-200">{proximo}</strong>.
             </p>
           )}
-          {preparando === 0 && paraAprovar.length === 0 && !proximo && (
+          {preparando === 0 && paraAprovar.length === 0 && semVideo.length === 0 && !proximo && (
             <div className="glass p-5 text-sm text-slate-300">
               🎉 Todos os nichos da lista foram feitos. Para fazer de novo ou trocar a lista,{' '}
               <Link to="/automatico" className="text-neon hover:underline">abra o modo automático</Link>.

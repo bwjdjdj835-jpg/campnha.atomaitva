@@ -4,7 +4,7 @@
 // no Tigre (você confere o vídeo e a mensagem e manda pelo seu WhatsApp).
 // Pula quem já tem site, quem é "possível site", quem não tem telefone e quem você já procurou (selo de contato).
 
-import { runAgent, conferirSite, gerarZipFinal, gerarColmeia, lerPacoteLeao, guardarVideo, rascunho, negocioDoSite, encerrarEstudo } from './agents.js'
+import { runAgent, conferirSite, gerarZipFinal, gerarColmeia, lerPacoteLeao, guardarVideo, videoDoSite, rascunho, negocioDoSite, encerrarEstudo } from './agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { lerPipeline, setPipeline } from '../store/pipeline.js'
 import { contatoDoLead } from '../lib/contato.js'
@@ -94,8 +94,8 @@ export const proximoNicho = (nichos) => nichos.find((n) => !nichosFeitos().inclu
 // Botão de começar (tela inicial ou Área do Administrador): pede a gravação da aba no próprio clique — o navegador
 // só pergunta logo depois de um clique — e deixa guardada para a página do automático, que começa sozinha.
 // videoServidor: já lido do /api/status pela página (o servidor local grava sozinho, sem pedir nada).
-export async function prepararInicio({ comVideo = true, videoServidor = false } = {}) {
-  guardarFluxo(comVideo && !videoServidor ? await pedirGravacaoDaAba().catch(() => null) : undefined)
+export async function prepararInicio({ videoServidor = false } = {}) {
+  guardarFluxo(!videoServidor ? await pedirGravacaoDaAba().catch(() => null) : undefined)
 }
 export const recomecarNichos = () => setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [] } }))
 
@@ -186,7 +186,7 @@ export async function rodarAutomatico(opcoes, ui) {
         feitos++
         filaFinal = filaFinal.then(() =>
           finalizar(pronto, { nicho }, ui)
-            .then(() => resumo.prontos++)
+            .then((ok) => (ok ? resumo.prontos++ : resumo.erros++))
             .catch((e) => {
               resumo.erros++
               log('error', `${pronto.nome}: ${e.message}`)
@@ -252,29 +252,72 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
   return { siteId, nome }
 }
 
-// Vídeo da prévia + 1ª mensagem do Tigre. O cliente fica aguardando sua aprovação na Área do Administrador.
+// Vídeo da prévia + 1ª mensagem do Tigre. Só entra em "Aguardando sua aprovação" (status `revisar`) com OS DOIS
+// prontos; sem vídeo fica `sem_video` (Área do Administrador → "Gravar os vídeos que faltam"). → true se ficou pronto.
 async function finalizar({ siteId, nome }, { nicho }, ui) {
   const { log, etapa, gravar } = ui
   etapa({ nicho, comercio: nome, passo: '🎬 Gravando o vídeo da prévia' })
+  let temVideo = false
   try {
     const pacote = await lerPacoteLeao(await lerZip(`${siteId}:final`))
     const html = htmlDaPrevia(pacote.dados, await fotosEmDataUrl(pacote.fotos), CSS_GRAVACAO, { agua: false })
     const video = await gravar(html, siteId)
     if (video) {
       await guardarVideo(siteId, video)
+      temVideo = true
       log('ok', `🎬 Vídeo gravado (${(video.size / 1024 / 1024).toFixed(1)} MB)`)
-    } else log('warn', '🎬 Sem vídeo (gravação não autorizada) — dá para gravar depois no Gato')
+    }
   } catch (e) {
     log('warn', `🎬 Vídeo: ${e.message}`)
   }
 
-  etapa({ nicho, comercio: nome, passo: '🐯 Tigre escrevendo a mensagem' })
-  const p = lerPipeline()
-  const site = p.sites.find((x) => x.id === siteId)
-  const msg = await rascunho('primeiro', negocioDoSite(site, p.leads))
-  setPipeline((s) => ({ conversas: { ...s.conversas, [siteId]: { status: 'novo', mensagens: [], rascunho: msg.texto, auto: true } } }))
+  const conversa = lerPipeline().conversas?.[siteId]
+  if (!conversa?.rascunho) {
+    etapa({ nicho, comercio: nome, passo: '🐯 Tigre escrevendo a mensagem' })
+    const p = lerPipeline()
+    const site = p.sites.find((x) => x.id === siteId)
+    const msg = await rascunho('primeiro', negocioDoSite(site, p.leads))
+    setPipeline((s) => ({ conversas: { ...s.conversas, [siteId]: { status: 'novo', mensagens: [], rascunho: msg.texto, auto: true } } }))
+  }
+  if (!temVideo) {
+    marcarSite(siteId, { status: 'sem_video' })
+    log('warn', `🎬 ${nome}: sem vídeo — fica em "Falta o vídeo" na Área do Administrador até gravar`)
+    return false
+  }
   marcarSite(siteId, { status: 'revisar' })
   log('ok', `✅ ${nome}: vídeo e mensagem prontos — aguardando sua aprovação na Área do Administrador`)
+  return true
+}
+
+// Grava de novo os vídeos que faltaram (status `sem_video`). Mesma página, mesma autorização de gravação.
+export async function regravarVideos(ui) {
+  const resumo = { prontos: 0, pulados: 0, erros: 0 }
+  for (const site of lerPipeline().sites.filter((s) => s.status === 'sem_video')) {
+    if (ui.parar()) break
+    try {
+      if (await finalizar({ siteId: site.id, nome: site.nome }, { nicho: 'vídeos que faltam' }, ui)) resumo.prontos++
+      else resumo.erros++
+    } catch (e) {
+      resumo.erros++
+      ui.log('error', `${site.nome}: ${e.message}`)
+    }
+  }
+  return resumo
+}
+
+// Clientes antigos marcados como prontos sem vídeo ou sem mensagem: arruma (sem vídeo → `sem_video`; sem mensagem → escreve).
+export async function conferirProntos() {
+  for (const site of lerPipeline().sites.filter((s) => s.status === 'revisar')) {
+    if (!(await videoDoSite(site.id))) {
+      marcarSite(site.id, { status: 'sem_video' })
+      continue
+    }
+    if (!lerPipeline().conversas?.[site.id]?.rascunho) {
+      const p = lerPipeline()
+      const msg = await rascunho('primeiro', negocioDoSite(site, p.leads)).catch(() => null)
+      if (msg) setPipeline((s) => ({ conversas: { ...s.conversas, [site.id]: { status: 'novo', mensagens: [], ...(s.conversas?.[site.id] || {}), rascunho: msg.texto, auto: true } } }))
+    }
+  }
 }
 
 export const pararEstudo = encerrarEstudo

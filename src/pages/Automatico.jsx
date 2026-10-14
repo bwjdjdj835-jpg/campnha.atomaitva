@@ -4,7 +4,7 @@ import { Bot, Loader2, Play, Square, Video, RotateCcw, ArrowRight } from 'lucide
 import LogConsole from '../components/LogConsole.jsx'
 import { usePipeline } from '../store/pipeline.js'
 import { SELO_CONTATO } from '../lib/contato.js'
-import { NICHOS_PADRAO, rodarAutomatico, nichosFeitos, recomecarNichos, pararEstudo, pegarFluxo } from '../services/automatico.js'
+import { NICHOS_PADRAO, rodarAutomatico, regravarVideos, nichosFeitos, recomecarNichos, pararEstudo, pegarFluxo } from '../services/automatico.js'
 import { gravarVideoPrevia } from '../services/agents.js'
 import { pedirGravacaoDaAba, gravarComFluxo, SANDBOX_PREVIA } from '../lib/previa.jsx'
 
@@ -25,8 +25,7 @@ export default function Automatico() {
   // v3: rápido por padrão — Gato estuda 1 minuto só no 1º site de cada nicho (os outros reaproveitam), sem Abelha.
   const [estudo, setEstudo] = useState(salvo.v === 3 ? salvo.estudo : '1')
   const [abelha, setAbelha] = useState(salvo.v === 3 ? Boolean(salvo.abelha) : false)
-  const [comVideo, setComVideo] = useState(salvo.comVideo !== false)
-  const [rodando, setRodando] = useState(false)
+    const [rodando, setRodando] = useState(false)
   const [logs, setLogs] = useState([])
   const [etapa, setEtapa] = useState(null)
   const [estudio, setEstudio] = useState(null) // HTML da prévia sendo gravada
@@ -88,11 +87,14 @@ export default function Automatico() {
     return gravarComFluxo(f, quadro.current, 9000)
   }
 
-  // Veio do botão "Iniciar inteligência artificial automática" da tela inicial: começa sozinho.
+  // Veio do botão "Iniciar inteligência artificial automática" (tela inicial) ou de "Começar: <nicho>" /
+  // "Gravar os vídeos que faltam" (Área do Administrador): começa sozinho com a autorização dada lá.
   useEffect(() => {
-    if (keys === undefined || busca.get('iniciar') !== '1') return
+    if (keys === undefined) return
+    const modo = busca.get('iniciar') === '1' ? 'rodada' : busca.get('regravar') === '1' ? 'regravar' : null
+    if (!modo) return
     setBusca({}, { replace: true })
-    comecar(pegarFluxo())
+    comecar(pegarFluxo(), modo)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys])
 
@@ -100,17 +102,21 @@ export default function Automatico() {
     fluxo.current = f
     f.getVideoTracks()[0].addEventListener('ended', () => {
       fluxo.current = null
-      log('warn', '🎬 Você parou de compartilhar a aba — os próximos clientes ficam sem vídeo')
+      // Sem vídeo o cliente não fica pronto: para em vez de gastar crédito à toa.
+      pararRef.current = true
+      pararEstudo()
+      log('error', '🎬 Você parou de compartilhar a aba — parei o automático (sem vídeo o cliente não fica pronto)')
     })
     log('ok', '🎬 Gravação autorizada — vale para todos os vídeos desta rodada')
   }
 
-  // fluxoPronto: autorização já dada na tela inicial (undefined = pedir agora; null = ficou sem vídeo).
-  async function comecar(fluxoPronto) {
+  // fluxoPronto: autorização já dada no clique de outra página (undefined = pedir agora; null = recusada).
+  // modo: 'rodada' (próximo nicho) | 'regravar' (só os vídeos que faltam).
+  async function comecar(fluxoPronto, modo = 'rodada') {
     const lista = nichos.split('\n').map((n) => n.trim()).filter(Boolean)
     if (!cidade.trim() || !lista.length) return
     try {
-      localStorage.setItem(CHAVE, JSON.stringify({ v: 3, cidade, nichos, porNicho, estudo, abelha, comVideo }))
+      localStorage.setItem(CHAVE, JSON.stringify({ v: 3, cidade, nichos, porNicho, estudo, abelha }))
     } catch {
       /* sem storage */
     }
@@ -118,21 +124,31 @@ export default function Automatico() {
     setResumo(null)
     pararRef.current = false
     // A autorização para gravar precisa vir logo depois do clique: pede uma vez, vale para a rodada inteira.
-    if (fluxoPronto) ligarFluxo(fluxoPronto)
-    else if (fluxoPronto === null) log('warn', '🎬 Gravação não autorizada — seguindo sem vídeo (dá para gravar depois no Gato)')
-    else if (comVideo && !keys?.videoServidor) {
-      try {
-        ligarFluxo(await pedirGravacaoDaAba())
-      } catch (e) {
-        log('warn', `🎬 ${e.message} Seguindo sem vídeo.`)
+    // Vídeo é obrigatório (cliente só fica pronto com vídeo e mensagem): sem autorização para gravar, nem começa.
+    if (!keys?.videoServidor) {
+      let f = fluxoPronto
+      if (f === undefined) f = await pedirGravacaoDaAba().catch(() => null)
+      if (!f) {
+        log('error', '🎬 Sem autorização para gravar os vídeos — não comecei. Clique de novo e, quando o Chrome perguntar, escolha "Esta aba" → Compartilhar.')
+        return
       }
+      ligarFluxo(f)
     }
     setRodando(true)
     try {
-      const r = await rodarAutomatico(
-        { cidade: cidade.trim(), nichos: lista, porNicho: porNicho === 'todos' ? Infinity : Number(porNicho), estudo, abelha },
-        { log, etapa: setEtapa, parar: () => pararRef.current, gravar },
-      )
+      const ui = { log, etapa: setEtapa, parar: () => pararRef.current, gravar }
+      const r =
+        modo === 'regravar'
+          ? await regravarVideos(ui)
+          : await rodarAutomatico(
+              { cidade: cidade.trim(), nichos: lista, porNicho: porNicho === 'todos' ? Infinity : Number(porNicho), estudo, abelha },
+              ui,
+            )
+      if (modo === 'regravar') {
+        log(r.prontos ? 'ok' : 'warn', `Vídeos gravados: ${r.prontos} · sem vídeo ainda: ${r.erros}`)
+        setTimeout(() => navigate('/admin'), 2000)
+        return
+      }
       setResumo(r)
       log(pararRef.current ? 'warn' : 'ok', `${pararRef.current ? 'Parado' : 'Rodada concluída'}: ${r.prontos} cliente(s) pronto(s) para aprovar · ${r.pulados} pulado(s) · ${r.erros} com erro`)
       // Terminou o nicho: vai para a Área do Administrador. O próximo nicho só começa quando você aprovar lá.
@@ -217,11 +233,7 @@ export default function Automatico() {
             <input type="checkbox" className="accent-cyan-400 w-4 h-4" checked={abelha} onChange={(e) => setAbelha(e.target.checked)} disabled={rodando} />
             🐝 Abelha completa o site com dados públicos que têm fonte (horário, sobre, serviços) — deixa mais lento
           </label>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" className="accent-cyan-400 w-4 h-4" checked={comVideo} onChange={(e) => setComVideo(e.target.checked)} disabled={rodando} />
-            🎬 Gravar o vídeo da prévia de cada cliente
-          </label>
-          {comVideo && keys && !keys.videoServidor && (
+          {keys && !keys.videoServidor && (
             <p className="text-xs text-slate-400">
               Ao começar, o Chrome pergunta se pode <strong className="text-slate-200">compartilhar esta aba</strong>: escolha
               "Esta aba" e clique em Compartilhar. É <strong className="text-slate-200">uma vez só</strong> para todos os vídeos.
