@@ -4,7 +4,7 @@
 //   Vercel: api/index.js     (mesma app, via hono/vercel)
 
 import { Hono } from 'hono'
-import { buscarNegocios } from './pinguim.js'
+import { buscarNegocios, conferirSite } from './pinguim.js'
 import { buscarFotos, tirarPrint, linkPermitidoParaPrint } from './leao.js'
 import { estudar } from './gato.js'
 import { hospedar, listarPastas, temPasta } from './pasta.js'
@@ -46,6 +46,19 @@ app.post('/pinguim/buscar', async (c) => {
     return c.json({ error: 'Informe a categoria e a cidade.' }, 400)
   }
   return c.json(await buscarNegocios({ categoria: categoria.trim(), cidade: cidade.trim() }))
+})
+
+// Confere um negócio por vez (o app controla o ritmo para caber no limite por minuto do Firecrawl).
+app.post('/pinguim/conferir', async (c) => {
+  const { nome, cidade, telefone } = await c.req.json().catch(() => ({}))
+  if (!nome?.trim()) return c.json({ error: 'Faltou o nome do negócio.' }, 400)
+  if (!keys().firecrawl) return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
+  try {
+    return c.json(await conferirSite({ nome: nome.trim(), cidade, telefone }))
+  } catch (e) {
+    if (/limite de pedidos/.test(e.message)) return c.json({ error: e.message, code: 'LIMITE' }, 429)
+    throw e
+  }
 })
 
 app.post('/leao/fotos', async (c) => {

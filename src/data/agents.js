@@ -19,12 +19,12 @@ export const agents = [
       { key: 'cidade', label: 'Cidade / Estado', placeholder: 'ex: Ji-Paraná, RO' },
     ],
     tools: ['Google Maps (SerpApi ou Firecrawl)', 'Firecrawl Search API', 'Google Places / OpenStreetMap (reserva)'],
-    output: 'Lista de leads confirmados (nome, endereço, telefone, Maps, WhatsApp, Instagram, confiança)',
+    output: 'Lista de negócios com o veredito de cada um (tem site / não tem site), Maps, WhatsApp e Instagram',
     steps: [
       'Buscar no Google Maps (categoria + cidade)',
-      'Filtrar apenas quem não tem websiteUri',
-      'Confirmar ausência de domínio no Firecrawl',
-      'Gerar link wa.me e nível de confiança',
+      'Separar quem já tem site no Maps',
+      'Firecrawl: procurar domínio com o nome e o telefone em outros sites',
+      'Dizer de cada um: tem site ou não tem site',
     ],
   },
   {

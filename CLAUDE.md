@@ -34,8 +34,13 @@ e "Leão Dourado" foi unificado como **Leão**.
     → **página do Maps lida pelo Firecrawl** (`server/mapsPagina.js`: scrape comum da busca `maps/search/...?hl=pt-BR`
     com `location` BR + até 12 fichas para telefone/site; funciona em qualquer plano, 1 crédito por página)
     → Places Text Search → OpenStreetMap (Nominatim + Overpass em `server/osm.js`). Depois (`server/pinguim.js`): site do Maps que é
-    Instagram/WhatsApp/agregador não conta como site; outra unidade com o mesmo telefone de quem tem site é descartada;
-    Firecrawl `/v2/search` procura domínio próprio e Instagram. Sem Firecrawl, confiança fica "Médio".
+    Instagram/WhatsApp/agregador não conta como site; quem tem site no Maps (ou é outra unidade com o mesmo telefone)
+    volta em `comSite` (lista "Já têm site"); os outros voltam como leads com `conferencia: { status: 'pendente' }`.
+  - `POST /api/pinguim/conferir` (`conferirSite`) — um negócio por vez: busca `"nome" cidade` (domínio com o nome =
+    `tem`) e, se nada, `"(DD) NNNNN-NNNN"` (outro site não-diretório com o telefone = `provavel`); senão `nao`. Devolve
+    evidências (links) e quantos pedidos usou. O `LeadsTable` roda a fila sozinho com no máx. 8 pedidos/min (plano
+    grátis), mostra selo por lead (Não tem site / Tem site / Possível site com "É o site dele" ou "Não é"), pausa, e
+    num 429 (`code: 'LIMITE'`) espera 1 minuto e tenta de novo.
   - `POST /api/leao/fotos` — baixa fotos da ficha (Places Photos ou links googleusercontent.com vindos da SerpApi;
     outros hosts são recusados) sem expor chaves (`server/leao.js`).
   - `POST /api/leao/print` — print da página (Google Maps/Instagram/Facebook, lista fechada) via Firecrawl
@@ -115,7 +120,8 @@ e "Leão Dourado" foi unificado como **Leão**.
   `<iframe srcDoc>` (desktop/celular, troca de tema) com CSS compilado embutido (`src/lib/cliente.css` +
   `tailwind.cliente.config.js`, sem CDN). "Aprovar prévia" é obrigatório para liberar o ZIP final
   (`*-final.zip`); trocar o tema depois de aprovar exige nova aprovação.
-- Estado global simples em `src/store/pipeline.js` (localStorage): `leads` e `sites`.
+- Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`;
+  `lerPipeline()` lê o estado atual fora do React (laço da conferência).
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.
