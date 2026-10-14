@@ -70,7 +70,7 @@ e "Leão Dourado" foi unificado como **Leão**.
     e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
     (prioridade) → estilo do estudo → tema por segmento.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
-  - `POST /api/gato/video` (`server/video.js`) — grava 9 s da prévia em 390×844 **quadro a quadro** (print em 2× a
+  - `POST /api/gato/video` (`server/video.js`, body `{ html, segundos }`, 8–40) — grava **20 s** (padrão) da prévia em 390×844 **quadro a quadro** (print em 2× a
     20 quadros/s, juntado pelo ffmpeg-static em MP4 H.264 High 780×1688 — nítido e nunca corrompe; sem ffmpeg, cai no
     gravador do Playwright em WebM). Navegador: `acharNavegador()` = CHROMIUM_PATH → Chromium do Playwright → **Google
     Chrome / Edge instalados** (Windows/Mac/Linux). Só quando o servidor tem navegador de verdade
@@ -187,7 +187,8 @@ e "Leão Dourado" foi unificado como **Leão**.
   com clientes prontos, abre o Tigre.
   **Rápido por padrão** (pedido do usuário: "só gravar o vídeo e mandar mensagem"): estudo do Gato de **1 minuto** só no
   1º site de cada nicho (os outros reaproveitam; `nenhum` = sem estudo) e Abelha desligada (opções `v: 3` em
-  `central-agentes:automatico`); vídeo de 9 s; o
+  `central-agentes:automatico`); **vídeo de 20 s** (opção 15/20/30 s, `duracao`; `DURACAO_VIDEO` em `previa.jsx` —
+  9 s era curto demais para ver o comércio; capa 3 s + rolagem devagar); o
   vídeo + mensagem de um cliente (`finalizar`) roda enquanto o próximo site é montado (`montarSite`, fila `filaFinal`).
   Status do site: `preparando` → `revisar` **só com vídeo E mensagem** (pedido do usuário); sem vídeo → `sem_video`
   (lista "Falta o vídeo" na Área do Administrador, botão "Gravar os vídeos que faltam" → `/automatico?regravar=1` →
@@ -212,7 +213,8 @@ e "Leão Dourado" foi unificado como **Leão**.
   o Chrome gerava MP4 H.264 quebrado quando o tamanho da captura mudava no meio (recorte entrando, zoom do Windows).
   `gravarComFluxo` agora desenha a captura num **canvas de tamanho fixo** (largura 540, altura pelo formato do quadro
   medido no começo; recorte à mão se o Region Capture falhar) e grava `canvas.captureStream(30)` com `start()` sem
-  fatias (MP4 inteiro);
+  fatias (MP4 inteiro). O `<video>` da captura fica na página (2 px, quase invisível) e o canvas é redesenhado num
+  `setInterval` de 30 quadros/s — fora da página e só com `requestVideoFrameCallback`, alguns Chrome soltavam poucos quadros;
   "Já enviei" registra a mensagem (+ vídeo) na conversa (status `contatado`, site `aprovado`). Aba "Enviados" com selo,
   **"Ele respondeu"** (cola a resposta → `lerResposta` → mensagem sugerida → "Aprovar e abrir no WhatsApp" → "Já enviei"
   = `registrarEnviada`) e "Conversa completa" (`/agente/tigre?cliente=<id>`). A lógica de ler a resposta e escolher a
