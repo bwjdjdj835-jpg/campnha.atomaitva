@@ -213,7 +213,7 @@ export default function Automatico() {
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="label" htmlFor="auto-por">Clientes por nicho</label>
+              <label className="label" htmlFor="auto-por">Clientes por rodada (depois você aprova e continua)</label>
               <select id="auto-por" className="input" value={porNicho} onChange={(e) => setPorNicho(e.target.value)} disabled={rodando}>
                 {['3', '5', '10', 'todos'].map((v) => (
                   <option key={v} value={v}>{v === 'todos' ? 'Todos que acharem' : `Até ${v}`}</option>

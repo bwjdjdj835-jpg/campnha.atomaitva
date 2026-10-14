@@ -100,7 +100,9 @@ export const proximoNicho = (nichos) => nichos.find((n) => !nichosFeitos().inclu
 export async function prepararInicio({ videoServidor = false } = {}) {
   guardarFluxo(!videoServidor ? await pedirGravacaoDaAba().catch(() => null) : undefined)
 }
-export const recomecarNichos = () => setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [] } }))
+export const recomecarNichos = () => setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [], listas: {} } }))
+// O nicho já começou e ainda tem comércios na lista guardada (a próxima rodada continua nele).
+export const nichoEmAndamento = (n) => Boolean(lerPipeline().auto?.listas?.[chave(n)])
 
 // opcoes: { cidade, nichos, porNicho, estudo ('1' = 1 minuto, padrão | '0' | 'nenhum' | '3min'), abelha }
 // Um nicho por vez (pedido do usuário): para depois do 1º nicho que deixar cliente pronto — o próximo só começa
@@ -121,21 +123,33 @@ export async function rodarAutomatico(opcoes, ui) {
       continue
     }
     log('ok', `━━━━━━━━ Nicho: ${nicho} em ${cidade} ━━━━━━━━`)
-    etapa({ nicho, comercio: null, passo: '🐧 Pinguim procurando comércios sem site' })
     let achados = []
-    try {
-      const res = await runAgent('pinguim', { categoria: nicho, cidade }, onLog)
-      aplicar(res)
-      achados = (res.leads || []).filter((l) => !l.demo)
-      if (res.leads?.length && !achados.length) {
-        log('error', 'O Pinguim está em MODO DEMONSTRAÇÃO (sem fonte de Maps no servidor) — o automático só trabalha com comércios reais.')
-        break
+    // Um nicho por vez até o fim: a lista do Pinguim fica guardada e as próximas rodadas continuam nela
+    // (sem nova busca); o nicho só é dado como feito quando a lista acaba.
+    const guardada = lerPipeline().auto?.listas?.[chave(nicho)]
+    if (guardada?.length) {
+      const leads = lerPipeline().leads
+      achados = guardada.map((id) => leads.find((l) => l.id === id)).filter(Boolean)
+      log('info', `🐧 ${nicho}: continuando a lista desta busca (${achados.length} comércio(s)) — sem buscar de novo`)
+    } else {
+      etapa({ nicho, comercio: null, passo: '🐧 Pinguim procurando comércios sem site' })
+      try {
+        const res = await runAgent('pinguim', { categoria: nicho, cidade }, onLog)
+        aplicar(res)
+        achados = (res.leads || []).filter((l) => !l.demo)
+        if (res.leads?.length && !achados.length) {
+          log('error', 'O Pinguim está em MODO DEMONSTRAÇÃO (sem fonte de Maps no servidor) — o automático só trabalha com comércios reais.')
+          break
+        }
+        const ids = achados.map((l) => l.id)
+        setPipeline((s) => ({ auto: { ...(s.auto || {}), listas: { ...(s.auto?.listas || {}), [chave(nicho)]: ids } } }))
+      } catch (e) {
+        log('error', `🐧 ${nicho}: ${e.message} — indo para o próximo nicho`)
+        continue
       }
-    } catch (e) {
-      log('error', `🐧 ${nicho}: ${e.message} — indo para o próximo nicho`)
-      continue
+      log('info', `🐧 ${achados.length} comércio(s) sem site no Maps`)
     }
-    log('info', `🐧 ${achados.length} comércio(s) sem site no Maps — fazendo até ${porNicho === Infinity ? 'todos' : porNicho}`)
+    log('info', `Fazendo até ${porNicho === Infinity ? 'todos' : porNicho} cliente(s) nesta rodada; o resto do nicho fica para a próxima, depois da sua aprovação`)
 
     // Conferência adiantada: enquanto um site é montado (leituras de página), os próximos comércios já vão sendo
     // conferidos (buscas) — limites diferentes no Firecrawl, então um não espera o outro.
@@ -153,13 +167,17 @@ export async function rodarAutomatico(opcoes, ui) {
     }
 
     let feitos = 0
+    let esgotou = true // a lista do nicho acabou (todos feitos ou pulados)
     for (const [i, achado] of achados.entries()) {
+      if (parar() || feitos >= porNicho) {
+        esgotou = false
+        break
+      }
       // Deixa até 4 comércios à frente já na fila de conferência.
       for (const prox of achados.slice(i, i + 5)) {
         const l = lerPipeline().leads.find((x) => x.id === prox.id) || prox
         if (precisaConferir(l)) conferirAntes(l)
       }
-      if (parar() || feitos >= porNicho) break
       const p = lerPipeline()
       const lead = p.leads.find((x) => x.id === achado.id) || achado
       const nome = lead.nome
@@ -205,10 +223,18 @@ export async function rodarAutomatico(opcoes, ui) {
     }
     await filaFinal
     if (!parar()) {
-      setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [...new Set([...(s.auto?.feitos || []), chave(nicho)])] } }))
-      log('ok', `✔ ${nicho}: ${feitos} cliente(s) pronto(s) para aprovar`)
       resumo.nicho = nicho
-      if (resumo.prontos > 0) break // espera sua aprovação antes do próximo nicho
+      if (esgotou) {
+        setPipeline((s) => {
+          const listas = { ...(s.auto?.listas || {}) }
+          delete listas[chave(nicho)]
+          return { auto: { ...(s.auto || {}), listas, feitos: [...new Set([...(s.auto?.feitos || []), chave(nicho)])] } }
+        })
+        log('ok', `✔ ${nicho}: lista do nicho concluída — ${feitos} cliente(s) pronto(s) nesta rodada`)
+      } else {
+        log('ok', `✔ ${nicho}: ${feitos} cliente(s) pronto(s) — ainda há comércios de ${nicho} na lista; a próxima rodada continua em ${nicho}`)
+      }
+      if (!esgotou || resumo.prontos > 0) break // espera sua aprovação antes de continuar
       log('info', `${nicho}: nenhum cliente novo — indo para o próximo nicho`)
     }
   }
