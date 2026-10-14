@@ -16,6 +16,11 @@ function atualizarLead(id, campos) {
 // Confere um por um os leads "pendentes", sem passar do limite por minuto. Roda enquanto a página está aberta.
 function useConferencia(leads) {
   const [pausado, setPausado] = useState(false)
+  // Leads achados antes da conferência existir (só tinham Alto/Médio): entram na fila também.
+  useEffect(() => {
+    if (!leads.some((l) => !l.demo && !l.conferencia)) return
+    setPipeline((s) => ({ leads: s.leads.map((l) => (!l.demo && !l.conferencia ? { ...l, conferencia: { status: 'pendente' } } : l)) }))
+  }, [leads])
   const [esperando, setEsperando] = useState(null) // segundos até poder pedir de novo
   const rodando = useRef(false)
   const pausadoRef = useRef(false)
@@ -195,13 +200,7 @@ export default function LeadsTable({ leads }) {
                   <div className="text-xs text-slate-500">{l.endereco}</div>
                   <div className="text-sm font-mono text-slate-300 mt-0.5">{l.telefone}</div>
                 </div>
-                {l.conferencia ? (
-                  <Selo c={l.conferencia} />
-                ) : (
-                  <span className={`text-xs px-2 py-1 rounded-full ${l.confianca === 'Alto' ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}>
-                    {l.confianca}
-                  </span>
-                )}
+                {!l.demo && <Selo c={l.conferencia || { status: 'pendente' }} />}
               </div>
               {['tem', 'provavel'].includes(l.conferencia?.status) && (
                 <div className="space-y-1">
