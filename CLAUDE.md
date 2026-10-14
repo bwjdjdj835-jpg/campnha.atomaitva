@@ -200,8 +200,12 @@ e "Leão Dourado" foi unificado como **Leão**.
   automático nem começa, e parar de compartilhar a aba para a rodada. O próximo nicho só libera com "Para aprovar" e
   "Falta o vídeo" vazios. O quadro de gravação fica montado a rodada
   inteira (`gravarComFluxo` só recorta de novo se o quadro mudar e tem tempo máximo em cada passo — antes o 2º vídeo travava).
-  **Um nicho por vez** (pedido do usuário): `rodarAutomatico` para depois do 1º nicho com cliente pronto (nicho sem
-  cliente passa direto) e devolve `resumo.proximo` (`proximoNicho`). O próximo só começa pela Área do Administrador,
+  **Um nicho por vez, até acabar a lista** (pedido do usuário): a lista do Pinguim do nicho fica em `auto.listas[nicho]`
+  (ids dos leads) e as rodadas seguintes continuam nela sem nova busca; cada rodada faz até "Clientes por rodada"
+  (`porNicho`) e para para aprovação; o nicho só entra em `auto.feitos` quando a lista acaba (`esgotou`). Botão
+  "Continuar: <nicho>" (`nichoEmAndamento`) até o fim, depois "Começar: <próximo>". "Recomeçar" limpa `listas`.
+  `rodarAutomatico` para depois do nicho com cliente pronto (nicho sem cliente passa direto) e devolve
+  `resumo.proximo` (`proximoNicho`). O próximo só começa pela Área do Administrador,
   quando não há nada para aprovar nem sendo preparado: botão "Começar: <nicho>" → `prepararInicio` (pede a gravação no
   clique; a tela inicial usa o mesmo) → `/automatico?iniciar=1`. Antes, o automático seguia sozinho para o nicho
   seguinte e, se você saísse da página para aprovar, a gravação era encerrada (salão ficou sem vídeo).

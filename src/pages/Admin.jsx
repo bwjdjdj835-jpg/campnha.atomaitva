@@ -7,7 +7,7 @@ import { lerZip } from '../lib/zipStore.js'
 import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
 import { lerResposta, registrarEnviada } from '../services/tigreConversa.js'
-import { NICHOS_PADRAO, proximoNicho, prepararInicio, conferirProntos } from '../services/automatico.js'
+import { NICHOS_PADRAO, proximoNicho, prepararInicio, conferirProntos, nichoEmAndamento } from '../services/automatico.js'
 import { lerOpcoes } from './Automatico.jsx'
 
 // 🛡️ Área do Administrador: tudo o que a IA fez no modo automático passa por aqui.
@@ -140,10 +140,10 @@ export default function Admin() {
             <div className="glass flex flex-wrap items-center gap-4 border-neon/30 p-5">
               <div className="flex-1 min-w-0">
                 <div className="font-display text-lg font-semibold text-white">Tudo aprovado! ✅</div>
-                <p className="text-sm text-slate-400">Próximo nicho da lista: <strong className="text-white">{proximo}</strong>. O Chrome vai pedir para compartilhar esta aba (para gravar os vídeos).</p>
+                <p className="text-sm text-slate-400">{nichoEmAndamento(proximo) ? 'Ainda tem comércios sem site em' : 'Próximo nicho da lista:'} <strong className="text-white">{proximo}</strong>. O Chrome vai pedir para compartilhar esta aba (para gravar os vídeos).</p>
               </div>
               <button className="btn-primary text-base py-3 px-5" onClick={comecarProximo} disabled={iniciando}>
-                {iniciando ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />} Começar: {proximo}
+                {iniciando ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />} {nichoEmAndamento(proximo) ? 'Continuar' : 'Começar'}: {proximo}
               </button>
             </div>
           )}
