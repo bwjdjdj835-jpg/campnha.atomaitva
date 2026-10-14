@@ -13,7 +13,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { z } from 'zod'
-import { MODELOS, classificarPorPalavras, opcaoDeAtendente } from '../src/lib/tigreTextos.js'
+import { MODELOS, classificarPorPalavras, opcaoDeAtendente, respostaPorPalavras } from '../src/lib/tigreTextos.js'
 
 const MODELO = 'claude-opus-5-5'
 const MODELO_GROQ = () => process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
@@ -64,15 +64,22 @@ export async function gerarMensagem({ tipo, negocio, historico = [], url }) {
   // Opção de "falar com atendente" no menu do robô (ex.: "3"), vinda da última mensagem dele.
   const ultimaDoCliente = [...historico].reverse().find((m) => m.de === 'cliente')?.texto || ''
   const opcao = tipo === 'pessoa' ? opcaoDeAtendente(ultimaDoCliente) : ''
+  // Texto pronto (sem IA ou IA fora do ar): a resposta olha a última mensagem do cliente.
+  const pronto = () => (tipo === 'resposta' ? respostaPorPalavras(ultimaDoCliente, negocio) : (MODELOS[tipo] || MODELOS.primeiro)(negocio, opcao))
   const ia = provedorIA()
-  if (!ia) return { texto: (MODELOS[tipo] || MODELOS.primeiro)(negocio, opcao), fonte: 'modelo' }
+  if (!ia) return { texto: pronto(), fonte: 'modelo' }
   const pedido = {
     primeiro:
       'Escreva a PRIMEIRA mensagem de contato oferecendo um site exclusivo com as fotos do negócio e perguntando se querem ver uma prévia. Use como base: "' +
       MODELOS.primeiro(negocio) +
       '"',
     fechamento: 'O cliente demonstrou interesse. Escreva a mensagem de fechamento dizendo que o link do site é enviado assim que o pagamento for confirmado.',
-    resposta: 'Escreva a próxima resposta ao cliente, respondendo o que ele disse na última mensagem.',
+    resposta:
+      'Escreva a próxima resposta ao cliente, respondendo exatamente o que ele disse na ÚLTIMA mensagem, como um vendedor humano, educado e sem pressão. Casos: perguntou preço → não invente valor, diga que depende do que precisam e ofereça mandar a prévia/combinar; pediu para ver → diga que vai mandar o vídeo da prévia agora; quer fechar → explique que o site vai ao ar e o link é enviado assim que o pagamento for confirmado; perguntou quem é ou como achou o número → apresente-se (cria sites para comércios da região, achou o negócio no Google Maps); desconfiou de golpe → tranquilize (não precisa pagar nada para ver a prévia); número errado ou engano → peça desculpa e encerre; está ocupado → diga para chamar quando puder; mensagem confusa → peça para explicar de um jeito simples. Nunca insista depois de um não.',
+    despedida:
+      'O cliente recusou de novo. Escreva UMA mensagem curta agradecendo a atenção e encerrando a conversa com simpatia, sem oferecer nada e sem insistir. Base: "' +
+      MODELOS.despedida(negocio) +
+      '"',
     olhada:
       'O cliente disse que não quer o site agora, mas NÃO pediu para parar de receber mensagens. Escreva UMA resposta curta e gentil: aceite o não, sem insistir, sem desconto e sem pressão, e só convide a dar uma olhada no projeto (a prévia do site) que já foi feito, sem compromisso. Base: "' +
       MODELOS.olhada(negocio) +
@@ -91,7 +98,7 @@ export async function gerarMensagem({ tipo, negocio, historico = [], url }) {
       return { texto: await groq({ system: SISTEMA, user: conteudo }), fonte: 'groq' }
     } catch (e) {
       // Groq fora do ar, chave errada ou limite: usa o texto pronto e avisa.
-      return { texto: (MODELOS[tipo] || MODELOS.primeiro)(negocio, opcao), fonte: 'modelo', aviso: e.message }
+      return { texto: pronto(), fonte: 'modelo', aviso: e.message }
     }
   }
   const resposta = await claude().beta.messages.create({

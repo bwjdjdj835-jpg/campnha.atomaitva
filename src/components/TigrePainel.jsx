@@ -104,7 +104,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
   const gerar = (tipo) =>
     tarefa('gerar', async () => {
       setTexto((await rascunho(tipo, negocio, conversa.mensagens)).texto)
-      setTipoRascunho(['olhada', 'pessoa'].includes(tipo) ? tipo : null)
+      setTipoRascunho(['olhada', 'pessoa', 'despedida'].includes(tipo) ? tipo : null)
     })
 
   const enviarApi = () =>
@@ -130,9 +130,8 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
       }
       const historico = [...conversa.mensagens, { de: 'cliente', texto: resposta }]
       setTipoRascunho(null)
-      if (r.intencao === 'interesse') setTexto((await rascunho('fechamento', negocio, historico)).texto)
-      else if (r.intencao === 'duvida') setTexto((await rascunho('resposta', negocio, historico)).texto)
-      else if (r.intencao === 'bot') {
+      // O Tigre sempre sugere a próxima mensagem (menos quando pediram para parar). Você confere e envia.
+      if (r.intencao === 'bot') {
         // Robô (resposta automática / menu): pede para falar com uma pessoa, escolhendo a opção de atendente se houver.
         setTexto((await rascunho('pessoa', negocio, historico)).texto)
         setTipoRascunho('pessoa')
@@ -140,10 +139,11 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
           `Quem respondeu foi um robô (atendimento automático).${r.opcao ? ` O menu tem a opção ${r.opcao} para falar com atendente — já coloquei na mensagem.` : ''} Sugestão: pedir para falar com o responsável ou alguém da equipe.`,
         )
       } else if (r.intencao === 'recusa') {
-        // "Não quero agora": uma única mensagem leve de "só dá uma olhada". Se recusar de novo, para por aqui.
+        // "Não quero agora": uma única mensagem leve de "só dá uma olhada". Se recusar de novo, só agradece e encerra.
         if (conversa.mensagens.some((m) => m.tipo === 'olhada')) {
-          setTexto('')
-          setAviso('Recusou de novo depois do "só dá uma olhada" — melhor parar por aqui e não insistir.')
+          setTexto((await rascunho('despedida', negocio, historico)).texto)
+          setTipoRascunho('despedida')
+          setAviso('Recusou de novo depois do "só dá uma olhada" — sugestão: só agradecer e encerrar, sem insistir.')
         } else {
           setTexto((await rascunho('olhada', negocio, historico)).texto)
           setTipoRascunho('olhada')
@@ -151,6 +151,10 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
             `Leitura da resposta: ${r.resumo} Sugestão: uma mensagem leve, só pra ele dar uma olhada no projeto${video ? ' (mande o vídeo da prévia junto)' : ''}. Só uma vez — sem insistir.`,
           )
         }
+      } else {
+        // Interesse, pergunta ou qualquer outra coisa (preço, "quem é?", engano, desconfiança…): responde o que ele disse.
+        setTexto((await rascunho('resposta', negocio, historico)).texto)
+        setAviso(`Leitura da resposta: ${r.resumo} A resposta sugerida está na caixa acima — confira e envie pelo seu WhatsApp.`)
       }
     })
 
@@ -300,7 +304,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
             placeholder="Escreva ou gere uma mensagem"
           />
           <div className="flex flex-wrap gap-2">
-            <button className="btn-ghost border border-white/10" onClick={() => gerar(primeiroContato ? 'primeiro' : interessado ? 'fechamento' : conversa.status === 'bot' ? 'pessoa' : conversa.status === 'recusou' && !jaMandouOlhada ? 'olhada' : 'resposta')} disabled={!!ocupado}>
+            <button className="btn-ghost border border-white/10" onClick={() => gerar(primeiroContato ? 'primeiro' : conversa.status === 'bot' ? 'pessoa' : conversa.status === 'recusou' ? (jaMandouOlhada ? 'despedida' : 'olhada') : 'resposta')} disabled={!!ocupado}>
               {ocupado === 'gerar' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Gerar outra
             </button>
             <button className="btn-ghost border border-white/10" onClick={copiar} disabled={!texto.trim()}>
@@ -392,7 +396,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
           />
           <div className="flex flex-wrap gap-2">
             <button className="btn-ghost border border-white/10" onClick={registrarResposta} disabled={!resposta.trim() || !!ocupado}>
-              {ocupado === 'classificar' ? <Loader2 size={16} className="animate-spin" /> : <Inbox size={16} />} Registrar resposta
+              {ocupado === 'classificar' ? <Loader2 size={16} className="animate-spin" /> : <Inbox size={16} />} Ler e sugerir resposta
             </button>
             <button className="btn-ghost text-rose-300 hover:bg-rose-400/10" onClick={naoContatar}>
               <Ban size={16} /> Marcar como não contatar

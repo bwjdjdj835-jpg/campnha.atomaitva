@@ -10,6 +10,8 @@ export const MODELOS = {
   // Cliente disse "não quero agora" (sem pedir para parar): uma resposta leve, sem insistir, só uma vez.
   olhada: () =>
     'Tudo bem, sem problema! 😊 Só dá uma olhadinha no projeto que eu preparei pra vocês, sem compromisso nenhum. Se um dia fizer sentido, é só me chamar aqui.',
+  // Recusou de novo depois do "só dá uma olhada": agradece e encerra, sem insistir.
+  despedida: () => 'Tudo bem, obrigado pela atenção! 🙏 Desejo muito sucesso pra vocês. Se um dia precisarem de um site, é só me chamar aqui.',
   // Quem respondeu foi um robô (resposta automática / menu do WhatsApp Business): pedir para falar com uma pessoa.
   pessoa: (n, opcao) =>
     `${opcao ? `${opcao}\n\n` : ''}Oi, tudo bem? Eu gostaria de falar com o responsável${n.nome ? ` pela ${n.nome}` : ''} ou com alguém da equipe, por favor. É sobre um site que eu preparei pra vocês — é rapidinho!`,
@@ -41,3 +43,34 @@ export function classificarPorPalavras(texto) {
   return { intencao: 'outro', resumo: 'Resposta sem intenção clara.' }
 }
 
+
+// Resposta à última mensagem do cliente quando não há IA: casos comuns em que a conversa sai do roteiro.
+// Nunca inventa preço, prazo ou promoção.
+const RESPOSTAS = [
+  [/(engano|n[uú]mero errado|n[aã]o (é|e|sou) (daqui|eu|d[aoe]ss[ae])|n[aã]o conhe[cç]o|pessoa errada)/i,
+    () => 'Opa, desculpa o engano! Obrigado por avisar e tenha um ótimo dia. 🙏'],
+  [/(golpe|spam|fake|confi[aá]vel|confian[cç]a|seguro\b|desconfi)/i,
+    (n) => `Entendo a desconfiança, é bom mesmo tomar cuidado! Não precisa pagar nada pra ver: é só uma prévia do site que eu montei${n.nome ? ` pra ${n.nome}` : ''}. Se gostar, a gente conversa; se não, sem problema nenhum.`],
+  [/(quem (é|e|fala|s[aã]o)|como (conseguiu|achou|pegou)|onde (conseguiu|achou|pegou)|de onde (vc|voc[eê])|qual (empresa|o seu nome))/i,
+    (n) => `Desculpa não ter me apresentado! Eu crio sites para comércios aqui da região e encontrei${n.nome ? ` a ${n.nome}` : ' vocês'} no Google Maps. Preparei uma prévia de site pra vocês — posso te mostrar?`],
+  [/(quanto (custa|fica|é|e|sai|cobra)|valor|pre[cç]o|or[cç]amento|mensalidade|caro)/i,
+    () => 'Ótima pergunta! O valor depende do que vocês precisam no site. Posso te mandar a prévia que eu já fiz e aí a gente combina um valor que caiba no bolso de vocês. Pode ser?'],
+  [/(fechad[oa]|bora|vamos fechar|quero (fazer|contratar|fechar)|pode fazer|como (eu )?pago|pix)/i,
+    () => 'Perfeito! 🎉 Assim que o pagamento for confirmado, eu coloco o site no ar e te mando o link aqui.'],
+  [/(quero ver|pode mandar|manda( a| o)?( pr[eé]via| v[ií]deo| ai| aí)?|mostra|deixa eu ver|tenho interesse|interessad)/i,
+    () => 'Que bom! 😊 Vou te mandar agora o vídeo da prévia do site. Dá uma olhada e me diz o que achou!'],
+  [/(como funciona|o que (é|e) isso|que site|explica|n[aã]o entendi)/i,
+    (n) => `É simples: eu montei um site com as fotos e as informações${n.nome ? ` da ${n.nome}` : ''}. Se vocês gostarem, eu coloco no ar com um endereço próprio e o botão do WhatsApp. Posso te mandar a prévia pra ver como ficou?`],
+  [/(ocupad|depois|mais tarde|agora n[aã]o posso|t[oô] trabalhando|outra hora)/i,
+    () => 'Sem problema! Fica à vontade — quando tiver um tempinho, me chama aqui. 😊'],
+  [/^\s*(oi|ol[aá]|opa|bom dia|boa tarde|boa noite|e a[ií]|tudo bem)[\s!?.,]*$/i,
+    (n) => `Oi! Tudo bem? 😊 Eu preparei uma prévia de site${n.nome ? ` pra ${n.nome}` : ' pra vocês'} — posso te mandar pra você dar uma olhada?`],
+  [/(obrigad|valeu|show|legal|top|gostei|ficou (bom|lindo|bonito))/i,
+    () => 'Eu que agradeço! 😊 Se quiser, já deixo tudo pronto pra colocar o site no ar. É só me falar.'],
+]
+
+export function respostaPorPalavras(texto, n = {}) {
+  const achada = RESPOSTAS.find(([re]) => re.test(String(texto || '')))
+  if (achada) return achada[1](n)
+  return `Entendi! Qualquer dúvida é só me falar. Posso te mandar a prévia do site que eu preparei${n.nome ? ` pra ${n.nome}` : ''}?`
+}

@@ -106,6 +106,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   **Robô** (resposta automática, menu, assistente virtual — regex `BOT`, intenção `bot`, status "Respondeu um robô") →
   rascunho `pessoa` pedindo para falar com o responsável/alguém da equipe; `opcaoDeAtendente` acha no menu o número da
   opção "falar com atendente" (inclusive 2️⃣) e põe na 1ª linha da mensagem.
+  **Conversa contínua:** toda resposta colada ("Ler e sugerir resposta") gera a próxima mensagem — interesse, dúvida e
+  "outro" usam o rascunho `resposta` (a IA responde a última mensagem; sem IA, `respostaPorPalavras`: preço sem inventar
+  valor, "quem é?", golpe, engano, "pode mandar", fechar, ocupado, "como funciona", saudação). Recusou de novo depois
+  da `olhada` → `despedida` (agradece e encerra). Só "parar" não gera nada.
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
 - Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo),
   **modelo premium** (pedido do usuário a partir de um roteiro do Lovable; cada seção só aparece com dado):

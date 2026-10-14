@@ -20,7 +20,7 @@ import { siteFiles } from '../lib/siteTemplate.js'
 import { temaSugerido } from '../lib/ClienteSite.jsx'
 import { conteudoSugerido } from '../lib/conteudoSugerido.js'
 import { salvarZip, lerZip } from '../lib/zipStore.js'
-import { MODELOS, classificarPorPalavras, opcaoDeAtendente } from '../lib/tigreTextos.js'
+import { MODELOS, classificarPorPalavras, opcaoDeAtendente, respostaPorPalavras } from '../lib/tigreTextos.js'
 import { auditar } from '../lib/auditoria.js'
 import { tipoDoLink, acharLeadPorLink, nomeDoTitulo, recortarCapaDoMaps, linkBuscaMaps } from '../lib/links.js'
 
@@ -713,7 +713,12 @@ export async function rascunho(tipo, negocio, historico = [], url) {
   } catch (e) {
     if (e.code !== 'OFFLINE') throw e
     const ultima = [...historico].reverse().find((m) => m.de === 'cliente')?.texto
-    const texto = tipo === 'link' ? MODELOS.link(negocio, url) : (MODELOS[tipo] || MODELOS.primeiro)(negocio, tipo === 'pessoa' ? opcaoDeAtendente(ultima) : '')
+    const texto =
+      tipo === 'link'
+        ? MODELOS.link(negocio, url)
+        : tipo === 'resposta'
+          ? respostaPorPalavras(ultima, negocio)
+          : (MODELOS[tipo] || MODELOS.primeiro)(negocio, tipo === 'pessoa' ? opcaoDeAtendente(ultima) : '')
     return { texto, fonte: 'modelo' }
   }
 }
