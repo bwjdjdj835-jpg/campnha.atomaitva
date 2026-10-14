@@ -4,6 +4,7 @@ import { MapPin, MessageCircle, Instagram, Copy, Check, ArrowRight, Search, Glob
 import { linkBuscaInstagram } from '../lib/links.js'
 import { conferirSite } from '../services/agents.js'
 import { lerPipeline, setPipeline, usePipeline } from '../store/pipeline.js'
+import { SELO_CONTATO, chaveContato, contatoDoLead } from '../lib/contato.js'
 
 // O plano grátis do Firecrawl aceita ~10 pedidos por minuto; cada negócio usa até 2 (nome e telefone).
 const PEDIDOS_POR_MINUTO = 8
@@ -159,12 +160,39 @@ const cidadeDe = (endereco = '') => endereco.split(' - ').slice(-2).join(' ')
 
 const ORDEM = { nao: 0, provavel: 2, tem: 3 }
 
+// Marcação manual (você mandou mensagem fora do Tigre): fica guardada pelo telefone.
+function marcarContato(lead, status) {
+  setPipeline((s) => {
+    const contatos = { ...(s.contatos || {}) }
+    if (status) contatos[chaveContato(lead)] = { status, nome: lead.nome, em: new Date().toISOString() }
+    else delete contatos[chaveContato(lead)]
+    return { contatos }
+  })
+}
+
+function SeloContato({ c }) {
+  if (!c) return null
+  const s = SELO_CONTATO[c.status]
+  return (
+    <span title={c.manual ? 'Marcado por você' : 'Pela conversa no 🐯 Tigre'} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${s.cor}`}>
+      {s.texto}
+    </span>
+  )
+}
+
 export default function LeadsTable({ leads }) {
   const navigate = useNavigate()
   const { pendentes, pausado, setPausado, esperando } = useConferencia(leads)
+  const pipeline = usePipeline()
   if (!leads.length) return null
   const conta = (st) => leads.filter((l) => l.conferencia?.status === st).length
-  const ordenados = [...leads].sort((a, b) => (ORDEM[a.conferencia?.status] ?? 1) - (ORDEM[b.conferencia?.status] ?? 1))
+  const contato = Object.fromEntries(leads.map((l) => [l.id, contatoDoLead(l, pipeline)]))
+  // Quem você já procurou (mensagem enviada, recusou…) vai para o fim da lista; "site feito" ainda está por mandar.
+  const jaFalou = (l) => contato[l.id] && contato[l.id].status !== 'site_feito'
+  const contatados = leads.filter(jaFalou).length
+  const ordenados = [...leads].sort(
+    (a, b) => jaFalou(a) - jaFalou(b) || (ORDEM[a.conferencia?.status] ?? 1) - (ORDEM[b.conferencia?.status] ?? 1),
+  )
   return (
     <div className="glass overflow-hidden">
       <div className="px-5 py-3 border-b border-white/5 flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -172,6 +200,7 @@ export default function LeadsTable({ leads }) {
         <span className="text-xs text-emerald-300">{conta('nao')} sem site</span>
         {conta('provavel') > 0 && <span className="text-xs text-amber-300">{conta('provavel')} possível site</span>}
         {conta('tem') > 0 && <span className="text-xs text-rose-300">{conta('tem')} com site</span>}
+        {contatados > 0 && <span className="text-xs text-sky-300">{contatados} já contatado(s)</span>}
         <span className="ml-auto text-xs text-slate-400">{leads.length} negócio(s)</span>
       </div>
       {pendentes > 0 && (
@@ -200,8 +229,28 @@ export default function LeadsTable({ leads }) {
                   <div className="text-xs text-slate-500">{l.endereco}</div>
                   <div className="text-sm font-mono text-slate-300 mt-0.5">{l.telefone}</div>
                 </div>
-                {!l.demo && <Selo c={l.conferencia || { status: 'pendente' }} />}
+                <div className="flex flex-wrap gap-1.5">
+                  <SeloContato c={contato[l.id]} />
+                  {!l.demo && <Selo c={l.conferencia || { status: 'pendente' }} />}
+                </div>
               </div>
+              {!l.demo && (!contato[l.id] || contato[l.id].manual || contato[l.id].status === 'site_feito') && (
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-slate-500">Já falou com ele fora do Tigre?</span>
+                  {[
+                    ['contatado', 'Já mandei mensagem'],
+                    ['recusou', 'Não quer site ainda'],
+                  ].map(([st, rotulo]) => (
+                    <button
+                      key={st}
+                      className={`btn-ghost border !py-1 !px-2 text-xs ${contato[l.id]?.status === st ? 'border-neon/50 text-neon' : 'border-white/10'}`}
+                      onClick={() => marcarContato(l, contato[l.id]?.status === st ? null : st)}
+                    >
+                      {rotulo}
+                    </button>
+                  ))}
+                </div>
+              )}
               {['tem', 'provavel'].includes(l.conferencia?.status) && (
                 <div className="space-y-1">
                   {(l.conferencia.evidencias || []).map((e) => (

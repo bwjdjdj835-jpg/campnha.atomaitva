@@ -161,7 +161,12 @@ e "Leão Dourado" foi unificado como **Leão**.
   `<iframe srcDoc>` (desktop/celular, troca de tema) com CSS compilado embutido (`src/lib/cliente.css` +
   `tailwind.cliente.config.js`, sem CDN). "Aprovar prévia" é obrigatório para liberar o ZIP final
   (`*-final.zip`); trocar o tema depois de aprovar exige nova aprovação.
-- Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`;
+- **Selo de contato** (`src/lib/contato.js`, `contatoDoLead`): cada comércio mostra "⏳ Aguardando resposta", "🙅 Não quer
+  site ainda", "🔥 Interessado", "⛔ Não contatar" etc. pela conversa do Tigre (site do lead, ou mesmo telefone/nome) ou
+  por marcação manual na lista do Pinguim ("Já mandei mensagem" / "Não quer site ainda", em `contatos` pela chave do
+  telefone — vale quando o Pinguim acha o comércio de novo). Contatados vão para o fim da lista; o selo aparece também
+  nos seletores do Leão e do Tigre e em "Sites gerados".
+- Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência).
 
 ## Próximos passos (em ordem)

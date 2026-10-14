@@ -8,6 +8,7 @@ import LogConsole from '../components/LogConsole.jsx'
 import LeadsTable, { JaTemSite } from '../components/LeadsTable.jsx'
 import { runAgent, listarPastas, encerrarEstudo } from '../services/agents.js'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
+import { SELO_CONTATO, contatoDoLead, rotuloContato } from '../lib/contato.js'
 const GatoPreview = lazy(() => import('../components/GatoPreview.jsx'))
 const PreviaLeao = lazy(() => import('../components/PreviaLeao.jsx'))
 import TigrePainel from '../components/TigrePainel.jsx'
@@ -22,7 +23,8 @@ export default function AgentPageRota() {
 function AgentPage() {
   const { id } = useParams()
   const agent = getAgent(id)
-  const { leads, sites, conversas } = usePipeline()
+  const pipeline = usePipeline()
+  const { leads, sites, conversas } = pipeline
   const keys = useApiStatus()
   const [busca] = useSearchParams()
   // "Mandar pro Leão" abre esta página com ?link=… já preenchido (e o Leão manda pro Gato com ?site=…).
@@ -115,7 +117,7 @@ function AgentPage() {
                     <option value="">{f.placeholder}</option>
                     {sites.filter((x) => ['aprovado', 'vendido', 'publicado'].includes(x.status)).map((x) => (
                       <option key={x.id} value={x.id}>
-                        {x.demo ? '[DEMO] ' : ''}{x.nome}{conversas?.[x.id]?.status === 'nao_contatar' ? ' — não contatar' : ''}
+                        {x.demo ? '[DEMO] ' : ''}{x.nome}{SELO_CONTATO[conversas?.[x.id]?.status] ? ` — ${SELO_CONTATO[conversas[x.id].status].texto}` : ''}
                       </option>
                     ))}
                   </select>
@@ -154,7 +156,7 @@ function AgentPage() {
                     <option value="">{f.placeholder}</option>
                     {leads.map((l) => (
                       <option key={l.id} value={l.id}>
-                        {l.demo ? '[DEMO] ' : ''}{l.nome} — {l.endereco}
+                        {l.demo ? '[DEMO] ' : ''}{l.nome} — {l.endereco}{rotuloContato(contatoDoLead(l, pipeline))}
                       </option>
                     ))}
                   </select>
@@ -319,7 +321,7 @@ function useApiStatus() {
 }
 
 function SitesList() {
-  const { sites } = usePipeline()
+  const { sites, conversas = {} } = usePipeline()
   if (!sites.length) return null
   return (
     <div className="glass overflow-hidden">
@@ -332,6 +334,10 @@ function SitesList() {
           <li key={s.id} className="flex items-center gap-3 px-5 py-3 border-t border-white/5 first:border-t-0 text-sm">
             <span className="text-white font-medium">{s.nome}</span>
             {s.demo && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-300">DEMO</span>}
+            {(() => {
+              const selo = SELO_CONTATO[conversas[s.id]?.status] || SELO_CONTATO.site_feito
+              return <span className={`text-xs px-2 py-0.5 rounded-full ${selo.cor}`}>{selo.texto}</span>
+            })()}
             <span className="ml-auto font-mono text-xs text-slate-400 truncate">{s.zip}</span>
           </li>
         ))}

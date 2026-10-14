@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react'
 // Estado global simples do pipeline, persistido no localStorage.
 // TODO (Claude Code): migrar para backend (Supabase/Postgres) quando as APIs reais entrarem.
 const KEY = 'central-agentes:v1'
-const empty = { leads: [], sites: [], conversas: {}, comSite: [] }
+const empty = { leads: [], sites: [], conversas: {}, comSite: [], contatos: {} }
 
 let state = load()
 const listeners = new Set()
