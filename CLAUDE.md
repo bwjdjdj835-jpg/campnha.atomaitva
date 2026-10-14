@@ -47,11 +47,14 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/leao/hospedar` + `GET /api/leao/pastas` (`server/pasta.js`) — **pasta online** no Vercel Blob
     (`BLOB_READ_WRITE_TOKEN`, store público): o Leão sobe `sites/<slug>-<id>/fotos/*`, `prints/*` e `dados.json`
     (cada imagem ganha `hospedada` com o link). Um arquivo por requisição (limite ~4,5 MB da função).
-  - `POST /api/gato/estudar` (`server/gato.js`, `estudar`) → `{ referencias, cursos, secoes }`:
-    referências fixas (21st.dev, GSAP) + 3 buscas no Firecrawl v2 por vitrines de profissionais via `includeDomains`
-    (Awwwards/Behance/Dribbble; Webflow/Framer/ThemeForest) e sites brasileiros do ramo; + 2 buscas de **cursos e
-    tutoriais grátis** com `scrapeOptions` (markdown) cujo texto é varrido para contar as seções recomendadas
-    (`SECOES`; `temos: false` = depoimentos/preços/equipe, que precisam de dado real). A busca v2 não aceita `lang`.
+  - `POST /api/gato/estudar` (`server/gato.js`, `estudar(categoria, modelos)`) → `{ referencias, cursos, secoes, modelos }`:
+    referências fixas (21st.dev, GSAP, Code Eagle = nextcodeeagle.com) + 4 buscas no Firecrawl v2 via `includeDomains`:
+    vitrines (Awwwards/Behance/Dribbble/Webflow/Framer/ThemeForest), favoritos do usuário (21st.dev/Code Eagle/GSAP),
+    modelos grátis (HTML5 UP/templatemo/free-css/One Page Love/Colorlib) e sites BR do ramo; + 1 busca de **cursos
+    grátis** com `scrapeOptions` (markdown); + até `MAX_MODELOS` = 4 **sites modelo colados pelo usuário**, lidos com
+    `formats: ['markdown','branding']` (cores, fonte, claro/escuro). As seções (`SECOES`; `temos: false` =
+    depoimentos/preços/equipe, que precisam de dado real) são contadas nos cursos + modelos. Total ≤ 9 pedidos, para
+    caber no limite de ~10 pedidos/min do plano grátis. A busca v2 não aceita `lang`.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
   - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,
     opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Precisa `npx playwright-core install chromium`
@@ -73,7 +76,7 @@ e "Leão Dourado" foi unificado como **Leão**.
   Rascunho → "Aprovar e enviar" (API) ou "Abrir no meu WhatsApp" + "Já enviei". Resposta colada é
   classificada (interesse → alerta + rascunho de fechamento; pedido de parar → `nao_contatar`, contato bloqueado).
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
-- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 4 temas: noite/claro/studio/vibrante):
+- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo):
   capa grande com água, destaques (nota, horário, cidade, WhatsApp — só dados reais), Sobre, Serviços, galeria em
   mosaico, faixa de contato com foto de fundo, contato + mapa, botão fixo de WhatsApp.
   Vai como texto (`?raw`) para `src/Site.jsx` do ZIP e renderiza a prévia — prévia aprovada = site entregue.
@@ -83,6 +86,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   seguindo o cursor (refração em canvas), gota de abertura, garoa a cada 8 s; para sozinho e volta à foto nítida.
   Áreas marcadas com `data-agua` no `ClienteSite`. A prévia (`src/lib/previa.jsx`, usada por Leão e Gato) embute o script
   e o iframe tem `allow-scripts` (sem `allow-same-origin`).
+- Gato: campo "Sites modelo" (textarea, `lembrar: true` em `src/data/agents.js` → guardado no localStorage por
+  `AgentPage`). Em "Seus sites modelo" o botão "Usar cores e fonte deste modelo" liga o tema `modelo` do `ClienteSite`
+  (classes com `var(--m-*)`, valores de `dados.modelo.estilo`; fonte pelo Google Fonts na prévia e no `index.html`).
 - Site amplo: o Gato completa `dados.conteudo` com `src/lib/conteudoSugerido.js` (sobre, serviços, diferenciais,
   passos, faq típicos do segmento — sem preço, ano, prêmio ou nome; o nome do negócio é o sujeito da frase para não
   errar gênero). Campos sugeridos ficam em `conteudo.sugerido`; o `EditorConteudo` do `GatoPreview` deixa editar

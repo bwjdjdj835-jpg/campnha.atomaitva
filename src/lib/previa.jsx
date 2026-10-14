@@ -22,6 +22,13 @@ export async function fotosEmDataUrl(fotos) {
   return Object.fromEntries(pares)
 }
 
+// Fonte do site modelo (Google Fonts), quando o tema "Do modelo" está ativo.
+export function linkDaFonte(dados) {
+  const fonte = dados.tema === 'modelo' && dados.modelo?.estilo?.fonte
+  if (!fonte || !/^[\w -]{2,40}$/.test(fonte)) return ''
+  return `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(fonte).replace(/%20/g, '+')}:wght@400;600;700;800&display=swap">`
+}
+
 export function htmlDaPrevia(dados, fotosUrl) {
   const comFotos = {
     ...dados,
@@ -32,7 +39,7 @@ export function htmlDaPrevia(dados, fotosUrl) {
   const html = renderToStaticMarkup(<Site dados={comFotos} />)
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><base target="_blank">
-<style>${clienteCss}</style></head><body>${html}<script>${aguaScript}
+${linkDaFonte(dados)}<style>${clienteCss}</style></head><body>${html}<script>${aguaScript}
 iniciarAgua(document)</script></body></html>`
 }
 

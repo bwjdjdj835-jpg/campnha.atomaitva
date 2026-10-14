@@ -91,11 +91,11 @@ app.post('/gato/video', async (c) => {
 })
 
 app.post('/gato/estudar', async (c) => {
-  const { categoria } = await c.req.json().catch(() => ({}))
+  const { categoria, modelos } = await c.req.json().catch(() => ({}))
   if (!keys().firecrawl) {
     return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
   }
-  return c.json(await estudar(categoria || 'comércio local'))
+  return c.json(await estudar(categoria || 'comércio local', modelos))
 })
 
 app.post('/tigre/mensagem', async (c) => {

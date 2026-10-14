@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video, X, Plus, GraduationCap, LayoutList, PenLine } from 'lucide-react'
+import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video, X, Plus, GraduationCap, LayoutList, PenLine, Palette } from 'lucide-react'
 import { TEMAS } from '../lib/ClienteSite.jsx'
 import { gerarZipFinal, gravarVideoPrevia, SEM_DOWNLOAD } from '../services/agents.js'
 import { setPipeline } from '../store/pipeline.js'
@@ -14,6 +14,7 @@ function marcarSite(siteId, campos) {
 export default function GatoPreview({ preview }) {
   const [tema, setTema] = useState(preview.dados.tema)
   const [conteudo, setConteudo] = useState(preview.dados.conteudo || {})
+  const [modelo, setModelo] = useState(null) // site modelo cujas cores/fonte viram o tema "Do modelo"
   const [device, setDevice] = useState('desktop')
   const [fotosUrl, setFotosUrl] = useState(null)
   const [aprovado, setAprovado] = useState(false)
@@ -43,8 +44,8 @@ export default function GatoPreview({ preview }) {
   }, [conteudo])
 
   const srcDoc = useMemo(
-    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, conteudo: conteudoPrevia }, fotosUrl) : ''),
-    [preview, tema, conteudoPrevia, fotosUrl],
+    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, conteudo: conteudoPrevia }, fotosUrl) : ''),
+    [preview, tema, modelo, conteudoPrevia, fotosUrl],
   )
 
   function desaprovar() {
@@ -61,6 +62,12 @@ export default function GatoPreview({ preview }) {
     desaprovar() // mudou o visual: precisa aprovar de novo
   }
 
+  function usarModelo(m) {
+    setModelo(m)
+    setTema('modelo')
+    desaprovar()
+  }
+
   // Editar um campo = você assumiu o texto: ele deixa de ser "sugestão do Gato".
   function editar(campo, valor) {
     setConteudo((c) => ({ ...c, [campo]: valor, sugerido: (c.sugerido || []).filter((x) => x !== campo) }))
@@ -75,7 +82,7 @@ export default function GatoPreview({ preview }) {
   async function baixarFinal() {
     setGerando(true)
     try {
-      const r = await gerarZipFinal(preview, tema, conteudo)
+      const r = await gerarZipFinal(preview, tema, conteudo, modelo)
       setEntregue(r)
       marcarSite(preview.siteId, { zipFinal: r.nomeZip })
     } finally {
@@ -128,7 +135,7 @@ export default function GatoPreview({ preview }) {
       </div>
 
       <div className="px-5 pt-4 flex flex-wrap gap-2">
-        {Object.entries(TEMAS).map(([id, t]) => (
+        {Object.entries(TEMAS).filter(([id]) => id !== 'modelo' || modelo).map(([id, t]) => (
           <button
             key={id}
             onClick={() => trocarTema(id)}
@@ -155,6 +162,41 @@ export default function GatoPreview({ preview }) {
           )}
         </div>
       </div>
+
+      {preview.modelos?.length > 0 && (
+        <div className="px-5 pb-5">
+          <div className="label flex items-center gap-1.5"><Palette size={14} /> Seus sites modelo</div>
+          <ul className="grid gap-3 md:grid-cols-2">
+            {preview.modelos.map((m) => (
+              <li key={m.url} className={`rounded-xl border p-3 ${modelo?.url === m.url ? 'border-neon bg-neon/5' : 'border-white/10'}`}>
+                <a href={m.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-white hover:text-neon">
+                  <ExternalLink size={13} /> {m.titulo}
+                </a>
+                {m.erro ? (
+                  <p className="mt-1 text-xs text-rose-300">Não consegui ler: {m.erro}</p>
+                ) : (
+                  <>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      {Object.values(m.estilo.cores).filter(Boolean).map((cor, i) => (
+                        <span key={cor + i} title={cor} className="h-5 w-5 rounded-full border border-white/20" style={{ background: cor }} />
+                      ))}
+                      <span className="ml-1 text-xs text-slate-400">
+                        {m.estilo.esquema} · fonte {m.estilo.fonte || '—'}
+                      </span>
+                    </div>
+                    {m.secoes.length > 0 && (
+                      <p className="mt-1 text-xs text-slate-500">Seções: {m.secoes.join(', ')}</p>
+                    )}
+                    <button onClick={() => usarModelo(m)} className="btn-ghost mt-2 border border-white/10 !py-1 text-xs">
+                      {modelo?.url === m.url ? '✓ Usando as cores e a fonte deste modelo' : 'Usar cores e fonte deste modelo'}
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <EditorConteudo conteudo={conteudo} editar={editar} />
 
@@ -216,7 +258,7 @@ export default function GatoPreview({ preview }) {
         ) : (
           <>
             <div className="flex flex-1 items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">
-              <CheckCircle2 size={18} /> Prévia aprovada · tema {TEMAS[tema].nome}
+              <CheckCircle2 size={18} /> Prévia aprovada · tema {tema === 'modelo' ? `do modelo ${modelo?.fonte || ''}` : TEMAS[tema].nome}
             </div>
             <button onClick={baixarFinal} disabled={gerando} className="btn-primary flex-1">
               {gerando ? <Loader2 className="animate-spin" size={20} /> : <Download size={20} />}
