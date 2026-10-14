@@ -198,7 +198,11 @@ e "Leão Dourado" foi unificado como **Leão**.
   prévia", "Gerar outra", "Ajustar no Gato", "Descartar". Gravação prioriza MP4 H.264 (`TIPO_VIDEO`, 4 Mbps, quadro-chave a cada 1 s; o
   tipo do blob guarda o codec — "video/mp4" sem codec vira `codecs=vp9`, pois só é escolhido sem H.264) e avisa quando
   `videoAceitoNoWhatsApp` é falso. O vídeo (automático e Gato) usa `htmlDaPrevia(..., CSS_GRAVACAO, { agua: false })`:
-  sem água e sem granulado, que no vídeo comprimido pareciam defeito ("vídeo bugado");
+  sem água e sem granulado, que no vídeo comprimido pareciam defeito. **Vídeo corrompido (só o 1º quadro, resto cinza):**
+  o Chrome gerava MP4 H.264 quebrado quando o tamanho da captura mudava no meio (recorte entrando, zoom do Windows).
+  `gravarComFluxo` agora desenha a captura num **canvas de tamanho fixo** (largura 540, altura pelo formato do quadro
+  medido no começo; recorte à mão se o Region Capture falhar) e grava `canvas.captureStream(30)` com `start()` sem
+  fatias (MP4 inteiro);
   "Já enviei" registra a mensagem (+ vídeo) na conversa (status `contatado`, site `aprovado`). Aba "Enviados" com selo,
   **"Ele respondeu"** (cola a resposta → `lerResposta` → mensagem sugerida → "Aprovar e abrir no WhatsApp" → "Já enviei"
   = `registrarEnviada`) e "Conversa completa" (`/agente/tigre?cliente=<id>`). A lógica de ler a resposta e escolher a

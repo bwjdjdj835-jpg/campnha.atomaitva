@@ -104,6 +104,11 @@ export async function pedirGravacaoDaAba() {
 const recortes = new WeakMap() // faixa → quadro em que já está recortada (recortar de novo o mesmo quadro pode travar)
 const noMaximo = (promessa, ms) => Promise.race([promessa, new Promise((r) => setTimeout(r, ms))])
 
+// Tamanho fixo do vídeo: a imagem da aba é desenhada num canvas de tamanho fixo e é o canvas que é gravado. Se o
+// tamanho da captura mudar no meio (o recorte entrando, zoom do Windows…), o Chrome gerava um MP4 H.264 corrompido —
+// só o 1º quadro aparecia e o resto ficava cinza. Largura 540; a altura segue o formato do quadro (medido no começo).
+const LARGURA_VIDEO = 540
+
 export async function gravarComFluxo(stream, iframe, ms = 12000) {
   const [faixa] = stream.getVideoTracks()
   if (!faixa || faixa.readyState === 'ended') throw new Error('A gravação da aba foi encerrada — autorize de novo.')
@@ -114,15 +119,58 @@ export async function gravarComFluxo(stream, iframe, ms = 12000) {
         3000,
       )
     } catch {
-      /* sem recorte: grava a aba inteira */
+      /* sem recorte: o quadro é recortado à mão no canvas */
     }
   }
-  await new Promise((r) => setTimeout(r, 300)) // primeiro quadro já recortado
+  const recortado = recortes.get(faixa) === iframe
+
+  // Imagem da aba → <video> → canvas de tamanho fixo.
+  const fonte = document.createElement('video')
+  fonte.muted = true
+  fonte.playsInline = true
+  fonte.srcObject = new MediaStream([faixa])
+  await fonte.play().catch(() => {})
+  for (let i = 0; i < 40 && !fonte.videoWidth; i++) await new Promise((r) => setTimeout(r, 50))
+  await new Promise((r) => setTimeout(r, 300)) // recorte já aplicado
+  // Área do quadro da prévia na imagem: a imagem toda quando o navegador recortou; senão, recorta à mão.
+  const area = () => {
+    const vw = fonte.videoWidth
+    const vh = fonte.videoHeight
+    if (recortado) return [0, 0, vw, vh]
+    const r = iframe.getBoundingClientRect()
+    const k = vw / window.innerWidth
+    const sx = Math.max(0, r.left * k)
+    const sy = Math.max(0, r.top * k)
+    return [sx, sy, Math.min(vw - sx, r.width * k), Math.min(vh - sy, r.height * k)]
+  }
+  const [, , w0, h0] = fonte.videoWidth ? area() : [0, 0, 9, 16]
+  const ALTURA_VIDEO = Math.min(1200, Math.max(600, Math.round((LARGURA_VIDEO * h0) / w0 / 2) * 2)) // par, como o H.264 pede
+  const tela = document.createElement('canvas')
+  tela.width = LARGURA_VIDEO
+  tela.height = ALTURA_VIDEO
+  const ctx = tela.getContext('2d')
+  let desenhando = true
+  const desenhar = () => {
+    if (!desenhando) return
+    if (fonte.videoWidth && fonte.videoHeight) {
+      const [sx, sy, sw, sh] = area()
+      const escala = Math.min(LARGURA_VIDEO / sw, ALTURA_VIDEO / sh)
+      const dw = sw * escala
+      const dh = sh * escala
+      ctx.fillStyle = '#000'
+      ctx.fillRect(0, 0, LARGURA_VIDEO, ALTURA_VIDEO)
+      ctx.drawImage(fonte, sx, sy, sw, sh, (LARGURA_VIDEO - dw) / 2, (ALTURA_VIDEO - dh) / 2, dw, dh)
+    }
+    if (fonte.requestVideoFrameCallback) fonte.requestVideoFrameCallback(desenhar)
+    else requestAnimationFrame(desenhar)
+  }
+  desenhar()
+
   const escolhido = TIPO_VIDEO()
-  const gravador = new MediaRecorder(new MediaStream([faixa]), {
+  const gravador = new MediaRecorder(tela.captureStream(30), {
     mimeType: escolhido,
     videoBitsPerSecond: 4_000_000,
-    videoKeyFrameIntervalDuration: 1000, // quadro-chave a cada 1 s (onde o navegador aceita): menos "borrão" na rolagem
+    videoKeyFrameIntervalDuration: 1000, // quadro-chave a cada 1 s (onde o navegador aceita)
   })
   // "video/mp4" sem codec só é escolhido quando o navegador NÃO grava H.264 (sai VP9 dentro do MP4, que o WhatsApp
   // e o player do Windows mostram quebrado) — marca isso no tipo para avisar.
@@ -130,14 +178,16 @@ export async function gravarComFluxo(stream, iframe, ms = 12000) {
   const partes = []
   gravador.ondataavailable = (e) => e.data.size && partes.push(e.data)
   const parou = new Promise((resolve) => (gravador.onstop = resolve))
-  gravador.start(500)
+  gravador.start() // um pedaço só no fim: MP4 inteiro, sem fragmentos
   iframe.contentWindow?.postMessage({ tipo: 'passeio-previa', ms: ms - 800 }, '*')
   await new Promise((resolve) => {
     const t = setTimeout(resolve, ms)
     faixa.addEventListener('ended', () => (clearTimeout(t), resolve()), { once: true })
   })
   if (gravador.state !== 'inactive') gravador.stop()
-  await noMaximo(parou, 3000)
+  await noMaximo(parou, 5000)
+  desenhando = false
+  fonte.srcObject = null
   if (!partes.length) throw new Error('A gravação não captou nada — deixe esta aba aberta e na frente.')
   // Guarda o codec no tipo (ex.: "video/mp4;codecs=avc1…") para saber se o WhatsApp aceita.
   return new Blob(partes, { type: tipo || 'video/webm' })
