@@ -5,7 +5,7 @@ import { Rocket, Loader2, Upload, ArrowRight, CheckCircle2, Wrench, PackageCheck
 import { agents, getAgent } from '../data/agents.js'
 import AgentBadge from '../components/AgentBadge.jsx'
 import LogConsole from '../components/LogConsole.jsx'
-import LeadsTable from '../components/LeadsTable.jsx'
+import LeadsTable, { JaTemSite } from '../components/LeadsTable.jsx'
 import { runAgent, listarPastas } from '../services/agents.js'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 const GatoPreview = lazy(() => import('../components/GatoPreview.jsx'))
@@ -56,6 +56,12 @@ function AgentPage() {
         setPipeline((s) => {
           const novos = new Set(res.leads.map((l) => l.id))
           return { leads: [...res.leads, ...s.leads.filter((l) => !novos.has(l.id))] }
+        })
+      }
+      if (res.comSite) {
+        setPipeline((s) => {
+          const novos = new Set(res.comSite.map((c) => c.id))
+          return { comSite: [...res.comSite, ...(s.comSite || []).filter((c) => !novos.has(c.id))] }
         })
       }
       if (res.site) setPipeline((s) => ({ sites: [res.site, ...s.sites] }))
@@ -245,6 +251,7 @@ function AgentPage() {
       )}
 
       {agent.id === 'pinguim' && <LeadsTable leads={leads} />}
+      {agent.id === 'pinguim' && <JaTemSite />}
       {agent.id === 'leao' && <SitesList />}
 
       {next && (

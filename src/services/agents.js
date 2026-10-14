@@ -102,7 +102,7 @@ async function pinguim(inputs, log) {
       await wait(120)
       log(l.level, l.msg)
     }
-    return { leads: res.leads }
+    return { leads: res.leads, comSite: res.comSite || [] }
   } catch (e) {
     if (e.code !== 'NO_KEY' && e.code !== 'OFFLINE') throw e
     log('warn', `${e.message.replace(/\.$/, '')} — rodando em MODO DEMONSTRAÇÃO`)
@@ -352,6 +352,15 @@ export async function lerPasta(urlDados) {
     return itens.filter(Boolean)
   }
   return { dados, fotos: await baixarTodos(dados.imagens), prints: await baixarTodos(dados.prints) }
+}
+
+// 🐧 Confere um negócio no Firecrawl (domínio e telefone em outros sites). Um por vez: o ritmo fica com quem chama.
+export function conferirSite(lead) {
+  return api('/pinguim/conferir', {
+    nome: lead.nome,
+    cidade: lead.cidade || lead.endereco?.split(' - ').slice(-2).join(' ') || '',
+    telefone: lead.telefone !== '—' ? lead.telefone : null,
+  })
 }
 
 export async function listarPastas() {

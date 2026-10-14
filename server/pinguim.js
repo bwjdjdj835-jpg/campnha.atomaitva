@@ -2,8 +2,8 @@
 // Fluxo (prompts/01-pinguim-azulado.md):
 //   1. Google Places Text Search com FieldMask (ou OpenStreetMap, grátis, se o Google falhar)
 //   2. Descarta quem já tem site cadastrado
-//   3. Confirma no Firecrawl que não existe domínio próprio (só para os candidatos)
-//   4. Gera wa.me, Instagram (se achou) e nível de confiança
+//   3. Gera wa.me e devolve os leads com o site "pendente": a conferência no Firecrawl (domínio + telefone,
+//      conferirSite) roda depois, um negócio por vez, em /api/pinguim/conferir — no ritmo do plano grátis.
 
 import { waLink } from '../src/lib/whatsapp.js'
 import { buscarOsm } from './osm.js'
@@ -12,10 +12,7 @@ import { buscarSerpApi } from './serpapi.js'
 import { buscarApify } from './apify.js'
 import { buscarMapsPagina } from './mapsPagina.js'
 
-// Limite de candidatos verificados por busca (cada um custa 2 chamadas no Firecrawl).
 const MAX_VERIFICAR = 25 // leads mostrados por busca
-// O plano grátis do Firecrawl aceita ~10 pedidos por minuto (a busca no Maps já usa 1): confere só os primeiros.
-const MAX_CONFERIR = 8
 
 const PLACES_URL = 'https://places.googleapis.com/v1/places:searchText'
 const FIRECRAWL_URL = 'https://api.firecrawl.dev/v2/search'
@@ -93,27 +90,60 @@ async function firecrawlSearch(query) {
   return data.data?.web || []
 }
 
-// Procura domínio próprio e Instagram do negócio numa pesquisa só (o Instagram costuma vir junto).
-async function verificar(nome, cidade) {
-  const results = await firecrawlSearch(`"${nome}" ${cidade} site instagram`)
+const digitos = (t) => String(t || '').replace(/\D/g, '')
 
+// Telefone no formato que aparece nos sites: "(69) 99282-0330".
+function foneNacional(telefone) {
+  let d = digitos(telefone)
+  if (d.length > 11 && d.startsWith('55')) d = d.slice(2)
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return null
+}
+
+// O negócio tem site? Procura no Firecrawl:
+//   1. pelo nome + cidade: domínio cujo nome bate com o do negócio = TEM site;
+//   2. pelo telefone: outro site (que não seja rede social nem diretório) com o mesmo número = POSSÍVEL site.
+// Veredito: 'tem' | 'provavel' | 'nao'. Cada achado volta com o link (evidência) para o usuário conferir.
+export async function conferirSite({ nome, cidade, telefone }) {
   const nomeSlug = slug(nome)
+  const fone = foneNacional(telefone)
+  const final8 = digitos(telefone).slice(-8)
+  let pedidos = 0
   let site = null
   let instagram = null
-  for (const r of results) {
-    const host = hostOf(r.url)
-    if (!host) continue
-    if (!instagram && host === 'instagram.com') {
-      const handle = new URL(r.url).pathname.split('/').filter(Boolean)[0]
-      if (handle && !['p', 'reel', 'explore', 'stories'].includes(handle)) instagram = `https://instagram.com/${handle}`
-    }
-    // Domínio cujo nome contém o nome do negócio (ou vice-versa) e não é rede/diretório.
-    const base = slug(host.split('.')[0])
-    if (!site && !isDirectory(host) && base.length >= 4 && (nomeSlug.includes(base) || base.includes(nomeSlug))) {
-      site = r.url
+  const evidencias = []
+
+  const olhar = (resultados, tipo) => {
+    for (const r of resultados) {
+      const host = hostOf(r.url)
+      if (!host) continue
+      if (!instagram && host === 'instagram.com') {
+        const handle = new URL(r.url).pathname.split('/').filter(Boolean)[0]
+        if (handle && !['p', 'reel', 'explore', 'stories'].includes(handle)) instagram = `https://instagram.com/${handle}`
+      }
+      if (isDirectory(host)) continue
+      const base = slug(host.split('.')[0])
+      const nomeBate = base.length >= 4 && (nomeSlug.includes(base) || base.includes(nomeSlug))
+      const texto = digitos(`${r.title || ''} ${r.description || ''}`)
+      const foneBate = final8.length === 8 && texto.includes(final8)
+      if (nomeBate && !site) {
+        site = r.url
+        evidencias.push({ tipo: 'dominio', url: r.url })
+      } else if (tipo === 'telefone' || foneBate) {
+        if (!evidencias.some((e) => hostOf(e.url) === host)) evidencias.push({ tipo: 'telefone', url: r.url })
+      }
     }
   }
-  return { site, instagram }
+
+  pedidos++
+  olhar(await firecrawlSearch(`"${nome}" ${cidade || ''}`.trim()), 'nome')
+  if (!site && fone) {
+    pedidos++
+    olhar(await firecrawlSearch(`"${fone}"`), 'telefone')
+  }
+  const veredito = site ? 'tem' : evidencias.length ? 'provavel' : 'nao'
+  return { veredito, site: site || evidencias[0]?.url || null, instagram, evidencias: evidencias.slice(0, 3), pedidos }
 }
 
 // Google Places → formato comum de candidato.
@@ -212,75 +242,58 @@ export async function buscarNegocios({ categoria, cidade }) {
   }
   log('ok', `${fonte}: ${candidatos.length} resultado(s)`)
 
-  // 2. Descarta quem já tem site cadastrado.
-  // Mesmo telefone de um lugar que já tem site = mesmo negócio (outra unidade) → também descarta.
-  const digitos = (t) => String(t || '').replace(/\D/g, '')
-  const fonesComSite = new Set(candidatos.filter((c) => c.site && digitos(c.telefone)).map((c) => digitos(c.telefone)))
-  const semSite = candidatos.filter((c) => !c.site && !fonesComSite.has(digitos(c.telefone)))
-  const outraUnidade = candidatos.filter((c) => !c.site).length - semSite.length
-  log(
-    'info',
-    `Descartados ${candidatos.length - semSite.length} com site cadastrado${outraUnidade ? ` (${outraUnidade} por ser outra unidade de quem já tem site)` : ''} — ${semSite.length} candidato(s)`,
-  )
+  // 2. Separa quem já tem site cadastrado no Maps (mostrado na lista "Já têm site").
+  // Mesmo telefone de um lugar que já tem site = mesmo negócio (outra unidade) → também tem site.
+  const fonesComSite = new Map(candidatos.filter((c) => c.site && digitos(c.telefone)).map((c) => [digitos(c.telefone), c.site]))
+  const comSite = []
+  const semSite = []
+  for (const c of candidatos) {
+    const siteOutraUnidade = !c.site && fonesComSite.get(digitos(c.telefone))
+    if (c.site || siteOutraUnidade) {
+      comSite.push({
+        id: c.id,
+        nome: c.nome,
+        endereco: c.endereco,
+        telefone: c.telefoneExibicao || c.telefone || '—',
+        site: c.site || siteOutraUnidade,
+        motivo: c.site ? `site cadastrado no ${fonte}` : 'outra unidade de quem já tem site (mesmo telefone)',
+        maps: c.maps || null,
+      })
+    } else semSite.push(c)
+  }
+  log('info', `${comSite.length} já têm site no ${fonte} — ${semSite.length} sem site cadastrado`)
 
-  // 3. Confirma no Firecrawl que não existe domínio próprio.
+  // 3. A conferência no Firecrawl (domínio e telefone em outros sites) roda depois, na lista de leads.
   const comFirecrawl = Boolean(process.env.FIRECRAWL_API_KEY)
-  if (!comFirecrawl) log('warn', 'FIRECRAWL_API_KEY ausente — sem confirmação de domínio, confiança fica "Médio"')
-  else if (semSite.length) log('info', 'Firecrawl: verificando domínio próprio de cada candidato')
+  if (!comFirecrawl) log('warn', 'FIRECRAWL_API_KEY ausente — não dá para conferir se têm site em outro lugar; confiança fica "Médio"')
+  else if (semSite.length) log('info', 'Agora o Firecrawl confere cada um (domínio e telefone em outros sites) — acompanhe na lista abaixo')
 
-  const leads = []
-  let firecrawlOk = comFirecrawl
-  let conferidos = 0
-  for (const c of semSite.slice(0, MAX_VERIFICAR)) {
-    let verif = { site: null, instagram: null }
-    let verificado = false
-    if (firecrawlOk && conferidos < MAX_CONFERIR) {
-      conferidos++
-      try {
-        verif = await verificar(c.nome, cidade)
-        verificado = true
-      } catch (e) {
-        log('warn', `Firecrawl: ${e.message.replace(/^Firecrawl: /, '')} — os demais seguem sem confirmação de domínio`)
-        firecrawlOk = false
-      }
-    }
-    if (verif.site) {
-      log('info', `${c.nome}: domínio encontrado (${hostOf(verif.site)}) — descartado`)
-      continue
-    }
+  const leads = semSite.slice(0, MAX_VERIFICAR).map((c) => {
     const exibicao = c.telefoneExibicao || c.telefone
-    leads.push({
+    return {
       id: c.id,
       demo: false,
       fonte,
       nome: c.nome,
       categoria,
+      cidade,
       endereco: c.endereco,
       telefone: exibicao || '—',
       maps: c.maps || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${c.nome} ${c.endereco || cidade}`)}`,
       osm: c.osm || null,
       whatsapp: c.telefone ? waLink(c.telefone) : null,
-      instagram: c.instagram || verif.instagram,
+      instagram: c.instagram || null,
       rating: c.rating,
       avaliacoes: c.avaliacoes,
       fotos: c.fotos,
-      confianca: verificado ? 'Alto' : 'Médio',
-      observacao: [
-        `Sem site no ${fonte}`,
-        verificado ? 'sem domínio encontrado no Firecrawl' : 'domínio não verificado no Firecrawl',
-        c.telefone ? null : 'sem telefone cadastrado',
-      ]
-        .filter(Boolean)
-        .join(' + '),
-    })
-  }
+      confianca: 'Médio',
+      conferencia: { status: comFirecrawl ? 'pendente' : 'sem_firecrawl' },
+      observacao: [`Sem site no ${fonte}`, c.telefone ? null : 'sem telefone cadastrado'].filter(Boolean).join(' + '),
+    }
+  })
   if (semSite.length > MAX_VERIFICAR) log('info', `Mostrando os ${MAX_VERIFICAR} primeiros candidatos`)
-  const semConferir = Math.min(semSite.length, MAX_VERIFICAR) - conferidos
-  if (comFirecrawl && firecrawlOk && semConferir > 0) {
-    log('info', `Domínio conferido nos ${conferidos} primeiros (limite do plano grátis do Firecrawl); os outros ${semConferir} ficam com confiança "Médio"`)
-  }
 
-  log('ok', `${leads.length} lead(s) confirmado(s)`)
+  log('ok', `${leads.length} negócio(s) sem site no ${fonte}`)
   if (leads.length < 3) log('warn', 'Poucos resultados — tente variar a categoria ou buscar uma cidade vizinha')
-  return { logs, leads }
+  return { logs, leads, comSite }
 }
