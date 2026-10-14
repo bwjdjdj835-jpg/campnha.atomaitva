@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  MessageCircle, Send, RefreshCw, Loader2, BellRing, Ban, CheckCircle2, Rocket, ExternalLink, Inbox, Link2, Video, Download,
+  MessageCircle, Send, RefreshCw, Loader2, BellRing, Ban, CheckCircle2, Rocket, ExternalLink, Inbox, Link2, Video, Download, Copy, Share2, ShieldAlert,
 } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { negocioDoSite, rascunho, classificar, enviarPelaApi, publicarSite, videoDoSite, enviarVideoPelaApi } from '../services/agents.js'
@@ -32,6 +32,8 @@ function marcarSite(siteId, status) {
 const digitos = (wa) => String(wa || '').replace(/\D/g, '')
 
 // Conversa com um cliente: rascunho → sua aprovação → envio → resposta → fechamento → publicação.
+const CHAVE_ENVIO_API = 'central-agentes:tigre-envio-api'
+
 export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
   const { sites, leads, conversas } = usePipeline()
   const site = sites.find((x) => x.id === siteId)
@@ -46,6 +48,16 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
   const [linkManual, setLinkManual] = useState('')
   const [video, setVideo] = useState(null) // { blob, url }
   const [legenda, setLegenda] = useState('Olha a prévia do site que preparamos para vocês 👇')
+  // Envio automático pela API (Z-API/Meta) fica desligado: mensagem automática para quem não te conhece
+  // é o que mais leva o WhatsApp a bloquear o número. Padrão: você envia pelo seu WhatsApp.
+  const [envioApi, setEnvioApi] = useState(() => {
+    try {
+      return localStorage.getItem(CHAVE_ENVIO_API) === '1'
+    } catch {
+      return false
+    }
+  })
+  const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
     let url = null
@@ -159,6 +171,39 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
   }
 
   const interessado = ['interessado', 'vendido', 'publicado'].includes(conversa.status)
+  const apiLigada = Boolean(keys?.whatsapp) && envioApi
+  const extVideo = video?.blob?.type.includes('mp4') ? 'mp4' : 'webm'
+
+  function alternarEnvioApi(v) {
+    setEnvioApi(v)
+    try {
+      localStorage.setItem(CHAVE_ENVIO_API, v ? '1' : '0')
+    } catch {
+      /* sem storage */
+    }
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(texto)
+      setCopiado(true)
+      setAbriuWhats(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      setErro('Não consegui copiar — selecione o texto e copie à mão.')
+    }
+  }
+
+  // Celular: abre a folha de compartilhar do aparelho (escolha o WhatsApp e o contato).
+  const podeCompartilhar =
+    video && typeof navigator !== 'undefined' && navigator.canShare?.({ files: [new File([video.blob], `previa.${extVideo}`, { type: video.blob.type })] })
+  async function compartilharVideo() {
+    try {
+      await navigator.share({ files: [new File([video.blob], `previa-${site.nome}.${extVideo}`, { type: video.blob.type })], text: legenda })
+    } catch {
+      /* cancelado */
+    }
+  }
 
   return (
     <section className="glass overflow-hidden">
@@ -214,7 +259,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
       {/* Rascunho + aprovação */}
       {!bloqueado && (
         <div className="px-5 pb-5 space-y-3 border-t border-white/5 pt-4">
-          <label className="label" htmlFor="tigre-rascunho">Próxima mensagem (só sai depois da sua aprovação)</label>
+          <label className="label" htmlFor="tigre-rascunho">Mensagem sugerida — você envia pelo seu WhatsApp</label>
           <textarea
             id="tigre-rascunho"
             rows={4}
@@ -230,13 +275,16 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
             <button className="btn-ghost border border-white/10" onClick={() => gerar(primeiroContato ? 'primeiro' : interessado ? 'fechamento' : 'resposta')} disabled={!!ocupado}>
               {ocupado === 'gerar' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Gerar outra
             </button>
-            {keys?.whatsapp && (
-              <button className="btn-primary !py-2 !px-4 text-sm" onClick={enviarApi} disabled={!texto.trim() || !fone || !!ocupado}>
-                {ocupado === 'enviar' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Aprovar e enviar
+            <button className="btn-ghost border border-white/10" onClick={copiar} disabled={!texto.trim()}>
+              {copiado ? <CheckCircle2 size={16} /> : <Copy size={16} />} {copiado ? 'Copiada!' : 'Copiar mensagem'}
+            </button>
+            {apiLigada && (
+              <button className="btn-ghost border border-amber-400/30 text-amber-300" onClick={enviarApi} disabled={!texto.trim() || !fone || !!ocupado}>
+                {ocupado === 'enviar' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Enviar pela API
               </button>
             )}
             <a
-              className={`btn-ghost border border-emerald-400/30 text-emerald-300 ${!texto.trim() || !fone ? 'pointer-events-none opacity-40' : ''}`}
+              className={`btn-primary !py-2 !px-4 text-sm ${!texto.trim() || !fone ? 'pointer-events-none opacity-40' : ''}`}
               href={`https://wa.me/${fone}?text=${encodeURIComponent(texto)}`}
               target="_blank"
               rel="noreferrer"
@@ -250,7 +298,20 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
               </button>
             )}
           </div>
-          {primeiroContato && keys?.whatsappProvedor === 'meta' && !keys?.whatsappTemplate && (
+          <p className="text-xs text-slate-500">
+            "Abrir no meu WhatsApp" abre a conversa com o cliente e a mensagem já escrita — confira e toque em enviar.
+          </p>
+          {keys?.whatsapp && (
+            <label className="flex items-start gap-2 text-xs text-slate-400">
+              <input type="checkbox" className="mt-0.5" checked={envioApi} onChange={(e) => alternarEnvioApi(e.target.checked)} />
+              <span>
+                <ShieldAlert size={13} className="mr-1 inline text-amber-300" />
+                Mostrar envio automático pela API ({keys.whatsappProvedor === 'zapi' ? 'Z-API' : 'Meta'}). Não recomendado:
+                mensagem automática para quem não te conhece pode fazer o WhatsApp bloquear o seu número.
+              </span>
+            </label>
+          )}
+          {apiLigada && primeiroContato && keys?.whatsappProvedor === 'meta' && !keys?.whatsappTemplate && (
             <p className="text-xs text-amber-300/80">
               Primeiro contato pela API exige template aprovado pela Meta (WHATSAPP_TEMPLATE). Sem ele, use "Abrir no meu WhatsApp".
             </p>
@@ -261,19 +322,24 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
       {/* Vídeo da prévia (gravado no Gato Negro) */}
       {!bloqueado && video && (
         <div className="px-5 pb-5 space-y-3 border-t border-white/5 pt-4">
-          <div className="label">Vídeo da prévia (só sai depois da sua aprovação)</div>
+          <div className="label">Vídeo da prévia — você envia pelo seu WhatsApp</div>
           <div className="flex flex-col sm:flex-row gap-4 items-start">
             <video src={video.url} controls playsInline className="w-40 rounded-xl border border-white/10 bg-black" />
             <div className="flex-1 min-w-0 space-y-2">
               <input id="tigre-legenda" className="input !py-2" value={legenda} onChange={(e) => setLegenda(e.target.value)} placeholder="Legenda do vídeo" />
               <div className="flex flex-wrap gap-2">
-                {keys?.whatsappProvedor === 'zapi' && (
-                  <button className="btn-primary !py-2 !px-4 text-sm" onClick={enviarVideo} disabled={!fone || !!ocupado}>
-                    {ocupado === 'video' ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />} Aprovar e enviar vídeo
+                {podeCompartilhar && (
+                  <button className="btn-primary !py-2 !px-4 text-sm" onClick={compartilharVideo}>
+                    <Share2 size={16} /> Compartilhar no WhatsApp
                   </button>
                 )}
-                <a className="btn-ghost border border-white/10" href={video.url} download={`previa-${site.nome}.mp4`}>
-                  <Download size={16} /> Baixar para enviar pelo meu WhatsApp
+                {apiLigada && keys?.whatsappProvedor === 'zapi' && (
+                  <button className="btn-ghost border border-amber-400/30 text-amber-300" onClick={enviarVideo} disabled={!fone || !!ocupado}>
+                    {ocupado === 'video' ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />} Enviar vídeo pela API
+                  </button>
+                )}
+                <a className="btn-ghost border border-white/10" href={video.url} download={`previa-${site.nome}.${extVideo}`}>
+                  <Download size={16} /> Baixar o vídeo
                 </a>
                 <button className="btn-ghost border border-white/10" onClick={videoEnviadoManual}>
                   <CheckCircle2 size={16} /> Já enviei o vídeo

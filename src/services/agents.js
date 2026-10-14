@@ -522,6 +522,7 @@ export async function gravarVideoPrevia(html, siteId) {
 }
 
 export const videoDoSite = (siteId) => lerZip(`${siteId}:video`)
+export const guardarVideo = (siteId, blob) => siteId && salvarZip(`${siteId}:video`, blob)
 
 export async function enviarVideoPelaApi({ telefone, video, legenda }) {
   const dataUri = await new Promise((resolve, reject) => {
