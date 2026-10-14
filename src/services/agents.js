@@ -448,15 +448,27 @@ async function gato(inputs, log, { sites, leads = [] }) {
   const { dados, fotos, prints } = pacote
   log('ok', `dados.json: ${dados.negocio.nome}${dados.demo ? ' (DEMO)' : ''} · ${fotos.length} foto(s) do cliente`)
 
-  log('info', 'Firecrawl: pesquisando sites de profissionais e cursos grátis de como montar um site completo')
+  const linksModelos = String(inputs.modelos || '')
+    .split(/[\s,]+/)
+    .filter((x) => /^https?:\/\//i.test(x))
+  if (linksModelos.length > 4) log('warn', `Você colou ${linksModelos.length} sites modelo — leio os 4 primeiros (limite do Firecrawl por minuto)`)
+  log('info', 'Firecrawl: pesquisando sites de desenvolvedores, 21st.dev, Code Eagle, GSAP, modelos grátis e cursos de como montar um site completo')
   let referencias = []
   let cursos = []
   let secoes = []
+  let modelos = []
   try {
-    ;({ referencias, cursos = [], secoes = [] } = await api('/gato/estudar', { categoria: dados.negocio.categoria }))
+    ;({ referencias, cursos = [], secoes = [], modelos = [] } = await api('/gato/estudar', {
+      categoria: dados.negocio.categoria,
+      modelos: linksModelos.slice(0, 4),
+    }))
     if (!referencias.length) log('warn', 'Nenhuma referência encontrada — seguindo com os padrões base')
     for (const r of referencias) log('info', `Modelo estudado: ${r.titulo} — ${r.url}`)
     for (const c of cursos) log('info', `Curso/tutorial lido: ${c.titulo} — ${c.url}`)
+    for (const m of modelos) {
+      if (m.erro) log('warn', `Seu modelo ${m.url}: não consegui ler (${m.erro})`)
+      else log('ok', `Seu modelo lido: ${m.titulo} — cor ${m.estilo.cores.primaria || '—'}, fonte ${m.estilo.fonte || '—'}, ${m.secoes.length} seção(ões)`)
+    }
     if (secoes.length) log('ok', `Seções que os guias recomendam: ${secoes.map((x) => x.nome).join(', ')}`)
   } catch (e) {
     log('warn', `${e.message.replace(/\.$/, '')} — seguindo com os padrões base`)
@@ -481,7 +493,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
       ? [{ id: n.placeId, demo: Boolean(dados.demo), nome: n.nome, categoria: n.categoria, endereco: n.endereco, telefone: n.telefone, whatsapp: n.whatsapp, instagram: n.instagram, maps: n.maps, rating: n.rating, avaliacoes: n.avaliacoes, fotos: [], confianca: 'Médio', observacao: 'Veio da pasta online do Leão' }]
       : null
   return {
-    preview: { siteId, dados: { ...dados, tema, conteudo }, fotos, prints, referencias, cursos, secoes },
+    preview: { siteId, dados: { ...dados, tema, conteudo }, fotos, prints, referencias, cursos, secoes, modelos },
     ...(siteNovo ? { site: siteNovo } : {}),
     ...(leadNovo ? { leads: leadNovo } : {}),
   }
@@ -522,11 +534,12 @@ export async function enviarVideoPelaApi({ telefone, video, legenda }) {
 }
 
 // Só é chamado depois do clique em "Aprovar prévia".
-export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo) {
+export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo, modelo = preview.dados.modelo) {
   const dados = {
     ...preview.dados,
     tema,
     conteudo,
+    modelo: tema === 'modelo' ? modelo : undefined,
     gerador: 'Gato Negro — Central de Agentes',
     aprovadoEm: new Date().toISOString(),
     referencias: preview.referencias,

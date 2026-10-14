@@ -26,9 +26,10 @@ function AgentPage() {
   const keys = useApiStatus()
   const [busca] = useSearchParams()
   // "Mandar pro Leão" abre esta página com ?link=… já preenchido (e o Leão manda pro Gato com ?site=…).
-  const [values, setValues] = useState(() =>
-    busca.get('link') ? { link: busca.get('link') } : busca.get('site') ? { site: busca.get('site') } : {},
-  )
+  const [values, setValues] = useState(() => ({
+    ...lembrados(agent),
+    ...(busca.get('link') ? { link: busca.get('link') } : busca.get('site') ? { site: busca.get('site') } : {}),
+  }))
   const pastas = usePastas(id === 'gato')
   const pastasSoOnline = pastas.filter((p) => !sites.some((x) => x.pasta === p.url))
   const [previaLeao, setPreviaLeao] = useState(null)
@@ -48,6 +49,7 @@ function AgentPage() {
     setTigre(null)
     setAbelha(null)
     setPreviaLeao(null)
+    lembrar(agent, values)
     try {
       const res = await runAgent(agent.id, values, (l) => setLogs((p) => [...p, l]), { leads, sites, conversas })
       if (res.leads) {
@@ -255,6 +257,25 @@ function AgentPage() {
       )}
     </div>
   )
+}
+
+// Campos marcados com `lembrar` (ex.: sites modelo do Gato) ficam guardados neste navegador.
+const chaveLembrar = (agent) => `central-agentes:campos:${agent?.id}`
+function lembrados(agent) {
+  try {
+    return JSON.parse(localStorage.getItem(chaveLembrar(agent)) || '{}')
+  } catch {
+    return {}
+  }
+}
+function lembrar(agent, values) {
+  const campos = agent.inputs.filter((f) => f.lembrar).map((f) => f.key)
+  if (!campos.length) return
+  try {
+    localStorage.setItem(chaveLembrar(agent), JSON.stringify(Object.fromEntries(campos.map((k) => [k, values[k] || '']))))
+  } catch {
+    /* sem storage: só não lembra */
+  }
 }
 
 // Pastas online do Leão (Vercel Blob) — o Gato abre sites criados em outros aparelhos.

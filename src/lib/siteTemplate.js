@@ -31,6 +31,13 @@ function jsonLd(dados) {
   return JSON.stringify(ld, null, 2).replace(/</g, '\\u003c')
 }
 
+// Mesmo link do Google Fonts da prévia (tema "Do modelo").
+function fonteDoModelo(dados) {
+  const fonte = dados.tema === 'modelo' && dados.modelo?.estilo?.fonte
+  if (!fonte || !/^[\w -]{2,40}$/.test(fonte)) return ''
+  return `\n    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(fonte).replace(/%20/g, '+')}:wght@400;600;700;800&display=swap" />`
+}
+
 export function siteFiles(dados) {
   const { negocio, conteudo = {} } = dados
   const descricao = conteudo.sobre || [negocio.categoria, negocio.endereco].filter(Boolean).join(' — ')
@@ -72,7 +79,7 @@ export default {
     <title>${escapeHtml(negocio.nome)}</title>
     <meta name="description" content="${escapeHtml(descricao)}" />
     <meta property="og:title" content="${escapeHtml(negocio.nome)}" />
-    <meta property="og:description" content="${escapeHtml(descricao)}" />
+    <meta property="og:description" content="${escapeHtml(descricao)}" />${fonteDoModelo(dados)}
     <script type="application/ld+json">
 ${jsonLd(dados)}
     </script>

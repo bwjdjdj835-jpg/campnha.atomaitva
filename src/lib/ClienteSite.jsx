@@ -55,6 +55,24 @@ export const TEMAS = {
     faixa: 'bg-gradient-to-r from-fuchsia-600 via-violet-600 to-cyan-600 text-white',
     destaque: 'bg-white/5 border-white/10 backdrop-blur',
   },
+  // Cores e fonte de um site modelo lido pelo Gato (dados.modelo.estilo), aplicadas por variáveis CSS.
+  modelo: {
+    nome: 'Do modelo (cores e fonte do site escolhido)',
+    pagina: 'bg-[var(--m-fundo)] text-[var(--m-texto)]',
+    sobreposicao: 'bg-gradient-to-t from-[var(--m-fundo)] via-black/35 to-black/10',
+    capaVazia: 'bg-[var(--m-primaria)]',
+    rotulo: 'text-white/90',
+    titulo: 'text-white',
+    botao: 'bg-[var(--m-primaria)] text-[var(--m-sobre-primaria)] hover:brightness-110',
+    secao: 'border-[var(--m-borda)]',
+    cartao: 'bg-[var(--m-cartao)] border-[var(--m-borda)]',
+    texto: 'text-[var(--m-texto-suave)]',
+    link: 'text-[var(--m-primaria)] hover:brightness-125',
+    rodape: 'border-[var(--m-borda)] text-[var(--m-texto-suave)]',
+    acento: 'text-[var(--m-primaria)]',
+    faixa: 'bg-[var(--m-primaria)] text-[var(--m-sobre-primaria)]',
+    destaque: 'bg-[var(--m-cartao)] border-[var(--m-borda)]',
+  },
   vibrante: {
     nome: 'Vibrante (quente)',
     pagina: 'bg-orange-50 text-stone-900',
@@ -74,13 +92,38 @@ export const TEMAS = {
   },
 }
 
+// Texto escuro ou claro sobre uma cor, para dar leitura.
+function textoSobre(hex) {
+  const n = parseInt(String(hex).slice(1), 16)
+  const luz = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255
+  return luz > 0.6 ? '#0A0A0A' : '#FFFFFF'
+}
+
+function estiloDoModelo(modelo) {
+  const e = (modelo && modelo.estilo) || {}
+  const c = e.cores || {}
+  const escuro = e.esquema !== 'claro'
+  const primaria = c.primaria || c.secundaria || (escuro ? '#FFFFFF' : '#111111')
+  return {
+    '--m-fundo': c.fundo || (escuro ? '#0A0A0A' : '#FFFFFF'),
+    '--m-texto': c.texto || (escuro ? '#F5F5F5' : '#111111'),
+    '--m-texto-suave': escuro ? 'rgba(255,255,255,0.72)' : 'rgba(0,0,0,0.65)',
+    '--m-primaria': primaria,
+    '--m-sobre-primaria': textoSobre(primaria),
+    '--m-cartao': escuro ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.035)',
+    '--m-borda': escuro ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+    fontFamily: e.fonte ? "'" + e.fonte + "', ui-sans-serif, system-ui, sans-serif" : undefined,
+  }
+}
+
 export default function Site({ dados }) {
   const { negocio, imagens = [], conteudo = {} } = dados
   const servicos = conteudo.servicos || []
   const diferenciais = conteudo.diferenciais || []
   const passos = conteudo.passos || []
   const faq = conteudo.faq || []
-  const t = TEMAS[dados.tema] || TEMAS.claro
+  const doModelo = dados.tema === 'modelo' && dados.modelo
+  const t = (doModelo ? TEMAS.modelo : TEMAS[dados.tema === 'modelo' ? 'noite' : dados.tema]) || TEMAS.claro
   const capa = imagens[0]
   const galeria = imagens.slice(1)
   // Foto de fundo da faixa de contato: outra foto do cliente (ou a capa, se só tiver uma).
@@ -100,7 +143,7 @@ export default function Site({ dados }) {
   ].filter(Boolean)
 
   return (
-    <div className={'min-h-screen font-sans antialiased ' + t.pagina}>
+    <div className={'min-h-screen font-sans antialiased ' + t.pagina} style={doModelo ? estiloDoModelo(dados.modelo) : undefined}>
       <header className="relative">
         {/* data-agua: a capa ondula seguindo o cursor (src/agua.js) */}
         {capa ? (
