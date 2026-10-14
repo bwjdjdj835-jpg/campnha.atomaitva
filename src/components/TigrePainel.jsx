@@ -58,6 +58,8 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
     }
   })
   const [copiado, setCopiado] = useState(false)
+  const [tipoRascunho, setTipoRascunho] = useState(null) // 'olhada' = a mensagem leve depois de um "não"
+  const jaMandouOlhada = conversa?.mensagens?.some((m) => m.tipo === 'olhada')
 
   useEffect(() => {
     let url = null
@@ -90,15 +92,19 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
 
   function registrarEnvio(via) {
     atualizarConversa(siteId, (c) => ({
-      mensagens: [...c.mensagens, { de: 'nos', texto, via, at: new Date().toISOString() }],
+      mensagens: [...c.mensagens, { de: 'nos', texto, via, at: new Date().toISOString(), ...(tipoRascunho ? { tipo: tipoRascunho } : {}) }],
       status: ['novo', 'recusou', 'duvida'].includes(c.status) ? 'contatado' : c.status,
     }))
     setTexto('')
     setAbriuWhats(false)
+    setTipoRascunho(null)
   }
 
   const gerar = (tipo) =>
-    tarefa('gerar', async () => setTexto((await rascunho(tipo, negocio, conversa.mensagens)).texto))
+    tarefa('gerar', async () => {
+      setTexto((await rascunho(tipo, negocio, conversa.mensagens)).texto)
+      setTipoRascunho(tipo === 'olhada' ? 'olhada' : null)
+    })
 
   const enviarApi = () =>
     tarefa('enviar', async () => {
@@ -122,8 +128,22 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
         return
       }
       const historico = [...conversa.mensagens, { de: 'cliente', texto: resposta }]
+      setTipoRascunho(null)
       if (r.intencao === 'interesse') setTexto((await rascunho('fechamento', negocio, historico)).texto)
       else if (r.intencao === 'duvida') setTexto((await rascunho('resposta', negocio, historico)).texto)
+      else if (r.intencao === 'recusa') {
+        // "Não quero agora": uma única mensagem leve de "só dá uma olhada". Se recusar de novo, para por aqui.
+        if (conversa.mensagens.some((m) => m.tipo === 'olhada')) {
+          setTexto('')
+          setAviso('Recusou de novo depois do "só dá uma olhada" — melhor parar por aqui e não insistir.')
+        } else {
+          setTexto((await rascunho('olhada', negocio, historico)).texto)
+          setTipoRascunho('olhada')
+          setAviso(
+            `Leitura da resposta: ${r.resumo} Sugestão: uma mensagem leve, só pra ele dar uma olhada no projeto${video ? ' (mande o vídeo da prévia junto)' : ''}. Só uma vez — sem insistir.`,
+          )
+        }
+      }
     })
 
   const enviarVideo = () =>
@@ -272,7 +292,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
             placeholder="Escreva ou gere uma mensagem"
           />
           <div className="flex flex-wrap gap-2">
-            <button className="btn-ghost border border-white/10" onClick={() => gerar(primeiroContato ? 'primeiro' : interessado ? 'fechamento' : 'resposta')} disabled={!!ocupado}>
+            <button className="btn-ghost border border-white/10" onClick={() => gerar(primeiroContato ? 'primeiro' : interessado ? 'fechamento' : conversa.status === 'recusou' && !jaMandouOlhada ? 'olhada' : 'resposta')} disabled={!!ocupado}>
               {ocupado === 'gerar' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Gerar outra
             </button>
             <button className="btn-ghost border border-white/10" onClick={copiar} disabled={!texto.trim()}>

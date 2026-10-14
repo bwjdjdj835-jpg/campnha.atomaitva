@@ -45,6 +45,10 @@ export async function gerarMensagem({ tipo, negocio, historico = [], url }) {
       '"',
     fechamento: 'O cliente demonstrou interesse. Escreva a mensagem de fechamento dizendo que o link do site é enviado assim que o pagamento for confirmado.',
     resposta: 'Escreva a próxima resposta ao cliente, respondendo o que ele disse na última mensagem.',
+    olhada:
+      'O cliente disse que não quer o site agora, mas NÃO pediu para parar de receber mensagens. Escreva UMA resposta curta e gentil: aceite o não, sem insistir, sem desconto e sem pressão, e só convide a dar uma olhada no projeto (a prévia do site) que já foi feito, sem compromisso. Base: "' +
+      MODELOS.olhada(negocio) +
+      '"',
   }[tipo]
   const conversa = historico.map((m) => `${m.de === 'cliente' ? 'Cliente' : 'Nós'}: ${m.texto}`).join('\n')
   const resposta = await claude().beta.messages.create({

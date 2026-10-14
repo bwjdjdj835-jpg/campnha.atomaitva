@@ -421,10 +421,13 @@ export async function lerPacoteLeao(blob) {
 }
 
 // ---------- 🐈‍⬛ Estudo longo do Gato ----------
-// O Gato estuda ~70 s antes de gerar: estudo inicial + 1 rodada no minuto 1 (o plano grátis do Firecrawl aceita
-// ~10 pedidos/min; 70 s gasta ~1/3 menos créditos que 3 min). "Encerrar estudo" corta o tempo e gera com o que já leu.
-const DURACAO_ESTUDO = 70_000
-const RODADAS = [1]
+// Estudo antes de gerar (campo "Estudo"): 5 min = inicial + 4 rodadas (uma por minuto — o plano grátis do Firecrawl
+// aceita ~10 pedidos/min); 70 s = inicial + 1 rodada; rápido = só a inicial. "Encerrar estudo" corta o tempo.
+const ESTUDOS = {
+  5: { duracao: 5 * 60_000, rodadas: [1, 2, 3, 4] },
+  70: { duracao: 70_000, rodadas: [1] },
+}
+let DURACAO_ESTUDO = ESTUDOS[5].duracao
 const CONFIANCA_MINIMA = 0.5 // leitura de cores do Firecrawl abaixo disso não entra no estilo
 let encerrarAgora = false
 export const encerrarEstudo = () => (encerrarAgora = true)
@@ -550,12 +553,14 @@ async function gato(inputs, log, { sites, leads = [] }) {
     log('warn', `${e.message.replace(/\.$/, '')} — seguindo com os padrões base`)
   }
 
-  // Estudo longo: mais 1 rodada (no minuto 1) lendo sites reais do ramo, até completar 70 s.
+  // Estudo longo: rodadas (uma por minuto) lendo sites reais do ramo, até completar o tempo escolhido.
   const estudados = []
   const estudoLongo = inputs.estudo !== '0' && (referencias.length || modelos.length)
+  const plano = inputs.estudo === '70' ? ESTUDOS[70] : ESTUDOS[5] // '3' (valor antigo guardado) vira 5 min
+  DURACAO_ESTUDO = plano.duracao
   if (estudoLongo) {
     log('info', `Estudo de ${mmss(DURACAO_ESTUDO)}: lendo sites de verdade do ramo (cores, fontes e seções) — ou clique em "Encerrar estudo"`)
-    for (const rodada of RODADAS) {
+    for (const rodada of plano.rodadas) {
       await esperarEstudo(inicioEstudo, rodada * 60_000, log)
       if (encerrarAgora) break
       try {

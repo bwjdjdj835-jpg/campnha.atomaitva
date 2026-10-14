@@ -7,11 +7,14 @@ export const MODELOS = {
   fechamento: () =>
     'Perfeito! Podemos fechar agora. Assim que o pagamento for confirmado, te enviamos o link do site no ar.',
   link: (n, url) => `Prontinho! O site${n.nome ? ` da ${n.nome}` : ''} já está no ar: ${url}`,
+  // Cliente disse "não quero agora" (sem pedir para parar): uma resposta leve, sem insistir, só uma vez.
+  olhada: () =>
+    'Tudo bem, sem problema! 😊 Só dá uma olhadinha no projeto que eu preparei pra vocês, sem compromisso nenhum. Se um dia fizer sentido, é só me chamar aqui.',
 }
 
 // Palavras-chave quando não há Claude. Opt-out vem primeiro: na dúvida, respeitar.
-const OPT_OUT = /(n[aã]o (me )?(mand|envi|cham|contat|perturb)|pare de|parar de|sair da lista|descadastr|bloque|n[aã]o tenho interesse em receber|stop\b)/i
-const RECUSA = /(n[aã]o (quero|preciso|tenho interesse)|sem interesse|j[aá] tenho site|obrigad[oa],? mas|agora n[aã]o)/i
+const OPT_OUT = /(n[aã]o (me )?(mand|envi|cham|contat|perturb|incomod)|\bpar[ae]r? de (me )?(mand|envi|cham|contat|perturb|incomod)|pare de|parar de|sair da lista|descadastr|bloque|n[aã]o (quero|tenho interesse em) (mais )?receber|n[aã]o quero mais (mensage|contato)|me (tira|remove)|stop\b)/i
+const RECUSA = /(n[aã]o (quero|preciso|tenho interesse)|sem interesse|j[aá] tenho site|obrigad[oa],? mas|agora n[aã]o|no momento|por enquanto|mais (pra|para) frente|fica pra (pr[oó]xima|depois))/i
 const INTERESSE = /(\bsim\b|quero|tenho interesse|interessad|pode mandar|manda a pr[eé]via|quanto (custa|fica|é)|valor|pre[cç]o|gostei|bora|fechado|vamos)/i
 
 export function classificarPorPalavras(texto) {

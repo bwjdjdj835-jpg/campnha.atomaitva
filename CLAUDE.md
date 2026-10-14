@@ -63,8 +63,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/gato/aprofundar` (`aprofundar(categoria, rodada, lidos)`) — uma rodada do **estudo de 3 minutos**:
     2 buscas BR de sites reais do ramo (sem vitrines/redes/diretórios, `NAO_E_SITE_DO_RAMO`) + leitura com `branding`
     de até 6 páginas iniciais novas (8 pedidos). O Gato (`gato()` em `src/services/agents.js`) faz o estudo inicial e
-    chama 1 rodada no minuto 1 (`RODADAS`), termina aos 70 s (`DURACAO_ESTUDO`; o usuário pediu menos que 3 min para
-    gastar menos crédito); campo "Estudo" (70 s ou rápido) e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`).
+    uma rodada por minuto (`ESTUDOS`: **5 min** = rodadas 1–4, padrão pedido pelo usuário; 70 s = rodada 1; rápido = só
+    a inicial; valor antigo '3' vira 5 min); cada rodada usa uma dupla de buscas diferente (`BUSCAS_POR_RODADA`);
+    campo "Estudo" e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`).
     `estiloDoEstudo` só usa leituras com `confianca` de cor ≥ `CONFIANCA_MINIMA` (0,5, vinda do `branding.confidence`)
     e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
     (prioridade) → estilo do estudo → tema por segmento.
@@ -96,7 +97,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   o Tigre gera a mensagem sugerida → "Abrir no meu WhatsApp" (wa.me com o texto) / "Copiar mensagem" + "Já enviei";
   vídeo por "Compartilhar no WhatsApp" (Web Share no celular) ou "Baixar o vídeo". O envio pela API (Z-API/Meta)
   só aparece se o usuário marcar a caixa de risco (`central-agentes:tigre-envio-api` no localStorage). Resposta colada é
-  classificada (interesse → alerta + rascunho de fechamento; pedido de parar → `nao_contatar`, contato bloqueado).
+  classificada (interesse → alerta + rascunho de fechamento; pedido de parar → `nao_contatar`, contato bloqueado;
+  **recusa leve** ("não quero agora", "no momento não", "fica pra próxima") → UMA mensagem `olhada` ("só dá uma olhadinha
+  no projeto, sem compromisso", `MODELOS.olhada`), marcada com `tipo: 'olhada'`; se recusar de novo, o Tigre não sugere
+  mais nada). Na dúvida entre recusa e parar, vale parar (`OPT_OUT` vem antes de `RECUSA`).
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
 - Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo):
   capa grande com água, destaques (nota, horário, cidade, WhatsApp — só dados reais), Sobre, Serviços, galeria em
