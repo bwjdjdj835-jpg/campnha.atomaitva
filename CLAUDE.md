@@ -63,8 +63,8 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/gato/aprofundar` (`aprofundar(categoria, rodada, lidos)`) — uma rodada do **estudo de 3 minutos**:
     2 buscas BR de sites reais do ramo (sem vitrines/redes/diretórios, `NAO_E_SITE_DO_RAMO`) + leitura com `branding`
     de até 6 páginas iniciais novas (8 pedidos). O Gato (`gato()` em `src/services/agents.js`) faz o estudo inicial e
-    uma rodada por minuto (`ESTUDOS`: **5 min** = rodadas 1–4, padrão pedido pelo usuário; 70 s = rodada 1; rápido = só
-    a inicial; valor antigo '3' vira 5 min); cada rodada usa uma dupla de buscas diferente (`BUSCAS_POR_RODADA`);
+    uma rodada por minuto (`ESTUDOS`: **3 min** = rodadas 1–2, padrão escolhido pelo usuário; 5 min = rodadas 1–4;
+    70 s = rodada 1; rápido = só a inicial); cada rodada usa uma dupla de buscas diferente (`BUSCAS_POR_RODADA`);
     campo "Estudo" e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`).
     `estiloDoEstudo` só usa leituras com `confianca` de cor ≥ `CONFIANCA_MINIMA` (0,5, vinda do `branding.confidence`)
     e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
@@ -103,10 +103,19 @@ e "Leão Dourado" foi unificado como **Leão**.
   mais nada). Na dúvida entre recusa e parar, vale parar (`OPT_OUT` vem antes de `RECUSA`).
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
 - Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo):
-  capa grande com água, destaques (nota, horário, cidade, WhatsApp — só dados reais), Sobre, Serviços, galeria em
-  mosaico, faixa de contato com foto de fundo, contato + mapa, botão fixo de WhatsApp.
+  capa grande com água, destaques (nota, horário, cidade, WhatsApp — só dados reais), faixa de serviços correndo, Sobre,
+  Diferenciais, Serviços, galeria uniforme, Como funciona, faixa de contato com foto de fundo, Perguntas frequentes,
+  contato + mapa, botão fixo de WhatsApp.
   Vai como texto (`?raw`) para `src/Site.jsx` do ZIP e renderiza a prévia — prévia aprovada = site entregue.
   `src/lib/siteTemplate.js` monta o resto do projeto React + Vite + Tailwind.
+- Efeitos interativos do site do cliente (estilo 21st.dev / Code Eagle / GSAP, sem bibliotecas):
+  `src/lib/clienteEfeitos.js` (vai no ZIP como `src/efeitos.js`; roda na prévia junto com a água) liga
+  `[data-revelar]` (entra ao rolar, filhos `[data-cascata]` em cascata), `[data-brilho]` (luz segue o cursor),
+  `[data-magnetico]` (botões) e `[data-parallax]` (fotos); CSS em `clienteAnimacoes.css` (+ título letra por letra
+  `.anim-letra` e faixa de serviços `.faixa-correr`). O `ClienteSite` só põe esses atributos se `dados.efeitos !== false`
+  (`fx()`); o Gato tem o botão "Efeitos interativos: ligados/desligados" e o ZIP final guarda a escolha.
+- Galeria uniforme: todas as fotos em 4:3 do mesmo tamanho; colunas pela quantidade (4 → 4, 2 → 2, senão 3) e última
+  linha centralizada (flex-wrap).
 - Página inicial: `WaterRipple.jsx` (ondas de água em canvas seguindo o cursor/dedo no hero).
 - Capa do site do cliente: `src/lib/clienteAgua.js` (JS puro, vai no ZIP como `src/agua.js`) — a foto de capa ondula
   seguindo o cursor (refração em canvas), gota de abertura, garoa a cada 8 s; para sozinho e volta à foto nítida.

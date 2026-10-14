@@ -421,13 +421,14 @@ export async function lerPacoteLeao(blob) {
 }
 
 // ---------- 🐈‍⬛ Estudo longo do Gato ----------
-// Estudo antes de gerar (campo "Estudo"): 5 min = inicial + 4 rodadas (uma por minuto — o plano grátis do Firecrawl
-// aceita ~10 pedidos/min); 70 s = inicial + 1 rodada; rápido = só a inicial. "Encerrar estudo" corta o tempo.
+// Estudo antes de gerar (campo "Estudo"): 3 min (padrão) = inicial + 2 rodadas (uma por minuto — o plano grátis do
+// Firecrawl aceita ~10 pedidos/min); 5 min = 4 rodadas; 70 s = 1 rodada; rápido = só a inicial. "Encerrar" corta o tempo.
 const ESTUDOS = {
+  3: { duracao: 3 * 60_000, rodadas: [1, 2] },
   5: { duracao: 5 * 60_000, rodadas: [1, 2, 3, 4] },
   70: { duracao: 70_000, rodadas: [1] },
 }
-let DURACAO_ESTUDO = ESTUDOS[5].duracao
+let DURACAO_ESTUDO = ESTUDOS[3].duracao
 const CONFIANCA_MINIMA = 0.5 // leitura de cores do Firecrawl abaixo disso não entra no estilo
 let encerrarAgora = false
 export const encerrarEstudo = () => (encerrarAgora = true)
@@ -556,7 +557,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
   // Estudo longo: rodadas (uma por minuto) lendo sites reais do ramo, até completar o tempo escolhido.
   const estudados = []
   const estudoLongo = inputs.estudo !== '0' && (referencias.length || modelos.length)
-  const plano = inputs.estudo === '70' ? ESTUDOS[70] : ESTUDOS[5] // '3' (valor antigo guardado) vira 5 min
+  const plano = ESTUDOS[inputs.estudo] || ESTUDOS[3] // padrão: 3 minutos
   DURACAO_ESTUDO = plano.duracao
   if (estudoLongo) {
     log('info', `Estudo de ${mmss(DURACAO_ESTUDO)}: lendo sites de verdade do ramo (cores, fontes e seções) — ou clique em "Encerrar estudo"`)
@@ -662,10 +663,11 @@ export async function enviarVideoPelaApi({ telefone, video, legenda }) {
 }
 
 // Só é chamado depois do clique em "Aprovar prévia".
-export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo, modelo = preview.dados.modelo) {
+export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo, modelo = preview.dados.modelo, efeitos = true) {
   const dados = {
     ...preview.dados,
     tema,
+    efeitos,
     conteudo,
     modelo: tema === 'modelo' ? modelo : undefined,
     gerador: 'Gato Negro — Central de Agentes',

@@ -122,6 +122,9 @@ export default function Site({ dados }) {
   const diferenciais = conteudo.diferenciais || []
   const passos = conteudo.passos || []
   const faq = conteudo.faq || []
+  // Efeitos interativos (src/efeitos.js): o Gato liga/desliga na prévia. Só põe os atributos quando ligado.
+  const efeitos = dados.efeitos !== false
+  const fx = (attrs) => (efeitos ? attrs : {})
   const doModelo = dados.tema === 'modelo' && dados.modelo
   const t = (doModelo ? TEMAS.modelo : TEMAS[dados.tema === 'modelo' ? 'noite' : dados.tema]) || TEMAS.claro
   const capa = imagens[0]
@@ -158,8 +161,21 @@ export default function Site({ dados }) {
           {negocio.categoria && (
             <p className={'anim-subir text-xs font-semibold uppercase tracking-[0.3em] ' + t.rotulo}>{negocio.categoria}</p>
           )}
-          <h1 className={'anim-subir anim-atraso-1 mt-3 max-w-4xl text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-7xl ' + t.titulo}>
-            {negocio.nome}
+          <h1 className={(efeitos ? '' : 'anim-subir anim-atraso-1 ') + 'mt-3 max-w-4xl text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-7xl ' + t.titulo}>
+            {efeitos
+              ? String(negocio.nome)
+                  .split(' ')
+                  .map((palavra, p, todas) => (
+                    <span key={p} className="inline-block whitespace-nowrap">
+                      {Array.from(palavra).map((letra, l) => (
+                        <span key={l} className="anim-letra" style={{ animationDelay: 0.15 + (todas.slice(0, p).join('').length + l) * 0.035 + 's' }}>
+                          {letra}
+                        </span>
+                      ))}
+                      {p < todas.length - 1 ? '\u00A0' : ''}
+                    </span>
+                  ))
+              : negocio.nome}
           </h1>
           {(negocio.rating || cidade) && (
             <p className="anim-subir anim-atraso-2 mt-4 text-base text-white/90">
@@ -170,7 +186,7 @@ export default function Site({ dados }) {
           )}
           <div className="anim-subir anim-atraso-3 mt-8 flex flex-wrap gap-3">
             {negocio.whatsapp && (
-              <a href={negocio.whatsapp} className={'inline-flex items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-lg transition duration-300 hover:-translate-y-0.5 hover:scale-105 ' + t.botao}>
+              <a href={negocio.whatsapp} {...fx({ 'data-magnetico': '' })} className={'inline-flex items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-lg transition duration-300 hover:-translate-y-0.5 hover:scale-105 ' + t.botao}>
                 Chamar no WhatsApp
               </a>
             )}
@@ -187,7 +203,7 @@ export default function Site({ dados }) {
         <section className="relative z-10 mx-auto -mt-10 max-w-6xl px-6">
           <ul className={'grid gap-3 sm:grid-cols-2 ' + (destaques.length === 4 ? 'lg:grid-cols-4' : destaques.length === 3 ? 'lg:grid-cols-3' : '')}>
             {destaques.map((d) => (
-              <li key={d.titulo} className={'anim-revelar rounded-2xl border px-5 py-5 transition duration-300 hover:-translate-y-1 ' + t.destaque}>
+              <li key={d.titulo} {...fx({ 'data-brilho': '' })} className={'anim-revelar rounded-2xl border px-5 py-5 transition duration-300 hover:-translate-y-1 ' + t.destaque}>
                 <p className={'text-lg font-bold ' + t.acento}>{d.titulo}</p>
                 <p className={'mt-1 text-sm ' + t.texto}>{d.texto}</p>
               </li>
@@ -196,9 +212,26 @@ export default function Site({ dados }) {
         </section>
       )}
 
+      {efeitos && servicos.length >= 3 && (
+        <div className={'mt-16 overflow-hidden border-y py-5 ' + t.secao} aria-hidden="true">
+          <div className="faixa-correr">
+            {[0, 1].map((volta) => (
+              <div key={volta} className="flex shrink-0 items-center">
+                {servicos.concat(servicos).map((s, i) => (
+                  <span key={volta + '-' + i} className="flex items-center whitespace-nowrap px-6 text-2xl font-bold uppercase tracking-wide sm:text-3xl">
+                    {s}
+                    <span className={'ml-12 ' + t.acento}>✦</span>
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <main className="mx-auto max-w-6xl space-y-24 px-6 py-24">
         {conteudo.sobre && (
-          <section className="anim-revelar grid gap-10 lg:grid-cols-2 lg:items-center">
+          <section {...fx({ 'data-revelar': '' })} className="anim-revelar grid gap-10 lg:grid-cols-2 lg:items-center">
             <div>
               <p className={'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>Sobre</p>
               <h2 className="mt-3 text-3xl font-bold sm:text-4xl">Quem somos</h2>
@@ -213,12 +246,12 @@ export default function Site({ dados }) {
         )}
 
         {diferenciais.length > 0 && (
-          <section className="anim-revelar">
+          <section {...fx({ 'data-revelar': '' })} className="anim-revelar">
             <p className={'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>Por que escolher</p>
             <h2 className="mt-3 mb-8 text-3xl font-bold sm:text-4xl">Nossos diferenciais</h2>
             <ul className="grid gap-4 sm:grid-cols-3">
               {diferenciais.map((d) => (
-                <li key={d} className={'rounded-2xl border p-6 transition duration-300 hover:-translate-y-1 hover:shadow-xl ' + t.destaque}>
+                <li key={d} {...fx({ 'data-brilho': '', 'data-cascata': '' })} className={'rounded-2xl border p-6 transition duration-300 hover:-translate-y-1 hover:shadow-xl ' + t.destaque}>
                   <span className={'text-2xl ' + t.acento}>✦</span>
                   <p className="mt-3 text-lg font-semibold leading-snug">{d}</p>
                 </li>
@@ -228,12 +261,12 @@ export default function Site({ dados }) {
         )}
 
         {servicos.length > 0 && (
-          <section className="anim-revelar">
+          <section {...fx({ 'data-revelar': '' })} className="anim-revelar">
             <p className={'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>O que fazemos</p>
             <h2 className="mt-3 mb-8 text-3xl font-bold sm:text-4xl">Serviços</h2>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {servicos.map((s, i) => (
-                <li key={s} className={'group rounded-2xl border px-6 py-6 transition duration-300 hover:-translate-y-1 hover:shadow-xl ' + t.cartao}>
+                <li key={s} {...fx({ 'data-brilho': '', 'data-cascata': '' })} className={'group rounded-2xl border px-6 py-6 transition duration-300 hover:-translate-y-1 hover:shadow-xl ' + t.cartao}>
                   <span className={'text-sm font-mono ' + t.acento}>{String(i + 1).padStart(2, '0')}</span>
                   <p className="mt-2 text-lg font-semibold">{s}</p>
                 </li>
@@ -243,29 +276,45 @@ export default function Site({ dados }) {
         )}
 
         {galeria.length > 0 && (
-          <section id="fotos" className="anim-revelar">
+          <section id="fotos" {...fx({ 'data-revelar': '' })} className="anim-revelar">
             <p className={'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>Galeria</p>
             <h2 className="mt-3 mb-8 text-3xl font-bold sm:text-4xl">Fotos</h2>
-            {/* Mosaico: a primeira foto ocupa um bloco grande. */}
-            <div className="grid auto-rows-[160px] grid-cols-2 gap-3 sm:auto-rows-[220px] sm:grid-cols-4">
-              {galeria.map((img, i) => (
+            {/* Grade uniforme: todas as fotos do mesmo tamanho, alinhadas. */}
+            {/* Colunas pela quantidade (4 → 4 lado a lado, 2 → 2) e última linha centralizada: nada fica torto. */}
+            <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+              {galeria.map((img) => (
                 <div
                   key={img.arquivo}
-                  className={'group overflow-hidden rounded-2xl ' + (i === 0 ? 'col-span-2 row-span-2' : i === 3 ? 'sm:col-span-2' : '')}
+                  {...fx({ 'data-cascata': '' })}
+                  className={
+                    'group aspect-[4/3] overflow-hidden rounded-2xl ' +
+                    (galeria.length === 1
+                      ? 'w-full sm:w-2/3'
+                      : galeria.length === 2
+                        ? 'w-[calc(50%-0.375rem)] sm:w-[calc(50%-0.5rem)]'
+                        : galeria.length === 4
+                          ? 'w-[calc(50%-0.375rem)] sm:w-[calc(25%-0.75rem)]'
+                          : 'w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.667rem)]')
+                  }
                 >
-                  <img src={img.arquivo} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
+                  <img
+                    src={img.arquivo}
+                    alt=""
+                    {...fx({ 'data-parallax': '' })}
+                    className="h-full w-full object-cover transition duration-700 group-hover:brightness-110"
+                  />
                 </div>
               ))}
             </div>
           </section>
         )}
         {passos.length > 0 && (
-          <section className="anim-revelar">
+          <section {...fx({ 'data-revelar': '' })} className="anim-revelar">
             <p className={'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>Simples assim</p>
             <h2 className="mt-3 mb-8 text-3xl font-bold sm:text-4xl">Como funciona</h2>
             <ol className="grid gap-4 sm:grid-cols-3">
               {passos.map((p, i) => (
-                <li key={p} className={'relative rounded-2xl border p-6 ' + t.cartao}>
+                <li key={p} {...fx({ 'data-brilho': '', 'data-cascata': '' })} className={'relative rounded-2xl border p-6 ' + t.cartao}>
                   <span className={'text-5xl font-extrabold opacity-30 ' + t.acento}>{i + 1}</span>
                   <p className="mt-2 text-lg font-semibold">{p}</p>
                 </li>
@@ -281,7 +330,7 @@ export default function Site({ dados }) {
             <img src={fundoFaixa.arquivo} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : null}
           <div className={'relative ' + (fundoFaixa ? 'bg-black/65 text-white' : t.faixa)}>
-            <div className="anim-revelar mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-20 sm:flex-row sm:items-center sm:justify-between">
+            <div {...fx({ 'data-revelar': '' })} className="anim-revelar mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-20 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-3xl font-bold sm:text-5xl">Fale com a gente agora</h2>
                 <p className="mt-3 text-lg opacity-90">
@@ -289,7 +338,7 @@ export default function Site({ dados }) {
                 </p>
               </div>
               {negocio.whatsapp && (
-                <a href={negocio.whatsapp} className={'inline-flex shrink-0 items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-xl transition duration-300 hover:scale-105 ' + t.botao}>
+                <a href={negocio.whatsapp} {...fx({ 'data-magnetico': '' })} className={'inline-flex shrink-0 items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-xl transition duration-300 hover:scale-105 ' + t.botao}>
                   Chamar no WhatsApp
                 </a>
               )}
@@ -299,12 +348,12 @@ export default function Site({ dados }) {
       )}
 
       {faq.length > 0 && (
-        <section className="anim-revelar mx-auto max-w-3xl px-6 pt-24">
+        <section {...fx({ 'data-revelar': '' })} className="anim-revelar mx-auto max-w-3xl px-6 pt-24">
           <p className={'text-center text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>Dúvidas</p>
           <h2 className="mt-3 mb-8 text-center text-3xl font-bold sm:text-4xl">Perguntas frequentes</h2>
           <div className="space-y-3">
             {faq.map((f) => (
-              <details key={f.p} className={'group rounded-2xl border px-6 py-5 ' + t.cartao}>
+              <details key={f.p} {...fx({ 'data-cascata': '' })} className={'group rounded-2xl border px-6 py-5 ' + t.cartao}>
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold">
                   {f.p}
                   <span className={'text-2xl transition group-open:rotate-45 ' + t.acento}>+</span>
@@ -317,7 +366,7 @@ export default function Site({ dados }) {
       )}
 
       <section className={'mx-auto grid max-w-6xl gap-10 px-6 py-24 lg:grid-cols-2'}>
-        <div className="anim-revelar">
+        <div {...fx({ 'data-revelar': '' })} className="anim-revelar">
           <p className={'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>Contato</p>
           <h2 className="mt-3 mb-6 text-3xl font-bold sm:text-4xl">Onde estamos</h2>
           <ul className={'space-y-4 text-lg ' + t.texto}>
@@ -339,7 +388,7 @@ export default function Site({ dados }) {
           </div>
         </div>
         {mapa && (
-          <iframe title="Mapa" loading="lazy" src={mapa} className={'anim-revelar h-80 w-full rounded-2xl border ' + t.cartao} />
+          <iframe title="Mapa" loading="lazy" src={mapa} {...fx({ 'data-revelar': '' })} className={'anim-revelar h-80 w-full rounded-2xl border ' + t.cartao} />
         )}
       </section>
 

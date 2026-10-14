@@ -4,9 +4,12 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import Site from './ClienteSite.jsx'
 import clienteCss from './cliente.css?inline'
 import aguaSource from './clienteAgua.js?raw'
+import efeitosSource from './clienteEfeitos.js?raw'
 
 // O arquivo é um módulo (export); na prévia ele roda como script comum.
-const aguaScript = aguaSource.replace(/^export /gm, '').replace(/<\/script/gi, '<\\/script')
+const comoScript = (fonte) => fonte.replace(/^export /gm, '').replace(/<\/script/gi, '<\\/script')
+const aguaScript = comoScript(aguaSource)
+const efeitosScript = comoScript(efeitosSource)
 
 // Passeio para o vídeo: o app manda postMessage({ tipo: 'passeio-previa', ms }) e a prévia passa um
 // "cursor" pela capa (a água segue) e depois rola até o fim, devagar.
@@ -63,6 +66,8 @@ export function htmlDaPrevia(dados, fotosUrl) {
 <meta name="viewport" content="width=device-width, initial-scale=1"><base target="_blank">
 ${linkDaFonte(dados)}<style>${clienteCss}</style></head><body>${html}<script>${aguaScript}
 iniciarAgua(document)
+${efeitosScript}
+iniciarEfeitos(document)
 ${passeioScript}</script></body></html>`
 }
 

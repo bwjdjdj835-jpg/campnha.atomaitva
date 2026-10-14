@@ -44,3 +44,52 @@
 @media (prefers-reduced-motion: reduce) {
   .anim-subir, .anim-zoom, .anim-pulso, .anim-revelar, .anim-brilho { animation: none !important; }
 }
+
+/* ---- Efeitos interativos (src/efeitos.js — estilo 21st.dev / Code Eagle / GSAP) ---- */
+/* Seções que entram ao rolar (o script coloca .efeito-oculto e depois .efeito-visivel). */
+.efeito-oculto,
+.efeito-oculto [data-cascata] {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.efeito-oculto.efeito-visivel,
+.efeito-visivel [data-cascata] { opacity: 1; transform: none; }
+/* Com o script ligado, a revelação por JS substitui a do CSS. */
+[data-revelar].anim-revelar { animation: none; }
+
+/* Título da capa entrando letra por letra. */
+@keyframes cliente-letra {
+  from { opacity: 0; transform: translateY(0.6em) rotate(6deg); filter: blur(8px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.anim-letra { display: inline-block; animation: cliente-letra 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Luz que segue o cursor nos cartões. */
+[data-brilho] { position: relative; overflow: hidden; isolation: isolate; }
+[data-brilho]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.14), transparent 60%);
+}
+[data-brilho]:hover::before { opacity: 1; }
+
+/* Botões magnéticos voltam suave. */
+[data-magnetico] { transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1); will-change: transform; }
+
+/* Faixa de serviços correndo (marquee). */
+@keyframes cliente-correr { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.faixa-correr { display: flex; width: max-content; animation: cliente-correr 28s linear infinite; }
+.faixa-correr:hover { animation-play-state: paused; }
+
+/* Parallax: a foto fica um pouco maior para não aparecer borda ao mover. */
+[data-parallax] { transform: scale(1.12); transition: transform 0.1s linear; will-change: transform; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-letra, .faixa-correr { animation: none !important; }
+  .efeito-oculto, .efeito-oculto [data-cascata] { opacity: 1 !important; transform: none !important; }
+}

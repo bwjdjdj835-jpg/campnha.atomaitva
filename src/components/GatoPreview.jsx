@@ -14,6 +14,7 @@ function marcarSite(siteId, campos) {
 export default function GatoPreview({ preview }) {
   const [tema, setTema] = useState(preview.dados.tema)
   const [conteudo, setConteudo] = useState(preview.dados.conteudo || {})
+  const [efeitos, setEfeitos] = useState(preview.dados.efeitos !== false) // estilo 21st.dev / Code Eagle / GSAP
   // Site modelo cujas cores/fonte viram o tema "Do modelo": o seu link colado ou o estilo que o estudo achou.
   const [modelo, setModelo] = useState(preview.modeloInicial || null)
   const [device, setDevice] = useState('desktop')
@@ -47,8 +48,8 @@ export default function GatoPreview({ preview }) {
   }, [conteudo])
 
   const srcDoc = useMemo(
-    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, conteudo: conteudoPrevia }, fotosUrl) : ''),
-    [preview, tema, modelo, conteudoPrevia, fotosUrl],
+    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, conteudo: conteudoPrevia }, fotosUrl) : ''),
+    [preview, tema, modelo, efeitos, conteudoPrevia, fotosUrl],
   )
 
   function desaprovar() {
@@ -85,7 +86,7 @@ export default function GatoPreview({ preview }) {
   async function baixarFinal() {
     setGerando(true)
     try {
-      const r = await gerarZipFinal(preview, tema, conteudo, modelo)
+      const r = await gerarZipFinal(preview, tema, conteudo, modelo, efeitos)
       setEntregue(r)
       marcarSite(preview.siteId, { zipFinal: r.nomeZip })
     } finally {
@@ -157,6 +158,16 @@ export default function GatoPreview({ preview }) {
       </div>
 
       <div className="px-5 pt-4 flex flex-wrap gap-2">
+        <button
+          onClick={() => {
+            setEfeitos(!efeitos)
+            desaprovar()
+          }}
+          title="Seções entrando ao rolar, título letra por letra, luz nos cartões, botões magnéticos, faixa de serviços correndo e fotos com parallax"
+          className={`text-xs px-3 py-1.5 rounded-full border transition ${efeitos ? 'border-neon bg-neon/10 text-white' : 'border-white/10 text-slate-400 hover:text-white'}`}
+        >
+          {efeitos ? '✨ Efeitos interativos: ligados' : 'Efeitos interativos: desligados'}
+        </button>
         {Object.entries(TEMAS).filter(([id]) => id !== 'modelo' || modelo).map(([id, t]) => (
           <button
             key={id}
