@@ -13,7 +13,9 @@ import { buscarApify } from './apify.js'
 import { buscarMapsPagina } from './mapsPagina.js'
 
 // Limite de candidatos verificados por busca (cada um custa 2 chamadas no Firecrawl).
-const MAX_VERIFICAR = 25
+const MAX_VERIFICAR = 25 // leads mostrados por busca
+// O plano grátis do Firecrawl aceita ~10 pedidos por minuto (a busca no Maps já usa 1): confere só os primeiros.
+const MAX_CONFERIR = 8
 
 const PLACES_URL = 'https://places.googleapis.com/v1/places:searchText'
 const FIRECRAWL_URL = 'https://api.firecrawl.dev/v2/search'
@@ -81,21 +83,19 @@ async function firecrawlSearch(query) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
     },
-    body: JSON.stringify({ query, limit: 5, country: 'BR' }),
+    body: JSON.stringify({ query, limit: 8, country: 'BR' }),
   })
   const data = await res.json().catch(() => ({}))
+  if (res.status === 429) {
+    throw new Error('limite de pedidos por minuto do plano do Firecrawl atingido (libera em 1 minuto)')
+  }
   if (!res.ok) throw new Error(`Firecrawl: ${data.error || res.statusText}`)
   return data.data?.web || []
 }
 
-// Procura domínio próprio e Instagram do negócio.
+// Procura domínio próprio e Instagram do negócio numa pesquisa só (o Instagram costuma vir junto).
 async function verificar(nome, cidade) {
-  const results = (
-    await Promise.all([
-      firecrawlSearch(`"${nome}" "${cidade}"`),
-      firecrawlSearch(`site:instagram.com "${nome}"`),
-    ])
-  ).flat()
+  const results = await firecrawlSearch(`"${nome}" ${cidade} site instagram`)
 
   const nomeSlug = slug(nome)
   let site = null
@@ -230,15 +230,17 @@ export async function buscarNegocios({ categoria, cidade }) {
 
   const leads = []
   let firecrawlOk = comFirecrawl
+  let conferidos = 0
   for (const c of semSite.slice(0, MAX_VERIFICAR)) {
     let verif = { site: null, instagram: null }
     let verificado = false
-    if (firecrawlOk) {
+    if (firecrawlOk && conferidos < MAX_CONFERIR) {
+      conferidos++
       try {
         verif = await verificar(c.nome, cidade)
         verificado = true
       } catch (e) {
-        log('warn', `Firecrawl falhou (${e.message}) — seguindo sem confirmação de domínio`)
+        log('warn', `Firecrawl: ${e.message.replace(/^Firecrawl: /, '')} — os demais seguem sem confirmação de domínio`)
         firecrawlOk = false
       }
     }
@@ -273,6 +275,10 @@ export async function buscarNegocios({ categoria, cidade }) {
     })
   }
   if (semSite.length > MAX_VERIFICAR) log('info', `Mostrando os ${MAX_VERIFICAR} primeiros candidatos`)
+  const semConferir = Math.min(semSite.length, MAX_VERIFICAR) - conferidos
+  if (comFirecrawl && firecrawlOk && semConferir > 0) {
+    log('info', `Domínio conferido nos ${conferidos} primeiros (limite do plano grátis do Firecrawl); os outros ${semConferir} ficam com confiança "Médio"`)
+  }
 
   log('ok', `${leads.length} lead(s) confirmado(s)`)
   if (leads.length < 3) log('warn', 'Poucos resultados — tente variar a categoria ou buscar uma cidade vizinha')
