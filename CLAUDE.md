@@ -166,6 +166,17 @@ e "Leão Dourado" foi unificado como **Leão**.
   por marcação manual na lista do Pinguim ("Já mandei mensagem" / "Não quer site ainda", em `contatos` pela chave do
   telefone — vale quando o Pinguim acha o comércio de novo). Contatados vão para o fim da lista; o selo aparece também
   nos seletores do Leão e do Tigre e em "Sites gerados".
+- **Modo automático** (`/automatico`, `src/pages/Automatico.jsx` + `src/services/automatico.js`, pedido do usuário):
+  cidade + lista de nichos (padrão `NICHOS_PADRAO`, começa em barbearia) → para cada nicho o Pinguim busca, cada lead
+  real com telefone, sem selo de contato e com conferência `nao`/`sem_firecrawl` passa por Leão (`semDownload`) → Gato
+  (`reaproveitar`: estudo 1 vez por nicho, `estudoDoNicho`) + `gerarZipFinal(..., { baixarZip: false })` → Abelha
+  (aceita só campos com fonte, `gerarColmeia(..., { baixarZip: false })`) → vídeo → `rascunho('primeiro')` guardado em
+  `conversas[siteId].rascunho`. O site fica com status `revisar`; **nada é enviado**. Limite do Firecrawl: `gastar(n)`
+  (8 pedidos/min). Vídeo: servidor local grava sozinho; no Vercel `pedirGravacaoDaAba()` UMA vez no clique de começar e
+  `gravarComFluxo(stream, iframe)` por cliente (iframe fixo no canto). Nichos concluídos ficam em `pipeline.auto.feitos`
+  (continua de onde parou; "Recomeçar do 1º nicho"). Wake Lock + aviso ao fechar a aba.
+  No Tigre, `FilaAprovacao.jsx` lista os `revisar` (vídeo + mensagem): "Aprovar prévia e mensagem" → status `aprovado`
+  e abre o `TigrePainel` com o rascunho; "Ajustar no Gato" / "Descartar".
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência).
 

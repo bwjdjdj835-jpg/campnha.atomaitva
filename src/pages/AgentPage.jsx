@@ -13,6 +13,7 @@ const GatoPreview = lazy(() => import('../components/GatoPreview.jsx'))
 const PreviaLeao = lazy(() => import('../components/PreviaLeao.jsx'))
 import TigrePainel from '../components/TigrePainel.jsx'
 import AbelhaPainel from '../components/AbelhaPainel.jsx'
+import FilaAprovacao from '../components/FilaAprovacao.jsx'
 
 // Cada agente começa com a página zerada (sem logs nem prévias do agente anterior).
 export default function AgentPageRota() {
@@ -249,6 +250,15 @@ function AgentPage() {
       <LogConsole logs={logs} running={running} />
 
       {abelha && <AbelhaPainel key={abelha.dados.geradoEm + abelha.siteId} resultado={abelha} />}
+
+      {agent.id === 'tigre' && (
+        <FilaAprovacao
+          onAbrir={(siteId) => {
+            setTigre({ siteId })
+            setTimeout(() => document.getElementById('tigre-painel')?.scrollIntoView({ behavior: 'smooth' }), 100)
+          }}
+        />
+      )}
 
       {tigre && <TigrePainel key={tigre.siteId} siteId={tigre.siteId} rascunhoInicial={tigre.rascunho} keys={keys} />}
 

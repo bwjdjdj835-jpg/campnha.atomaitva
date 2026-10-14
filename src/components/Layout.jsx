@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { LayoutGrid, FolderCog, Menu, X } from 'lucide-react'
+import { LayoutGrid, FolderCog, Menu, X, Bot } from 'lucide-react'
 import { agents } from '../data/agents.js'
 
 function NavItem({ to, children, onClick }) {
@@ -38,6 +38,9 @@ export default function Layout() {
       </div>
       <NavItem to="/" onClick={close}>
         <LayoutGrid size={18} /> Orquestra
+      </NavItem>
+      <NavItem to="/automatico" onClick={close}>
+        <Bot size={18} /> Automático
       </NavItem>
       <div className="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest text-slate-500">Agentes</div>
       {agents.map((a) => (

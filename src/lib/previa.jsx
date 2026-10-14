@@ -75,19 +75,16 @@ ${passeioScript}</script></body></html>`
 // Scripts liberados só para o efeito de água; sem allow-same-origin, a prévia não acessa o app.
 export const SANDBOX_PREVIA = 'allow-scripts allow-popups allow-popups-to-escape-sandbox'
 
-// Grava o quadro da prévia no próprio navegador (Chrome/Edge no computador): o usuário autoriza gravar a aba,
-// o vídeo é recortado só no quadro (Region Capture) e a prévia faz o passeio. MP4 quando o navegador grava MP4.
-export async function gravarPreviaNoNavegador(iframe, ms = 12000) {
+// Pede para gravar esta aba (o navegador mostra "Compartilhar esta aba?"). Uma autorização serve para vários vídeos:
+// o modo automático pede uma vez no começo e grava a prévia de cada cliente com o mesmo fluxo.
+export async function pedirGravacaoDaAba() {
   if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === 'undefined') {
     throw new Error(
       'Este navegador não grava a tela. Use o Chrome ou o Edge no computador — ou, no celular, abra a prévia e use o gravador de tela do aparelho.',
     )
   }
-  // O recorte só pega a parte do quadro que está na tela: centraliza a prévia antes.
-  iframe.scrollIntoView({ block: 'center' })
-  let stream
   try {
-    stream = await navigator.mediaDevices.getDisplayMedia({
+    return await navigator.mediaDevices.getDisplayMedia({
       video: { frameRate: 30 },
       audio: false,
       preferCurrentTab: true,
@@ -99,7 +96,13 @@ export async function gravarPreviaNoNavegador(iframe, ms = 12000) {
     }
     throw new Error(`Não consegui gravar a tela (${e?.message || e}).`)
   }
+}
+
+// Grava `ms` do quadro (iframe) usando um fluxo já autorizado. Não encerra o fluxo (dá para gravar o próximo).
+// O vídeo é recortado só no quadro (Region Capture) e a prévia faz o passeio. MP4 quando o navegador grava MP4.
+export async function gravarComFluxo(stream, iframe, ms = 12000) {
   const [faixa] = stream.getVideoTracks()
+  if (!faixa || faixa.readyState === 'ended') throw new Error('A gravação da aba foi encerrada — autorize de novo.')
   if (window.CropTarget && faixa.cropTo) {
     try {
       await faixa.cropTo(await window.CropTarget.fromElement(iframe))
@@ -108,7 +111,7 @@ export async function gravarPreviaNoNavegador(iframe, ms = 12000) {
     }
   }
   const tipo = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t))
-  const gravador = new MediaRecorder(stream, { mimeType: tipo, videoBitsPerSecond: 5_000_000 })
+  const gravador = new MediaRecorder(new MediaStream([faixa]), { mimeType: tipo, videoBitsPerSecond: 5_000_000 })
   const partes = []
   gravador.ondataavailable = (e) => e.data.size && partes.push(e.data)
   const parou = new Promise((resolve) => (gravador.onstop = resolve))
@@ -119,9 +122,20 @@ export async function gravarPreviaNoNavegador(iframe, ms = 12000) {
     faixa.addEventListener('ended', () => (clearTimeout(t), resolve()), { once: true })
   })
   if (gravador.state !== 'inactive') gravador.stop()
-  stream.getTracks().forEach((t) => t.stop())
   await parou
   return new Blob(partes, { type: (tipo || 'video/webm').split(';')[0] })
+}
+
+// Grava o quadro da prévia no próprio navegador (Chrome/Edge no computador): um vídeo, uma autorização.
+export async function gravarPreviaNoNavegador(iframe, ms = 12000) {
+  // O recorte só pega a parte do quadro que está na tela: centraliza a prévia antes.
+  iframe.scrollIntoView({ block: 'center' })
+  const stream = await pedirGravacaoDaAba()
+  try {
+    return await gravarComFluxo(stream, iframe, ms)
+  } finally {
+    stream.getTracks().forEach((t) => t.stop())
+  }
 }
 
 // Miniatura do tema no painel: capa baixa e sem animação de entrada, para comparar cores e seções lado a lado.

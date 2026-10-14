@@ -39,7 +39,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
   const { sites, leads, conversas } = usePipeline()
   const site = sites.find((x) => x.id === siteId)
   const conversa = conversas?.[siteId] || { status: 'novo', mensagens: [] }
-  const [texto, setTexto] = useState(rascunhoInicial || '')
+  const [texto, setTexto] = useState(rascunhoInicial || conversa.rascunho || '')
   const [resposta, setResposta] = useState('')
   const [ocupado, setOcupado] = useState(null)
   const [erro, setErro] = useState(null)
@@ -95,6 +95,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
     atualizarConversa(siteId, (c) => ({
       mensagens: [...c.mensagens, { de: 'nos', texto, via, at: new Date().toISOString(), ...(tipoRascunho ? { tipo: tipoRascunho } : {}) }],
       status: ['novo', 'recusou', 'duvida', 'bot'].includes(c.status) ? 'contatado' : c.status,
+      rascunho: undefined,
     }))
     setTexto('')
     setAbriuWhats(false)
@@ -238,7 +239,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
   }
 
   return (
-    <section className="glass overflow-hidden">
+    <section id="tigre-painel" className="glass overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-white/5">
         <h3 className="flex items-center gap-2 font-display font-semibold text-white">
           <MessageCircle size={18} className="text-neon" /> {site.nome}

@@ -281,7 +281,7 @@ async function leao(inputs, log, { leads }) {
   prints.forEach((p, i) => root.file(`public${printsDados[i].arquivo}`, p.base64, { base64: true }))
 
   const blob = await zip.generateAsync({ type: 'blob' })
-  baixar(blob, nomeZip)
+  if (!inputs.semDownload) baixar(blob, nomeZip) // modo automático: não baixa um ZIP por site
   const guardado = await salvarZip(siteId, blob)
 
   log('ok', `ZIP pronto: ${nomeZip} (${(blob.size / 1024).toFixed(0)} KB)${lead.demo ? ' — DEMO' : ''}`)
@@ -493,6 +493,10 @@ function somarSecoes(secoes, lidos) {
   return [...mapa.values()].sort((a, b) => b.vezes - a.vezes)
 }
 
+// Modo automático: o estudo do Gato é feito uma vez por nicho e reaproveitado nos outros sites do mesmo nicho.
+const estudoDoNicho = new Map()
+const chaveNicho = (c) => String(c || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+
 async function gato(inputs, log, { sites, leads = [] }) {
   encerrarAgora = false
   let pacote = null
@@ -535,13 +539,16 @@ async function gato(inputs, log, { sites, leads = [] }) {
     .split(/[\s,]+/)
     .filter((x) => /^https?:\/\//i.test(x))
   if (linksModelos.length > 4) log('warn', `Você colou ${linksModelos.length} sites modelo — leio os 4 primeiros (limite do Firecrawl por minuto)`)
+  const guardado = inputs.reaproveitar ? estudoDoNicho.get(chaveNicho(dados.negocio.categoria)) : null
   const inicioEstudo = Date.now()
-  log('info', 'Firecrawl: pesquisando sites de desenvolvedores, 21st.dev, Code Eagle, GSAP, modelos grátis e cursos de como montar um site completo')
+  if (guardado) log('ok', `Reaproveitando o estudo já feito para "${dados.negocio.categoria}" (sem gastar Firecrawl de novo)`)
+  else log('info', 'Firecrawl: pesquisando sites de desenvolvedores, 21st.dev, Code Eagle, GSAP, modelos grátis e cursos de como montar um site completo')
   let referencias = []
   let cursos = []
   let secoes = []
   let modelos = []
-  try {
+  if (guardado) ({ referencias, cursos, secoes, modelos } = guardado)
+  else try {
     ;({ referencias, cursos = [], secoes = [], modelos = [] } = await api('/gato/estudar', {
       categoria: dados.negocio.categoria,
       modelos: linksModelos.slice(0, 4),
@@ -559,8 +566,8 @@ async function gato(inputs, log, { sites, leads = [] }) {
   }
 
   // Estudo longo: rodadas (uma por minuto) lendo sites reais do ramo, até completar o tempo escolhido.
-  const estudados = []
-  const estudoLongo = inputs.estudo !== '0' && (referencias.length || modelos.length)
+  const estudados = guardado ? [...guardado.estudados] : []
+  const estudoLongo = !guardado && inputs.estudo !== '0' && (referencias.length || modelos.length)
   const plano = ESTUDOS[inputs.estudo] || ESTUDOS[3] // padrão: 3 minutos
   DURACAO_ESTUDO = plano.duracao
   if (estudoLongo) {
@@ -586,6 +593,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
     secoes = somarSecoes(secoes, estudados)
   }
   encerrarAgora = false
+  if (inputs.reaproveitar && !guardado) estudoDoNicho.set(chaveNicho(dados.negocio.categoria), { referencias, cursos, secoes, modelos, estudados })
 
   // Estilo do site: o seu modelo (link colado) tem prioridade; senão, o estilo que o estudo achou.
   const seuModelo = modelos.find((m) => !m.erro && m.estilo?.cores?.primaria)
@@ -667,7 +675,7 @@ export async function enviarVideoPelaApi({ telefone, video, legenda }) {
 }
 
 // Só é chamado depois do clique em "Aprovar prévia".
-export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo, modelo = preview.dados.modelo, efeitos = true, estilo = {}) {
+export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo, modelo = preview.dados.modelo, efeitos = true, estilo = {}, { baixarZip = true } = {}) {
   const dados = {
     ...preview.dados,
     tema,
@@ -687,7 +695,7 @@ export async function gerarZipFinal(preview, tema, conteudo = preview.dados.cont
   for (const [path, content] of Object.entries(siteFiles(dados))) root.file(path, content)
   for (const f of [...preview.fotos, ...(preview.prints || [])]) root.file(`public${f.caminho}`, f.blob)
   const blob = await zip.generateAsync({ type: 'blob' })
-  baixar(blob, nomeZip)
+  if (baixarZip) baixar(blob, nomeZip)
   if (preview.siteId) await salvarZip(`${preview.siteId}:final`, blob) // o Tigre publica a partir daqui
   return { nomeZip, tamanho: blob.size }
 }
@@ -821,7 +829,7 @@ async function abelha(inputs, log, { sites }) {
 }
 
 // Injeta só o que o usuário marcou. `aceitos` = { sobre: bool, horarios: bool, servicos: [nomes] }.
-export async function gerarColmeia(resultado, aceitos) {
+export async function gerarColmeia(resultado, aceitos, { baixarZip = true } = {}) {
   const { campos, fontes } = resultado
   const conteudo = { ...(resultado.dados.conteudo || {}) }
   const usadas = []
@@ -852,7 +860,7 @@ export async function gerarColmeia(resultado, aceitos) {
   root.file('conteudo.json', JSON.stringify({ ...conteudo, fontes: usadas }, null, 2) + '\n')
   root.file('AUDITORIA.md', relatorio(dados, resultado.auditoria, depois, usadas, fontes))
   const blob = await zip.generateAsync({ type: 'blob' })
-  baixar(blob, nomeZip)
+  if (baixarZip) baixar(blob, nomeZip)
   if (resultado.siteId) await salvarZip(`${resultado.siteId}:final`, blob) // o Tigre publica a versão enriquecida
   return { nomeZip, tamanho: blob.size, nota: depois.nota }
 }
