@@ -18,6 +18,7 @@ import JSZip from 'jszip'
 import { waLink, zipName } from '../lib/whatsapp.js'
 import { siteFiles } from '../lib/siteTemplate.js'
 import { temaSugerido } from '../lib/ClienteSite.jsx'
+import { conteudoSugerido } from '../lib/conteudoSugerido.js'
 import { salvarZip, lerZip } from '../lib/zipStore.js'
 import { MODELOS, classificarPorPalavras } from '../lib/tigreTextos.js'
 import { auditar } from '../lib/auditoria.js'
@@ -447,18 +448,29 @@ async function gato(inputs, log, { sites, leads = [] }) {
   const { dados, fotos, prints } = pacote
   log('ok', `dados.json: ${dados.negocio.nome}${dados.demo ? ' (DEMO)' : ''} · ${fotos.length} foto(s) do cliente`)
 
-  log('info', 'Firecrawl: pesquisando referências de sites do segmento')
+  log('info', 'Firecrawl: pesquisando sites de profissionais e cursos grátis de como montar um site completo')
   let referencias = []
+  let cursos = []
+  let secoes = []
   try {
-    referencias = (await api('/gato/estudar', { categoria: dados.negocio.categoria })).referencias
+    ;({ referencias, cursos = [], secoes = [] } = await api('/gato/estudar', { categoria: dados.negocio.categoria }))
     if (!referencias.length) log('warn', 'Nenhuma referência encontrada — seguindo com os padrões base')
-    for (const r of referencias) log('info', `Referência estudada: ${r.titulo} — ${r.url}`)
+    for (const r of referencias) log('info', `Modelo estudado: ${r.titulo} — ${r.url}`)
+    for (const c of cursos) log('info', `Curso/tutorial lido: ${c.titulo} — ${c.url}`)
+    if (secoes.length) log('ok', `Seções que os guias recomendam: ${secoes.map((x) => x.nome).join(', ')}`)
   } catch (e) {
     log('warn', `${e.message.replace(/\.$/, '')} — seguindo com os padrões base`)
   }
 
+  // Site amplo: completa Sobre, Serviços, Diferenciais, Como funciona e Perguntas frequentes com o típico do
+  // segmento (marcado como sugestão; o que já é real fica). Você confere e edita na prévia antes de aprovar.
+  const conteudo = conteudoSugerido(dados)
+  if (conteudo.sugerido.length) {
+    log('warn', `Conteúdo sugerido para o segmento (confira na prévia): ${conteudo.sugerido.join(', ')}`)
+  }
+
   log('info', `Fotos do cliente: ${fotos.length ? `${fotos.length} — a 1ª vira a capa, as outras a galeria` : 'nenhuma — capa em cor sólida'}`)
-  log('info', 'Padrões aplicados: abertura com água na capa (a foto ondula seguindo o cursor), textos entrando em cascata, seções que aparecem ao rolar, fotos e cards que reagem ao cursor, botão de WhatsApp pulsando, mapa e contato')
+  log('info', 'Site amplo: capa com água (a foto ondula seguindo o cursor), destaques, Sobre, Diferenciais, Serviços, galeria em mosaico, Como funciona, faixa de WhatsApp, Perguntas frequentes, contato e mapa')
   const tema = dados.tema || temaSugerido(dados.negocio.categoria)
   log('info', `Tema sugerido para "${dados.negocio.categoria || 'negócio'}": ${tema} (dá para trocar na prévia)`)
   log('warn', 'Prévia pronta — confira e clique em "Aprovar prévia" para liberar o ZIP final')
@@ -469,7 +481,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
       ? [{ id: n.placeId, demo: Boolean(dados.demo), nome: n.nome, categoria: n.categoria, endereco: n.endereco, telefone: n.telefone, whatsapp: n.whatsapp, instagram: n.instagram, maps: n.maps, rating: n.rating, avaliacoes: n.avaliacoes, fotos: [], confianca: 'Médio', observacao: 'Veio da pasta online do Leão' }]
       : null
   return {
-    preview: { siteId, dados: { ...dados, tema }, fotos, prints, referencias },
+    preview: { siteId, dados: { ...dados, tema, conteudo }, fotos, prints, referencias, cursos, secoes },
     ...(siteNovo ? { site: siteNovo } : {}),
     ...(leadNovo ? { leads: leadNovo } : {}),
   }
@@ -510,13 +522,15 @@ export async function enviarVideoPelaApi({ telefone, video, legenda }) {
 }
 
 // Só é chamado depois do clique em "Aprovar prévia".
-export async function gerarZipFinal(preview, tema) {
+export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo) {
   const dados = {
     ...preview.dados,
     tema,
+    conteudo,
     gerador: 'Gato Negro — Central de Agentes',
     aprovadoEm: new Date().toISOString(),
     referencias: preview.referencias,
+    cursos: preview.cursos,
   }
   const nomeZip = zipName(dados.negocio.nome).replace(/\.zip$/, '-final.zip')
   const zip = new JSZip()
@@ -670,6 +684,9 @@ export async function gerarColmeia(resultado, aceitos) {
     servicos.forEach((s) => usadas.push({ campo: `servico: ${s.nome}`, fonte: s.fonte }))
   }
 
+  // O que a Abelha trouxe com fonte deixa de ser sugestão do Gato.
+  const reais = usadas.map((u) => u.campo.replace(/^servico: .*/, 'servicos'))
+  conteudo.sugerido = (conteudo.sugerido || []).filter((campo) => !reais.includes(campo))
   const dados = { ...resultado.dados, conteudo, gerador: 'Abelha Central — Central de Agentes', auditadoEm: new Date().toISOString() }
   const depois = auditar(dados, ['index.html', 'package.json', 'src/Site.jsx'])
   const nomeZip = zipName(dados.negocio.nome).replace(/\.zip$/, '-colmeia.zip')

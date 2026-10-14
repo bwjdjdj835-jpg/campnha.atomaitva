@@ -47,9 +47,11 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/leao/hospedar` + `GET /api/leao/pastas` (`server/pasta.js`) — **pasta online** no Vercel Blob
     (`BLOB_READ_WRITE_TOKEN`, store público): o Leão sobe `sites/<slug>-<id>/fotos/*`, `prints/*` e `dados.json`
     (cada imagem ganha `hospedada` com o link). Um arquivo por requisição (limite ~4,5 MB da função).
-  - `POST /api/gato/estudar` — referências fixas (21st.dev, GSAP) + 3 buscas no Firecrawl v2 (`server/gato.js`):
-    vitrines de profissionais via `includeDomains` (Awwwards/Behance/Dribbble; Webflow/Framer/ThemeForest) e sites
-    brasileiros do ramo. A busca v2 não aceita `lang`.
+  - `POST /api/gato/estudar` (`server/gato.js`, `estudar`) → `{ referencias, cursos, secoes }`:
+    referências fixas (21st.dev, GSAP) + 3 buscas no Firecrawl v2 por vitrines de profissionais via `includeDomains`
+    (Awwwards/Behance/Dribbble; Webflow/Framer/ThemeForest) e sites brasileiros do ramo; + 2 buscas de **cursos e
+    tutoriais grátis** com `scrapeOptions` (markdown) cujo texto é varrido para contar as seções recomendadas
+    (`SECOES`; `temos: false` = depoimentos/preços/equipe, que precisam de dado real). A busca v2 não aceita `lang`.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
   - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,
     opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Precisa `npx playwright-core install chromium`
@@ -81,6 +83,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   seguindo o cursor (refração em canvas), gota de abertura, garoa a cada 8 s; para sozinho e volta à foto nítida.
   Áreas marcadas com `data-agua` no `ClienteSite`. A prévia (`src/lib/previa.jsx`, usada por Leão e Gato) embute o script
   e o iframe tem `allow-scripts` (sem `allow-same-origin`).
+- Site amplo: o Gato completa `dados.conteudo` com `src/lib/conteudoSugerido.js` (sobre, serviços, diferenciais,
+  passos, faq típicos do segmento — sem preço, ano, prêmio ou nome; o nome do negócio é o sujeito da frase para não
+  errar gênero). Campos sugeridos ficam em `conteudo.sugerido`; o `EditorConteudo` do `GatoPreview` deixa editar
+  (editar tira a marca), a auditoria conta sugestão como "aviso" e a Abelha tira a marca do que trouxe com fonte.
 - Leão mostra o painel `PreviaLeao.jsx` (dados extraídos, fotos, prévia) e manda pro Gato com `?site=<id>`.
   Gato abre do IndexedDB, da pasta online do site (`site.pasta`) ou de uma pasta da lista (`pasta:<url>`, outro aparelho).
 - Leão aceita link colado (`src/lib/links.js`): acha o lead pelo Maps/Instagram/WhatsApp; link de Maps/Instagram
