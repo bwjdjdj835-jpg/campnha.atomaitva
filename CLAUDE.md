@@ -188,6 +188,13 @@ e "Leão Dourado" foi unificado como **Leão**.
   **Tela inicial:** botão "Iniciar inteligência artificial automática" — pede a gravação da aba no próprio clique
   (`guardarFluxo`), abre `/automatico?iniciar=1` (começa sozinho com `pegarFluxo()` e as opções salvas) e, ao terminar
   com clientes prontos, abre o Tigre.
+  **Vídeo "eu gravo no meu notebook" (padrão, `videoModo: 'manual'`, pedido do usuário):** o automático não grava nem pede
+  para compartilhar a aba (`prepararInicio({ manual })`, `videoManualNasOpcoes()`); `finalizar` só escreve a mensagem e
+  marca `revisar` com `videoManual: true` (`conferirProntos` não manda para "Falta o vídeo"). No cartão do Admin sem
+  vídeo: "Abrir prévia para gravar" (janela 430×900 com a prévia sem água/granulado; gravar com Win + Alt + R) e
+  "Enviar o vídeo gravado" (`guardarVideo`); com vídeo: "Compartilhar vídeo + mensagem" (Web Share com arquivo + texto,
+  e a mensagem vai antes para a área de transferência), "Só o vídeo", "Salvar vídeo", "Trocar o vídeo".
+  'auto' = o app grava sozinho (como antes).
   **Rápido por padrão** (pedido do usuário: "só gravar o vídeo e mandar mensagem"): estudo do Gato de **1 minuto** só no
   1º site de cada nicho (os outros reaproveitam; `nenhum` = sem estudo) e Abelha desligada (opções `v: 3` em
   `central-agentes:automatico`); **vídeo de 20 s** (opção 15/20/30 s, `duracao`; `DURACAO_VIDEO` em `previa.jsx` —

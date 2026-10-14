@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShieldCheck, CheckCircle2, Play, Inbox, Ban, Video, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
+import { ShieldCheck, CheckCircle2, Play, Inbox, Ban, Video, Upload, MonitorPlay, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
-import { videoDoSite, negocioDoSite, rascunho, lerPacoteLeao } from '../services/agents.js'
+import { videoDoSite, guardarVideo, negocioDoSite, rascunho, lerPacoteLeao } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
-import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp } from '../lib/previa.jsx'
+import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp, CSS_GRAVACAO } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
 import { lerResposta, registrarEnviada } from '../services/tigreConversa.js'
-import { NICHOS_PADRAO, proximoNicho, prepararInicio, conferirProntos, nichoEmAndamento } from '../services/automatico.js'
+import { NICHOS_PADRAO, proximoNicho, prepararInicio, conferirProntos, nichoEmAndamento, videoManualNasOpcoes } from '../services/automatico.js'
 import { lerOpcoes } from './Automatico.jsx'
 
 // 🛡️ Área do Administrador: tudo o que a IA fez no modo automático passa por aqui.
@@ -43,7 +43,7 @@ export default function Admin() {
   const proximo = proximoNicho((opcoesAuto.nichos || NICHOS_PADRAO.join('\n')).split('\n').map((n) => n.trim()).filter(Boolean))
   async function comecarProximo() {
     setIniciando(true)
-    await prepararInicio({ videoServidor })
+    await prepararInicio({ videoServidor, manual: videoManualNasOpcoes() })
     navigate('/automatico?iniciar=1')
   }
   async function gravarQueFaltam() {
@@ -254,6 +254,48 @@ function CartaoAprovar({ site, negocio, conversa }) {
     }
   }
 
+  // Abre a prévia numa janela do tamanho de um celular, para gravar com o gravador do Windows (Win + Alt + R).
+  // A janela abre no clique (senão o navegador bloqueia) e recebe o site em seguida.
+  async function abrirParaGravar() {
+    const janela = window.open('about:blank', `previa-${site.id}`, 'width=430,height=900')
+    try {
+      const p = await lerPacoteLeao(await lerZip(`${site.id}:final`))
+      const html = htmlDaPrevia(p.dados, await fotosEmDataUrl(p.fotos), CSS_GRAVACAO, { agua: false })
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+      if (janela) janela.location.href = url
+      else window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 120_000)
+    } catch {
+      janela?.close()
+    }
+  }
+
+  // Vídeo que você gravou no notebook: fica guardado neste navegador junto com o cliente.
+  async function enviarVideo(e) {
+    const arquivo = e.target.files?.[0]
+    e.target.value = ''
+    if (!arquivo) return
+    await guardarVideo(site.id, arquivo)
+    setVideo((v) => {
+      if (v?.url) URL.revokeObjectURL(v.url)
+      return { blob: arquivo, url: URL.createObjectURL(arquivo) }
+    })
+    setVideoFeito(false)
+  }
+
+  // Vídeo + mensagem juntos (como você pediu). A mensagem vai também para a área de transferência: se o WhatsApp
+  // ficar só com o vídeo, é só colar (Ctrl + V) na conversa.
+  async function compartilharTudo() {
+    try {
+      await navigator.clipboard?.writeText(texto).catch(() => {})
+      await navigator.share({ files: [arquivo], text: texto })
+      setVideoFeito(true)
+      aprovar()
+    } catch {
+      /* cancelado */
+    }
+  }
+
   async function verPrevia() {
     if (previa) return setPrevia(null)
     setPrevia('carregando')
@@ -282,7 +324,7 @@ function CartaoAprovar({ site, negocio, conversa }) {
           <video src={video.url} controls playsInline className="w-full md:w-48 rounded-xl border border-white/10 bg-black self-start" />
         ) : (
           <div className="grid w-full md:w-48 h-56 place-items-center rounded-xl border border-dashed border-white/10 px-3 text-center text-xs text-slate-500">
-            Sem vídeo — grave no Gato
+            Sem vídeo ainda — grave e envie abaixo
           </div>
         )}
         <div className="min-w-0 flex-1 space-y-3">
@@ -293,23 +335,52 @@ function CartaoAprovar({ site, negocio, conversa }) {
           </div>
           <label className="label" htmlFor={`msg-${site.id}`}>Mensagem (dá para editar)</label>
           <textarea id={`msg-${site.id}`} rows={4} className="input" value={texto} onChange={(e) => setTexto(e.target.value)} />
+          {/* Sem vídeo: você grava a prévia no notebook e envia aqui. */}
+          {!video && (
+            <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 space-y-2">
+              <div className="text-sm font-medium text-white">1️⃣ Grave o vídeo da prévia</div>
+              <div className="flex flex-wrap gap-2">
+                <button className="btn-primary !py-2 !px-4 text-sm" onClick={abrirParaGravar}>
+                  <MonitorPlay size={16} /> Abrir prévia para gravar
+                </button>
+                <label className="btn-ghost border border-white/10 text-sm cursor-pointer">
+                  <Upload size={16} /> Enviar o vídeo gravado
+                  <input type="file" accept="video/*" className="hidden" onChange={enviarVideo} />
+                </label>
+              </div>
+              <p className="text-xs text-slate-500">
+                Abra a prévia, aperte <strong className="text-slate-300">Win + Alt + R</strong> para gravar (Xbox Game Bar), role o site
+                devagar por uns 20 segundos e aperte Win + Alt + R de novo. O vídeo fica em Vídeos → Capturas; depois é só enviar aqui.
+              </p>
+            </div>
+          )}
+
           {/* Passo 1: vídeo. O link do WhatsApp (wa.me) só leva texto — o vídeo vai separado. */}
           {video && (
             <div className={`rounded-xl border px-4 py-3 space-y-2 ${videoFeito ? 'border-emerald-400/30 bg-emerald-400/5' : 'border-white/10'}`}>
               <div className="text-sm font-medium text-white">{videoFeito ? '✅' : '1️⃣'} Vídeo da prévia</div>
               <div className="flex flex-wrap gap-2">
                 {podeCompartilhar && (
-                  <button className="btn-primary !py-2 !px-4 text-sm" onClick={compartilharVideo}>
-                    <Share2 size={16} /> Mandar o vídeo no WhatsApp
+                  <button className="btn-primary !py-2 !px-4 text-sm" onClick={compartilharTudo} disabled={!texto.trim()}>
+                    <Share2 size={16} /> Compartilhar vídeo + mensagem
+                  </button>
+                )}
+                {podeCompartilhar && (
+                  <button className="btn-ghost border border-white/10 text-sm" onClick={compartilharVideo}>
+                    <Share2 size={16} /> Só o vídeo
                   </button>
                 )}
                 <button className={`${podeCompartilhar ? 'btn-ghost border border-white/10' : 'btn-primary !py-2 !px-4'} text-sm`} onClick={salvarVideo}>
                   <Download size={16} /> Salvar vídeo {ext === 'mp4' ? '(MP4)' : '(WebM)'}
                 </button>
+                <label className="btn-ghost text-xs cursor-pointer">
+                  <Upload size={14} /> Trocar o vídeo
+                  <input type="file" accept="video/*" className="hidden" onChange={enviarVideo} />
+                </label>
               </div>
               <p className="text-xs text-slate-500">
                 {podeCompartilhar
-                  ? '"Mandar o vídeo" abre o compartilhar: escolha o WhatsApp e o cliente. Ou salve e anexe pelo 📎 na conversa.'
+                  ? '"Compartilhar vídeo + mensagem" abre o compartilhar: escolha o WhatsApp e o cliente. A mensagem também fica copiada — se só o vídeo chegar, cole (Ctrl + V) na conversa.'
                   : 'Salva na pasta Downloads. Na conversa do WhatsApp, clique no 📎 → Fotos e vídeos e escolha o arquivo (ou arraste para a conversa).'}
                 {!aceito && ' ⚠️ Este vídeo não saiu em MP4 H.264 e o WhatsApp pode recusar. Use o Google Chrome ou o Edge atualizados e grave de novo (no Gato ou rodando o automático).'}
               </p>
