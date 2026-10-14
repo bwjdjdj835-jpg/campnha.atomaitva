@@ -60,6 +60,13 @@ e "Leão Dourado" foi unificado como **Leão**.
     `formats: ['markdown','branding']` (cores, fonte, claro/escuro). As seções (`SECOES`; `temos: false` =
     depoimentos/preços/equipe, que precisam de dado real) são contadas nos cursos + modelos. Total ≤ 9 pedidos, para
     caber no limite de ~10 pedidos/min do plano grátis. A busca v2 não aceita `lang`.
+  - `POST /api/gato/aprofundar` (`aprofundar(categoria, rodada, lidos)`) — uma rodada do **estudo de 3 minutos**:
+    2 buscas BR de sites reais do ramo (sem vitrines/redes/diretórios, `NAO_E_SITE_DO_RAMO`) + leitura com `branding`
+    de até 6 páginas iniciais novas (8 pedidos). O Gato (`gato()` em `src/services/agents.js`) faz o estudo inicial e
+    chama a rodada 1 no minuto 1 e a 2 no minuto 2, termina aos 3:00 (`DURACAO_ESTUDO`); campo "Estudo" (3 min ou
+    rápido) e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`). `estiloDoEstudo` escolhe o esquema da maioria,
+    as cores do site mais completo dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
+    (prioridade) → estilo do estudo → tema por segmento.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
   - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,
     opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Só quando o servidor tem navegador de verdade
@@ -100,8 +107,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   seguindo o cursor (refração em canvas), gota de abertura, garoa a cada 8 s; para sozinho e volta à foto nítida.
   Áreas marcadas com `data-agua` no `ClienteSite`. A prévia (`src/lib/previa.jsx`, usada por Leão e Gato) embute o script
   e o iframe tem `allow-scripts` (sem `allow-same-origin`).
-- Gato: campo "Sites modelo" (textarea, `lembrar: true` em `src/data/agents.js` → guardado no localStorage por
-  `AgentPage`). Em "Seus sites modelo" o botão "Usar cores e fonte deste modelo" liga o tema `modelo` do `ClienteSite`
+- Gato: campo "Seu modelo de site" (textarea, `lembrar: true` em `src/data/agents.js` → guardado no localStorage por
+  `AgentPage`; `opcoes` vira select). O 1º modelo lido já entra aplicado (`preview.modeloInicial`); em "Estilo do site"
+  o botão "Usar cores e fonte deste modelo" troca entre os modelos e o do estudo, ligando o tema `modelo` do `ClienteSite`
   (classes com `var(--m-*)`, valores de `dados.modelo.estilo`; fonte pelo Google Fonts na prévia e no `index.html`).
 - Site amplo: o Gato completa `dados.conteudo` com `src/lib/conteudoSugerido.js` (sobre, serviços, diferenciais,
   passos, faq típicos do segmento — sem preço, ano, prêmio ou nome; o nome do negócio é o sujeito da frase para não

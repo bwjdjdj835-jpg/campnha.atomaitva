@@ -420,7 +420,62 @@ export async function lerPacoteLeao(blob) {
   return { dados, fotos, prints, arquivos }
 }
 
+// ---------- 🐈‍⬛ Estudo longo do Gato ----------
+// O Gato estuda ~3 minutos antes de gerar: estudo inicial + uma rodada por minuto (limite do plano grátis do
+// Firecrawl, ~10 pedidos/min). "Encerrar estudo" (botão na página) corta o tempo e gera com o que já leu.
+const DURACAO_ESTUDO = 3 * 60_000
+let encerrarAgora = false
+export const encerrarEstudo = () => (encerrarAgora = true)
+const mmss = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
+
+// Espera até `ate` (ms desde o início), contando o tempo no log a cada 30 s; para se pedirem para encerrar.
+async function esperarEstudo(inicio, ate, log) {
+  let ultimoAviso = 0
+  while (!encerrarAgora && Date.now() - inicio < ate) {
+    const passou = Date.now() - inicio
+    if (passou - ultimoAviso >= 30_000) {
+      ultimoAviso = passou - (passou % 30_000)
+      if (ultimoAviso > 0) log('info', `Estudando… ${mmss(ultimoAviso)} de ${mmss(DURACAO_ESTUDO)}`)
+    }
+    await wait(1000)
+  }
+}
+
+// O estilo que mais aparece nos sites estudados: esquema (claro/escuro) da maioria, cores do site mais
+// completo desse esquema e a fonte mais usada.
+export function estiloDoEstudo(lidos) {
+  const ok = lidos.filter((m) => !m.erro && m.estilo?.cores?.primaria)
+  if (ok.length < 2) return null
+  const escuros = ok.filter((m) => m.estilo.esquema === 'escuro')
+  const grupo = escuros.length * 2 >= ok.length ? escuros : ok.filter((m) => m.estilo.esquema === 'claro')
+  const base = grupo.find((m) => m.estilo.cores.fundo && m.estilo.fonte) || grupo[0]
+  const fontes = {}
+  for (const m of ok) if (m.estilo.fonte) fontes[m.estilo.fonte] = (fontes[m.estilo.fonte] || 0) + 1
+  const fonte = Object.entries(fontes).sort((a, b) => b[1] - a[1])[0]?.[0] || base.estilo.fonte
+  return {
+    url: 'estudo',
+    titulo: `Estilo do estudo (${ok.length} sites do ramo)`,
+    fonte: base.fonte,
+    secoes: [],
+    estilo: { ...base.estilo, fonte },
+  }
+}
+
+function somarSecoes(secoes, lidos) {
+  const mapa = new Map(secoes.map((x) => [x.id, { ...x, fontes: [...x.fontes] }]))
+  for (const m of lidos) {
+    for (const id of m.secoes || []) {
+      if (!mapa.has(id)) continue // só soma nas seções que o servidor já conhece (nome e "temos")
+      const x = mapa.get(id)
+      if (!x.fontes.includes(m.url)) x.fontes.push(m.url)
+      x.vezes = x.fontes.length
+    }
+  }
+  return [...mapa.values()].sort((a, b) => b.vezes - a.vezes)
+}
+
 async function gato(inputs, log, { sites, leads = [] }) {
+  encerrarAgora = false
   let pacote = null
   let siteId = null
   let siteNovo = null
@@ -461,6 +516,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
     .split(/[\s,]+/)
     .filter((x) => /^https?:\/\//i.test(x))
   if (linksModelos.length > 4) log('warn', `Você colou ${linksModelos.length} sites modelo — leio os 4 primeiros (limite do Firecrawl por minuto)`)
+  const inicioEstudo = Date.now()
   log('info', 'Firecrawl: pesquisando sites de desenvolvedores, 21st.dev, Code Eagle, GSAP, modelos grátis e cursos de como montar um site completo')
   let referencias = []
   let cursos = []
@@ -483,6 +539,39 @@ async function gato(inputs, log, { sites, leads = [] }) {
     log('warn', `${e.message.replace(/\.$/, '')} — seguindo com os padrões base`)
   }
 
+  // Estudo longo: mais 2 rodadas (uma por minuto) lendo sites reais do ramo, até completar 3 minutos.
+  const estudados = []
+  const estudoLongo = inputs.estudo !== '0' && (referencias.length || modelos.length)
+  if (estudoLongo) {
+    log('info', `Estudo de ${mmss(DURACAO_ESTUDO)}: lendo sites de verdade do ramo (cores, fontes e seções) — ou clique em "Encerrar estudo"`)
+    for (const rodada of [1, 2]) {
+      await esperarEstudo(inicioEstudo, rodada * 60_000, log)
+      if (encerrarAgora) break
+      try {
+        const lidos = [...modelos, ...estudados].map((m) => m.url)
+        const r = await api('/gato/aprofundar', { categoria: dados.negocio.categoria, rodada, lidos })
+        for (const m of r.lidos) {
+          estudados.push(m)
+          log('info', `Site estudado: ${m.fonte} — ${m.estilo.esquema}, cor ${m.estilo.cores.primaria || '—'}, fonte ${m.estilo.fonte || '—'}`)
+        }
+        if (!r.lidos.length) log('warn', `Rodada ${rodada}: nenhum site novo do ramo para ler`)
+      } catch (e) {
+        log('warn', `Rodada ${rodada} do estudo: ${e.message.replace(/\.$/, '')}`)
+      }
+    }
+    await esperarEstudo(inicioEstudo, DURACAO_ESTUDO, log)
+    log(encerrarAgora ? 'warn' : 'ok', `${encerrarAgora ? 'Estudo encerrado antes' : 'Estudo concluído'}: ${estudados.length + modelos.filter((m) => !m.erro).length} site(s) lido(s) em ${mmss(Date.now() - inicioEstudo)}`)
+    secoes = somarSecoes(secoes, estudados)
+  }
+  encerrarAgora = false
+
+  // Estilo do site: o seu modelo (link colado) tem prioridade; senão, o estilo que o estudo achou.
+  const seuModelo = modelos.find((m) => !m.erro && m.estilo?.cores?.primaria)
+  const doEstudo = estiloDoEstudo(estudados)
+  const modeloInicial = seuModelo || doEstudo
+  if (seuModelo) log('ok', `Usando o estilo do seu modelo: ${seuModelo.titulo}`)
+  else if (doEstudo) log('ok', `Usando o estilo do estudo: cor ${doEstudo.estilo.cores.primaria}, fonte ${doEstudo.estilo.fonte || '—'} (dá para trocar na prévia)`)
+
   // Site amplo: completa Sobre, Serviços, Diferenciais, Como funciona e Perguntas frequentes com o típico do
   // segmento (marcado como sugestão; o que já é real fica). Você confere e edita na prévia antes de aprovar.
   const conteudo = conteudoSugerido(dados)
@@ -502,7 +591,19 @@ async function gato(inputs, log, { sites, leads = [] }) {
       ? [{ id: n.placeId, demo: Boolean(dados.demo), nome: n.nome, categoria: n.categoria, endereco: n.endereco, telefone: n.telefone, whatsapp: n.whatsapp, instagram: n.instagram, maps: n.maps, rating: n.rating, avaliacoes: n.avaliacoes, fotos: [], confianca: 'Médio', observacao: 'Veio da pasta online do Leão' }]
       : null
   return {
-    preview: { siteId, dados: { ...dados, tema, conteudo }, fotos, prints, referencias, cursos, secoes, modelos },
+    preview: {
+      siteId,
+      dados: { ...dados, tema: modeloInicial ? 'modelo' : tema, conteudo },
+      fotos,
+      prints,
+      referencias,
+      cursos,
+      secoes,
+      modelos,
+      estudados,
+      modeloInicial,
+      doEstudo,
+    },
     ...(siteNovo ? { site: siteNovo } : {}),
     ...(leadNovo ? { leads: leadNovo } : {}),
   }

@@ -14,7 +14,8 @@ function marcarSite(siteId, campos) {
 export default function GatoPreview({ preview }) {
   const [tema, setTema] = useState(preview.dados.tema)
   const [conteudo, setConteudo] = useState(preview.dados.conteudo || {})
-  const [modelo, setModelo] = useState(null) // site modelo cujas cores/fonte viram o tema "Do modelo"
+  // Site modelo cujas cores/fonte viram o tema "Do modelo": o seu link colado ou o estilo que o estudo achou.
+  const [modelo, setModelo] = useState(preview.modeloInicial || null)
   const [device, setDevice] = useState('desktop')
   const [fotosUrl, setFotosUrl] = useState(null)
   const [aprovado, setAprovado] = useState(false)
@@ -184,15 +185,19 @@ export default function GatoPreview({ preview }) {
         </div>
       </div>
 
-      {preview.modelos?.length > 0 && (
+      {(preview.modelos?.length > 0 || preview.doEstudo) && (
         <div className="px-5 pb-5">
-          <div className="label flex items-center gap-1.5"><Palette size={14} /> Seus sites modelo</div>
+          <div className="label flex items-center gap-1.5"><Palette size={14} /> Estilo do site (seu modelo ou o do estudo)</div>
           <ul className="grid gap-3 md:grid-cols-2">
-            {preview.modelos.map((m) => (
+            {[...(preview.modelos || []), ...(preview.doEstudo ? [preview.doEstudo] : [])].map((m) => (
               <li key={m.url} className={`rounded-xl border p-3 ${modelo?.url === m.url ? 'border-neon bg-neon/5' : 'border-white/10'}`}>
-                <a href={m.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-white hover:text-neon">
-                  <ExternalLink size={13} /> {m.titulo}
-                </a>
+                {m.url === 'estudo' ? (
+                  <span className="text-sm text-white">{m.titulo}</span>
+                ) : (
+                  <a href={m.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-white hover:text-neon">
+                    <ExternalLink size={13} /> {m.titulo}
+                  </a>
+                )}
                 {m.erro ? (
                   <p className="mt-1 text-xs text-rose-300">Não consegui ler: {m.erro}</p>
                 ) : (
@@ -205,6 +210,9 @@ export default function GatoPreview({ preview }) {
                         {m.estilo.esquema} · fonte {m.estilo.fonte || '—'}
                       </span>
                     </div>
+                    {m.url === 'estudo' && (
+                      <p className="mt-1 text-xs text-slate-500">O que mais aparece nos sites de verdade do ramo que o Gato leu.</p>
+                    )}
                     {m.secoes.length > 0 && (
                       <p className="mt-1 text-xs text-slate-500">Seções: {m.secoes.join(', ')}</p>
                     )}
@@ -232,6 +240,22 @@ export default function GatoPreview({ preview }) {
                 className={`text-xs px-2.5 py-1 rounded-full border ${x.temos ? 'border-emerald-400/30 text-emerald-300' : 'border-amber-400/30 text-amber-300'}`}
               >
                 {x.temos ? '✓' : '…'} {x.nome} · {x.vezes} fonte(s){x.temos ? '' : ' — precisa de dado real'}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {preview.estudados?.length > 0 && (
+        <div className="px-5 pb-4">
+          <div className="label">Sites do ramo estudados ({preview.estudados.length})</div>
+          <ul className="flex flex-wrap gap-2">
+            {preview.estudados.map((m) => (
+              <li key={m.url}>
+                <a href={m.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-xs text-slate-300 hover:text-neon">
+                  <span className="h-3 w-3 rounded-full border border-white/20" style={{ background: m.estilo.cores.primaria || 'transparent' }} />
+                  {m.fonte}
+                </a>
               </li>
             ))}
           </ul>

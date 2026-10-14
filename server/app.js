@@ -6,7 +6,7 @@
 import { Hono } from 'hono'
 import { buscarNegocios, conferirSite } from './pinguim.js'
 import { buscarFotos, tirarPrint, linkPermitidoParaPrint } from './leao.js'
-import { estudar } from './gato.js'
+import { estudar, aprofundar } from './gato.js'
 import { hospedar, listarPastas, temPasta } from './pasta.js'
 import { enriquecer } from './abelha.js'
 import { gravarVideo, servidorGrava } from './video.js'
@@ -110,6 +110,15 @@ app.post('/gato/estudar', async (c) => {
     return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
   }
   return c.json(await estudar(categoria || 'comércio local', modelos))
+})
+
+// Uma rodada do estudo longo do Gato (o app chama uma por minuto).
+app.post('/gato/aprofundar', async (c) => {
+  const { categoria, rodada, lidos } = await c.req.json().catch(() => ({}))
+  if (!keys().firecrawl) {
+    return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
+  }
+  return c.json(await aprofundar(categoria || 'comércio local', Number(rodada) || 1, Array.isArray(lidos) ? lidos : []))
 })
 
 app.post('/tigre/mensagem', async (c) => {
