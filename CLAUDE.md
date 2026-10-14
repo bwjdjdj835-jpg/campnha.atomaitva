@@ -178,8 +178,11 @@ e "Leão Dourado" foi unificado como **Leão**.
   real com telefone, sem selo de contato e com conferência `nao`/`sem_firecrawl` passa por Leão (`semDownload`) → Gato
   (`reaproveitar`: estudo 1 vez por nicho, `estudoDoNicho`) + `gerarZipFinal(..., { baixarZip: false })` → Abelha
   (aceita só campos com fonte, `gerarColmeia(..., { baixarZip: false })`) → vídeo → `rascunho('primeiro')` guardado em
-  `conversas[siteId].rascunho`. O site fica com status `revisar`; **nada é enviado**. Limite do Firecrawl: `gastar(n)`
-  (8 pedidos/min). Vídeo: servidor local grava sozinho; no Vercel `pedirGravacaoDaAba()` UMA vez no clique de começar e
+  `conversas[siteId].rascunho`. O site fica com status `revisar`; **nada é enviado**. Limite do Firecrawl:
+  `gastar(n, log, parar, 'busca' | 'pagina')` — o plano grátis tem limites SEPARADOS (10 buscas/min e 10 leituras de
+  página/min; usamos 9 de cada). **Conferência adiantada:** `conferirAntes` põe até 4 comércios à frente numa fila de
+  conferência (buscas) enquanto o site atual é montado (páginas); `conferirUm` reserva 1 busca e só conta a 2ª (telefone)
+  se ela aconteceu (`r.pedidos`). Nicho com 6 de 8 comércios já com site: >4 min → ~50 s. Vídeo: servidor local grava sozinho; no Vercel `pedirGravacaoDaAba()` UMA vez no clique de começar e
   `gravarComFluxo(stream, iframe)` por cliente (iframe fixo no canto). Nichos concluídos ficam em `pipeline.auto.feitos`
   (continua de onde parou; "Recomeçar do 1º nicho"). Wake Lock + aviso ao fechar a aba.
   **Tela inicial:** botão "Iniciar inteligência artificial automática" — pede a gravação da aba no próprio clique

@@ -36,15 +36,18 @@ const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
 const chave = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
 // Limite do plano grátis do Firecrawl (~10 pedidos/min): cada etapa "reserva" quantos pedidos vai usar.
-const PEDIDOS_POR_MINUTO = 8
-const janela = []
-async function gastar(n, log, parar) {
+// Plano grátis do Firecrawl: 10 buscas/min e 10 leituras de página/min — limites SEPARADOS (docs.firecrawl.dev/rate-limits).
+// Cada etapa reserva quantos pedidos de cada tipo vai usar; fica 1 de folga em cada.
+const LIMITE_POR_MINUTO = { busca: 9, pagina: 9 }
+const janelas = { busca: [], pagina: [] }
+async function gastar(n, log, parar, tipo = 'busca') {
+  const janela = janelas[tipo]
   let avisou = false
   for (;;) {
     const agora = Date.now()
     while (janela.length && agora - janela[0] > 60_000) janela.shift()
-    if (!janela.length || janela.length + n <= PEDIDOS_POR_MINUTO || parar()) break
-    if (!avisou) log('info', `Esperando o limite do Firecrawl (plano grátis) — uns ${Math.ceil((60_000 - (agora - janela[0])) / 1000)} s`)
+    if (!janela.length || janela.length + n <= LIMITE_POR_MINUTO[tipo] || parar() || n === 0) break
+    if (!avisou) log('info', `Esperando o limite do Firecrawl (plano grátis, ${tipo === 'busca' ? 'buscas' : 'páginas'}) — uns ${Math.ceil((60_000 - (agora - janela[0])) / 1000)} s`)
     avisou = true
     await esperar(1000)
   }
@@ -134,8 +137,28 @@ export async function rodarAutomatico(opcoes, ui) {
     }
     log('info', `🐧 ${achados.length} comércio(s) sem site no Maps — fazendo até ${porNicho === Infinity ? 'todos' : porNicho}`)
 
+    // Conferência adiantada: enquanto um site é montado (leituras de página), os próximos comércios já vão sendo
+    // conferidos (buscas) — limites diferentes no Firecrawl, então um não espera o outro.
+    const conferencias = new Map()
+    let filaConferencia = Promise.resolve()
+    const precisaConferir = (l) => !l.demo && String(l.telefone || '').replace(/\D/g, '').length >= 10 && !contatoDoLead(l, lerPipeline()) &&
+      (!l.conferencia?.status || ['pendente', 'erro'].includes(l.conferencia.status))
+    const conferirAntes = (l) => {
+      if (!conferencias.has(l.id)) {
+        const p = filaConferencia.then(() => (parar() ? 'erro' : conferirUm(l, log, parar)))
+        filaConferencia = p.catch(() => {})
+        conferencias.set(l.id, p)
+      }
+      return conferencias.get(l.id)
+    }
+
     let feitos = 0
-    for (const achado of achados) {
+    for (const [i, achado] of achados.entries()) {
+      // Deixa até 4 comércios à frente já na fila de conferência.
+      for (const prox of achados.slice(i, i + 5)) {
+        const l = lerPipeline().leads.find((x) => x.id === prox.id) || prox
+        if (precisaConferir(l)) conferirAntes(l)
+      }
       if (parar() || feitos >= porNicho) break
       const p = lerPipeline()
       const lead = p.leads.find((x) => x.id === achado.id) || achado
@@ -156,24 +179,7 @@ export async function rodarAutomatico(opcoes, ui) {
       let veredito = lead.conferencia?.status
       if (!veredito || ['pendente', 'erro'].includes(veredito)) {
         etapa({ nicho, comercio: nome, passo: '🔎 Conferindo se já tem site' })
-        for (let tentativa = 0; tentativa < 2; tentativa++) {
-          await gastar(2, log, parar)
-          try {
-            const r = await conferirSite(lead)
-            veredito = r.veredito
-            atualizarLead(lead.id, {
-              conferencia: { status: r.veredito, site: r.site, evidencias: r.evidencias, em: new Date().toISOString() },
-              instagram: lead.instagram || r.instagram,
-              confianca: r.veredito === 'nao' ? 'Alto' : 'Médio',
-            })
-            break
-          } catch (e) {
-            veredito = 'erro'
-            if (e.code !== 'LIMITE') break
-            log('info', 'Firecrawl pediu uma pausa — esperando 1 minuto')
-            await esperar(60_000)
-          }
-        }
+        veredito = await conferirAntes(lead)
       }
       if (veredito === 'tem' || veredito === 'provavel' || veredito === 'erro') {
         log('info', `⏭️ ${nome}: ${veredito === 'tem' ? 'já tem site' : veredito === 'provavel' ? 'possível site — confira à mão no Pinguim' : 'não deu para conferir se tem site'} — pulando`)
@@ -210,6 +216,29 @@ export async function rodarAutomatico(opcoes, ui) {
   return resumo
 }
 
+// Confere um comércio (busca pelo nome e, se nada, pelo telefone). → 'tem' | 'provavel' | 'nao' | 'erro'
+async function conferirUm(lead, log, parar) {
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    // Reserva 1 busca (pelo nome); quem já tem site para aí. A 2ª (pelo telefone) só é contada se aconteceu.
+    await gastar(1, log, parar, 'busca')
+    try {
+      const r = await conferirSite(lead)
+      for (let k = 1; k < (r.pedidos || 1); k++) janelas.busca.push(Date.now())
+      atualizarLead(lead.id, {
+        conferencia: { status: r.veredito, site: r.site, evidencias: r.evidencias, em: new Date().toISOString() },
+        instagram: lead.instagram || r.instagram,
+        confianca: r.veredito === 'nao' ? 'Alto' : 'Médio',
+      })
+      return r.veredito
+    } catch (e) {
+      if (e.code !== 'LIMITE') return 'erro'
+      log('info', 'Firecrawl pediu uma pausa — esperando 1 minuto')
+      await esperar(60_000)
+    }
+  }
+  return 'erro'
+}
+
 const estudados = new Set() // nichos cujo estudo do Gato já foi feito nesta rodada (os próximos reaproveitam)
 
 // Site pronto para o vídeo: Leão → Gato (→ Abelha, se ligada). Devolve { siteId, nome }.
@@ -219,7 +248,7 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
   const passo = (p) => etapa({ nicho, comercio: nome, passo: p })
 
   passo('🦁 Leão montando o site com as fotos')
-  await gastar(lead.instagram ? 2 : 1, log, parar)
+  await gastar(lead.instagram ? 2 : 1, log, parar, 'pagina')
   const rl = await runAgent('leao', { lead: lead.id, semDownload: true }, onLog, lerPipeline())
   aplicar(rl)
   const siteId = rl.site.id
@@ -227,10 +256,10 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
   passo('🐈‍⬛ Gato fazendo a prévia')
   const nichoGato = chave(lead.categoria || nicho)
   const estudaAgora = estudo !== 'nenhum' && !estudados.has(nichoGato)
-  if (estudaAgora) await gastar(9, log, parar)
+  if (estudaAgora) await gastar(6, log, parar, 'busca') // estudo inicial: ~5 buscas + até 4 páginas
   const rg = await runAgent('gato', { site: siteId, estudo, reaproveitar: true }, onLog, lerPipeline())
   // A rodada do estudo (1 minuto ou mais) também usou ~8 pedidos: entra na conta para o próximo site não levar 429.
-  if (estudaAgora && estudo !== '0') await gastar(8, log, parar)
+  if (estudaAgora && estudo !== '0') await gastar(6, log, parar, 'pagina') // rodada: 2 buscas + 6 páginas
   estudados.add(nichoGato)
   aplicar(rg)
   const pv = rg.preview
@@ -240,7 +269,7 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
   if (abelha && !parar()) {
     passo('🐝 Abelha completando com dados que têm fonte')
     try {
-      await gastar(2, log, parar)
+      await gastar(2, log, parar, 'busca')
       const { abelha: r } = await runAgent('abelha', { site: siteId }, onLog, lerPipeline())
       const c = r.campos
       await gerarColmeia(r, { sobre: Boolean(c.sobre), horarios: Boolean(c.horarios), servicos: c.servicos.map((s) => s.nome) }, { baixarZip: false })
