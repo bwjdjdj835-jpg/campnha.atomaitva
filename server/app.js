@@ -100,6 +100,17 @@ app.post('/gato/video', async (c) => {
   const { html } = await c.req.json().catch(() => ({}))
   if (typeof html !== 'string' || !html.includes('<html')) return c.json({ error: 'Prévia inválida.' }, 400)
   if (html.length > 20_000_000) return c.json({ error: 'Prévia grande demais para gravar.' }, 413)
+  // Sem navegador neste servidor (Vercel): quem chama aqui é uma versão antiga do app guardada no cache.
+  if (!(await servidorGrava())) {
+    return c.json(
+      {
+        error:
+          'Este servidor não grava vídeo. Atualize a página com Ctrl + F5: a versão nova grava pelo seu navegador (Chrome ou Edge).',
+        code: 'SEM_NAVEGADOR',
+      },
+      501,
+    )
+  }
   const { tipo, buffer } = await gravarVideo(html)
   return new Response(buffer, { headers: { 'Content-Type': tipo, 'Content-Length': String(buffer.length) } })
 })
