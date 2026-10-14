@@ -4,6 +4,7 @@
 
 import siteSource from './ClienteSite.jsx?raw'
 import animacoesCss from './clienteAnimacoes.css?raw'
+import aguaSource from './clienteAgua.js?raw'
 
 const json = (v) => JSON.stringify(v, null, 2) + '\n'
 
@@ -86,9 +87,11 @@ ${jsonLd(dados)}
 import ReactDOM from 'react-dom/client'
 import Site from './Site.jsx'
 import dados from './dados.json'
+import { iniciarAgua } from './agua.js'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(<Site dados={dados} />)
+iniciarAgua(document)
 `,
     'src/index.css': `@tailwind base;
 @tailwind components;
@@ -96,6 +99,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<Site dados={dados} 
 
 ${animacoesCss}`,
     'src/Site.jsx': siteSource,
+    'src/agua.js': aguaSource,
     'src/dados.json': json(dados),
     'dados.json': json(dados),
     'README.md': `# ${negocio.nome}
@@ -115,6 +119,7 @@ npm run dev
 - \`dados.json\` — mesma cópia, com o mapa de imagens (arquivo ↔ nome original ↔ link).
 - \`public/fotos/\` — fotos do negócio.
 - \`src/Site.jsx\` — página única: capa, fotos, contato, mapa e botão fixo de WhatsApp.
+- \`src/agua.js\` — efeito de água na capa (a foto ondula seguindo o cursor).
 `,
   }
 }

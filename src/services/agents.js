@@ -2,8 +2,9 @@
 //
 // REAL (via backend em /server — as chaves de API ficam lá):
 //   pinguim -> POST /api/pinguim/buscar   (Google Places + Firecrawl)
-//   leao    -> POST /api/leao/fotos       (fotos da ficha) + ZIP montado aqui com JSZip
-//   gato    -> lê o ZIP do Leão, POST /api/gato/estudar (referências no Firecrawl),
+//   leao    -> POST /api/leao/fotos       (fotos da ficha) + ZIP montado aqui com JSZip;
+//              POST /api/leao/hospedar sobe fotos e dados.json para a pasta online (Vercel Blob)
+//   gato    -> lê o ZIP do Leão (ou a pasta online), POST /api/gato/estudar (referências no Firecrawl),
 //              prévia ao vivo e ZIP final só depois da aprovação (gerarZipFinal)
 //   tigre   -> POST /api/tigre/* (mensagem, classificar, enviar, publicar); cada envio só depois
 //              do clique de aprovação. Sem servidor: modelos de texto e palavras-chave locais.
@@ -218,6 +219,7 @@ async function leao(inputs, log, { leads }) {
   }))
 
   const nomeZip = zipName(lead.nome)
+  const siteId = `site-${Date.now()}`
   const dados = {
     geradoEm: new Date().toISOString(),
     gerador: 'Leão — Central de Agentes',
@@ -240,6 +242,8 @@ async function leao(inputs, log, { leads }) {
     prints: printsDados,
   }
 
+  const pasta = lead.demo ? null : await hospedarPasta(`${slugify(lead.nome)}-${siteId.slice(5)}`, dados, fotos, prints, log)
+
   log('info', 'Gerando estrutura React + Tailwind (src/, public/fotos/, public/prints/, configs)')
   const zip = new JSZip()
   const root = zip.folder(nomeZip.replace(/\.zip$/, ''))
@@ -251,7 +255,6 @@ async function leao(inputs, log, { leads }) {
 
   const blob = await zip.generateAsync({ type: 'blob' })
   baixar(blob, nomeZip)
-  const siteId = `site-${Date.now()}`
   const guardado = await salvarZip(siteId, blob)
 
   log('ok', `ZIP pronto: ${nomeZip} (${(blob.size / 1024).toFixed(0)} KB)${lead.demo ? ' — DEMO' : ''}`)
@@ -266,8 +269,74 @@ async function leao(inputs, log, { leads }) {
       status: 'gerado',
       demo: Boolean(lead.demo),
       criadoEm: dados.geradoEm,
+      pasta,
+    },
+    previa: {
+      siteId,
+      dados,
+      pasta,
+      fotos: fotos.map((f, i) => ({ caminho: imagens[i].arquivo, blob: f.blob || blobDeBase64(f.base64, f.tipo) })),
     },
     ...(novo ? { leads: [lead] } : {}),
+  }
+}
+
+// Sobe fotos, prints e dados.json para a pasta online (Vercel Blob) e anota o link de cada foto no dados.json.
+// Devolve o link do dados.json da pasta (o Gato abre por ele) ou null se a pasta estiver desligada.
+async function hospedarPasta(pasta, dados, fotos, prints, log) {
+  const enviar = (arquivo, tipo, conteudo) => api('/leao/hospedar', { pasta, arquivo, tipo, ...conteudo })
+  try {
+    for (const [i, f] of fotos.entries()) {
+      const img = dados.imagens[i]
+      const base64 = f.base64 || (await paraBase64(f.blob))
+      img.hospedada = (await enviar(img.arquivo.replace(/^\//, ''), f.tipo, { base64 })).url
+    }
+    for (const [i, p] of prints.entries()) {
+      if (p.base64.length > 5_000_000) continue // print grande demais para a função do Vercel: fica só no ZIP
+      dados.prints[i].hospedada = (await enviar(dados.prints[i].arquivo.replace(/^\//, ''), p.tipo, { base64: p.base64 })).url
+    }
+    dados.pasta = `sites/${pasta}/`
+    const { url } = await enviar('dados.json', 'application/json', { texto: JSON.stringify(dados, null, 2) })
+    log('ok', `Fotos e dados hospedados na pasta online sites/${pasta}/ — o Gato Negro abre de qualquer aparelho`)
+    return url
+  } catch (e) {
+    dados.imagens.forEach((img) => delete img.hospedada)
+    dados.prints.forEach((pr) => delete pr.hospedada)
+    delete dados.pasta
+    if (e.code === 'NO_KEY') log('warn', 'Pasta online desligada (conecte um Blob Store no Vercel) — o pacote fica só neste navegador')
+    else if (e.code !== 'OFFLINE') log('warn', `Pasta online: ${e.message.replace(/\.$/, '')} — o pacote fica só neste navegador`)
+    return null
+  }
+}
+
+// Abre a pasta online de um site: dados.json + fotos e prints pelos links hospedados.
+export async function lerPasta(urlDados) {
+  let dados
+  try {
+    dados = await (await fetch(urlDados, { cache: 'no-store' })).json()
+  } catch {
+    throw new Error('Não consegui abrir a pasta online desse site.')
+  }
+  if (!dados?.negocio?.nome) throw new Error('Pasta online sem dados.json válido.')
+  const baixarTodos = async (lista) => {
+    const itens = await Promise.all(
+      (lista || []).map(async (x) => {
+        if (!x.hospedada) return null
+        const r = await fetch(x.hospedada).catch(() => null)
+        return r?.ok ? { caminho: x.arquivo, blob: await r.blob() } : null
+      }),
+    )
+    return itens.filter(Boolean)
+  }
+  return { dados, fotos: await baixarTodos(dados.imagens), prints: await baixarTodos(dados.prints) }
+}
+
+export async function listarPastas() {
+  try {
+    const r = await fetch('/api/leao/pastas')
+    return r.ok ? (await r.json()).pastas : []
+  } catch {
+    return []
   }
 }
 
@@ -319,20 +388,42 @@ export async function lerPacoteLeao(blob) {
   return { dados, fotos, prints, arquivos }
 }
 
-async function gato(inputs, log, { sites }) {
-  let blob = inputs.zip || null
+async function gato(inputs, log, { sites, leads = [] }) {
+  let pacote = null
   let siteId = null
-  if (!blob && inputs.site) {
+  let siteNovo = null
+  if (inputs.zip) {
+    log('info', `Abrindo pacote do Leão: ${inputs.zip.name}`)
+    pacote = await lerPacoteLeao(inputs.zip)
+    siteId = siteDoPacote(sites, inputs.zip.name, pacote.dados)
+  } else if (inputs.site?.startsWith('pasta:')) {
+    const url = inputs.site.slice(6)
+    log('info', 'Abrindo a pasta online do Leão')
+    pacote = await lerPasta(url)
+    siteId = sites.find((x) => x.pasta === url)?.id || null
+    if (!siteId) {
+      // Site criado em outro aparelho: entra na lista daqui para seguir até o Tigre.
+      const d = pacote.dados
+      siteId = `site-${Date.now()}`
+      siteNovo = { id: siteId, leadId: d.negocio.placeId, nome: d.negocio.nome, zip: zipName(d.negocio.nome), status: 'gerado', demo: Boolean(d.demo), criadoEm: d.geradoEm, pasta: url }
+    }
+  } else if (inputs.site) {
     siteId = inputs.site
-    blob = await lerZip(siteId)
-    if (!blob) throw new Error('Pacote não encontrado neste navegador — envie o ZIP do Leão pelo campo abaixo.')
+    const site = sites.find((x) => x.id === siteId)
+    const blob = await lerZip(siteId)
+    if (blob) {
+      log('info', 'Abrindo pacote do Leão')
+      pacote = await lerPacoteLeao(blob)
+    } else if (site?.pasta) {
+      log('info', 'Pacote não está neste navegador — abrindo a pasta online do Leão')
+      pacote = await lerPasta(site.pasta)
+    } else {
+      throw new Error('Pacote não encontrado neste navegador — envie o ZIP do Leão pelo campo abaixo.')
+    }
   }
-  if (!blob) throw new Error('Escolha um site do Leão ou envie o ZIP.')
-
-  log('info', `Abrindo pacote do Leão${inputs.zip ? `: ${inputs.zip.name}` : ''}`)
-  const { dados, fotos, prints } = await lerPacoteLeao(blob)
-  if (!siteId) siteId = siteDoPacote(sites, inputs.zip?.name, dados)
-  log('ok', `dados.json: ${dados.negocio.nome}${dados.demo ? ' (DEMO)' : ''} · ${fotos.length} foto(s)`)
+  if (!pacote) throw new Error('Escolha um site do Leão ou envie o ZIP.')
+  const { dados, fotos, prints } = pacote
+  log('ok', `dados.json: ${dados.negocio.nome}${dados.demo ? ' (DEMO)' : ''} · ${fotos.length} foto(s) do cliente`)
 
   log('info', 'Firecrawl: pesquisando referências de sites do segmento')
   let referencias = []
@@ -344,12 +435,22 @@ async function gato(inputs, log, { sites }) {
     log('warn', `${e.message.replace(/\.$/, '')} — seguindo com os padrões base`)
   }
 
-  log('info', 'Padrões aplicados: capa com zoom lento, textos entrando em cascata, seções que aparecem ao rolar, fotos e cards que reagem ao cursor, botão de WhatsApp pulsando, mapa e contato')
+  log('info', `Fotos do cliente: ${fotos.length ? `${fotos.length} — a 1ª vira a capa, as outras a galeria` : 'nenhuma — capa em cor sólida'}`)
+  log('info', 'Padrões aplicados: abertura com água na capa (a foto ondula seguindo o cursor), textos entrando em cascata, seções que aparecem ao rolar, fotos e cards que reagem ao cursor, botão de WhatsApp pulsando, mapa e contato')
   const tema = dados.tema || temaSugerido(dados.negocio.categoria)
   log('info', `Tema sugerido para "${dados.negocio.categoria || 'negócio'}": ${tema} (dá para trocar na prévia)`)
   log('warn', 'Prévia pronta — confira e clique em "Aprovar prévia" para liberar o ZIP final')
 
-  return { preview: { siteId, dados: { ...dados, tema }, fotos, prints, referencias } }
+  const n = dados.negocio
+  const leadNovo =
+    siteNovo && n.placeId && !leads.some((l) => l.id === n.placeId)
+      ? [{ id: n.placeId, demo: Boolean(dados.demo), nome: n.nome, categoria: n.categoria, endereco: n.endereco, telefone: n.telefone, whatsapp: n.whatsapp, instagram: n.instagram, maps: n.maps, rating: n.rating, avaliacoes: n.avaliacoes, fotos: [], confianca: 'Médio', observacao: 'Veio da pasta online do Leão' }]
+      : null
+  return {
+    preview: { siteId, dados: { ...dados, tema }, fotos, prints, referencias },
+    ...(siteNovo ? { site: siteNovo } : {}),
+    ...(leadNovo ? { leads: leadNovo } : {}),
+  }
 }
 
 // Grava o vídeo da prévia no servidor (Chromium + ffmpeg) e guarda no navegador para o Tigre.

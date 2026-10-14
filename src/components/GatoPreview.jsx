@@ -1,18 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video } from 'lucide-react'
-import Site, { TEMAS } from '../lib/ClienteSite.jsx'
+import { TEMAS } from '../lib/ClienteSite.jsx'
 import { gerarZipFinal, gravarVideoPrevia, SEM_DOWNLOAD } from '../services/agents.js'
 import { setPipeline } from '../store/pipeline.js'
-import clienteCss from '../lib/cliente.css?inline'
-
-const paraDataUrl = (blob) =>
-  new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(r.result)
-    r.onerror = () => reject(r.error)
-    r.readAsDataURL(blob)
-  })
+import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA } from '../lib/previa.jsx'
 
 function marcarSite(siteId, campos) {
   if (!siteId) return
@@ -35,28 +26,18 @@ export default function GatoPreview({ preview }) {
 
   useEffect(() => {
     let vivo = true
-    Promise.all(preview.fotos.map(async (f) => [f.caminho, await paraDataUrl(f.blob)])).then((pares) => {
-      if (vivo) setFotosUrl(Object.fromEntries(pares))
+    fotosEmDataUrl(preview.fotos).then((urls) => {
+      if (vivo) setFotosUrl(urls)
     })
     return () => {
       vivo = false
     }
   }, [preview])
 
-  const srcDoc = useMemo(() => {
-    if (!fotosUrl) return ''
-    const dados = {
-      ...preview.dados,
-      tema,
-      imagens: (preview.dados.imagens || [])
-        .filter((img) => fotosUrl[img.arquivo])
-        .map((img) => ({ ...img, arquivo: fotosUrl[img.arquivo] })),
-    }
-    const html = renderToStaticMarkup(<Site dados={dados} />)
-    return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><base target="_blank">
-<style>${clienteCss}</style></head><body>${html}</body></html>`
-  }, [preview, tema, fotosUrl])
+  const srcDoc = useMemo(
+    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema }, fotosUrl) : ''),
+    [preview, tema, fotosUrl],
+  )
 
   function trocarTema(t) {
     setTema(t)
@@ -148,7 +129,7 @@ export default function GatoPreview({ preview }) {
           style={{ maxWidth: device === 'mobile' ? 390 : '100%' }}
         >
           {srcDoc ? (
-            <iframe title="Prévia do site" srcDoc={srcDoc} sandbox="allow-popups allow-popups-to-escape-sandbox" className="block w-full h-[640px]" />
+            <iframe title="Prévia do site" srcDoc={srcDoc} sandbox={SANDBOX_PREVIA} className="block w-full h-[640px]" />
           ) : (
             <div className="grid h-[640px] place-items-center text-slate-500">
               <Loader2 className="animate-spin" />
@@ -165,7 +146,9 @@ export default function GatoPreview({ preview }) {
               <li key={r.url}>
                 <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-slate-300 hover:text-neon">
                   <ExternalLink size={13} /> {r.titulo}
+                  {r.fonte && <span className="text-xs text-slate-500">· {r.fonte}</span>}
                 </a>
+                {r.descricao && <p className="ml-5 text-xs text-slate-500 line-clamp-2">{r.descricao}</p>}
               </li>
             ))}
           </ul>

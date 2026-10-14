@@ -15,6 +15,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
     "@hono/node-server": "^2.1.5",
+    "@vercel/blob": "^2.8.2",
     "framer-motion": "^11.11.0",
     "hono": "^4.13.13",
     "jszip": "^3.10.2",

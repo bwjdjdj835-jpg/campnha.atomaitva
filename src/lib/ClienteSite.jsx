@@ -75,12 +75,13 @@ export default function Site({ dados }) {
   return (
     <div className={'min-h-screen font-sans antialiased ' + t.pagina}>
       <header className="relative">
+        {/* data-agua: a capa ondula seguindo o cursor (src/agua.js) */}
         {capa ? (
-          <div className="h-[70vh] min-h-[420px] w-full overflow-hidden">
+          <div data-agua="foto" className="relative h-[70vh] min-h-[420px] w-full overflow-hidden">
             <img src={capa.arquivo} alt={negocio.nome} className="anim-zoom h-full w-full object-cover" />
           </div>
         ) : (
-          <div className={'h-[55vh] min-h-[360px] w-full ' + t.capaVazia} />
+          <div data-agua="cor" className={'relative h-[55vh] min-h-[360px] w-full overflow-hidden ' + t.capaVazia} />
         )}
         <div className={'absolute inset-0 ' + t.sobreposicao} />
         <div className="absolute inset-x-0 bottom-0 mx-auto max-w-5xl px-6 pb-12">

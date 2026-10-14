@@ -7,14 +7,20 @@ import { Hono } from 'hono'
 import { buscarNegocios } from './pinguim.js'
 import { buscarFotos, tirarPrint, linkPermitidoParaPrint } from './leao.js'
 import { estudarReferencias } from './gato.js'
+import { hospedar, listarPastas, temPasta } from './pasta.js'
 import { enriquecer } from './abelha.js'
 import { gravarVideo } from './video.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
-// Aceita a chave do Google em qualquer variável com "google" no nome (ex.: "google" no Vercel).
-// Chaves do Google começam com "AIza".
-process.env.GOOGLE_PLACES_API_KEY ||=
-  Object.entries(process.env).find(([k, v]) => /google/i.test(k) && /^AIza/.test(String(v).trim()))?.[1]?.trim() || ''
+// Aceita as chaves com outros nomes de variável (ex.: "google" ou "firecrawl" no Vercel):
+// procura uma variável com aquele pedaço no nome e um valor no formato da chave.
+function apelido(nome, pedacoDoNome, formato) {
+  process.env[nome] ||=
+    Object.entries(process.env).find(([k, v]) => pedacoDoNome.test(k) && formato.test(String(v).trim()))?.[1]?.trim() || ''
+}
+apelido('GOOGLE_PLACES_API_KEY', /google/i, /^AIza/)
+apelido('FIRECRAWL_API_KEY', /fire/i, /^fc-/)
+apelido('BLOB_READ_WRITE_TOKEN', /blob/i, /^vercel_blob_rw_/)
 
 export const app = new Hono().basePath('/api')
 
@@ -28,6 +34,7 @@ const keys = () => ({
   whatsappProvedor: provedorWhatsApp(), // 'zapi' | 'meta' | null
   whatsappTemplate: Boolean(process.env.WHATSAPP_TEMPLATE),
   vercel: Boolean(process.env.VERCEL_TOKEN),
+  pasta: temPasta(),
 })
 
 app.get('/status', (c) => c.json({ ok: true, keys: keys() }))
@@ -55,6 +62,24 @@ app.post('/leao/print', async (c) => {
     return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
   }
   return c.json(await tirarPrint(url))
+})
+
+// Pasta online do Leão (Vercel Blob): um arquivo por requisição.
+app.post('/leao/hospedar', async (c) => {
+  if (!temPasta()) {
+    return c.json({ error: 'Pasta online desligada: conecte um Blob Store ao projeto no Vercel.', code: 'NO_KEY' }, 503)
+  }
+  const corpo = await c.req.json().catch(() => ({}))
+  try {
+    return c.json(await hospedar(corpo))
+  } catch (e) {
+    return c.json({ error: e.message }, 400)
+  }
+})
+
+app.get('/leao/pastas', async (c) => {
+  if (!temPasta()) return c.json({ pastas: [] })
+  return c.json({ pastas: await listarPastas() })
 })
 
 app.post('/gato/video', async (c) => {

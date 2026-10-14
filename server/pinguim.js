@@ -81,7 +81,7 @@ async function firecrawlSearch(query) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
     },
-    body: JSON.stringify({ query, limit: 5, country: 'BR', lang: 'pt' }),
+    body: JSON.stringify({ query, limit: 5, country: 'BR' }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(`Firecrawl: ${data.error || res.statusText}`)
