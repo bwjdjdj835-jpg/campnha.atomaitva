@@ -10,13 +10,14 @@ const STATUS = {
   contatado: { rotulo: 'Aguardando resposta', cor: 'bg-sky-400/10 text-sky-300' },
   interessado: { rotulo: 'Interessado', cor: 'bg-emerald-400/10 text-emerald-300' },
   duvida: { rotulo: 'Fez uma pergunta', cor: 'bg-amber-400/10 text-amber-300' },
+  bot: { rotulo: 'Respondeu um robô', cor: 'bg-violet-400/10 text-violet-300' },
   recusou: { rotulo: 'Recusou', cor: 'bg-white/5 text-slate-400' },
   nao_contatar: { rotulo: 'Não contatar', cor: 'bg-rose-400/10 text-rose-300' },
   vendido: { rotulo: 'Pagamento confirmado', cor: 'bg-emerald-400/15 text-emerald-200' },
   publicado: { rotulo: 'Site no ar', cor: 'bg-neon/15 text-neon-soft' },
 }
 
-const STATUS_DA_INTENCAO = { interesse: 'interessado', duvida: 'duvida', recusa: 'recusou', nao_contatar: 'nao_contatar', outro: 'contatado' }
+const STATUS_DA_INTENCAO = { interesse: 'interessado', duvida: 'duvida', recusa: 'recusou', bot: 'bot', nao_contatar: 'nao_contatar', outro: 'contatado' }
 
 function atualizarConversa(siteId, fn) {
   setPipeline((s) => {
@@ -58,7 +59,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
     }
   })
   const [copiado, setCopiado] = useState(false)
-  const [tipoRascunho, setTipoRascunho] = useState(null) // 'olhada' = a mensagem leve depois de um "não"
+  const [tipoRascunho, setTipoRascunho] = useState(null) // 'olhada' = a mensagem leve depois de um "não"; 'pessoa' = pedir um humano ao robô
   const jaMandouOlhada = conversa?.mensagens?.some((m) => m.tipo === 'olhada')
 
   useEffect(() => {
@@ -93,7 +94,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
   function registrarEnvio(via) {
     atualizarConversa(siteId, (c) => ({
       mensagens: [...c.mensagens, { de: 'nos', texto, via, at: new Date().toISOString(), ...(tipoRascunho ? { tipo: tipoRascunho } : {}) }],
-      status: ['novo', 'recusou', 'duvida'].includes(c.status) ? 'contatado' : c.status,
+      status: ['novo', 'recusou', 'duvida', 'bot'].includes(c.status) ? 'contatado' : c.status,
     }))
     setTexto('')
     setAbriuWhats(false)
@@ -103,7 +104,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
   const gerar = (tipo) =>
     tarefa('gerar', async () => {
       setTexto((await rascunho(tipo, negocio, conversa.mensagens)).texto)
-      setTipoRascunho(tipo === 'olhada' ? 'olhada' : null)
+      setTipoRascunho(['olhada', 'pessoa'].includes(tipo) ? tipo : null)
     })
 
   const enviarApi = () =>
@@ -131,7 +132,14 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
       setTipoRascunho(null)
       if (r.intencao === 'interesse') setTexto((await rascunho('fechamento', negocio, historico)).texto)
       else if (r.intencao === 'duvida') setTexto((await rascunho('resposta', negocio, historico)).texto)
-      else if (r.intencao === 'recusa') {
+      else if (r.intencao === 'bot') {
+        // Robô (resposta automática / menu): pede para falar com uma pessoa, escolhendo a opção de atendente se houver.
+        setTexto((await rascunho('pessoa', negocio, historico)).texto)
+        setTipoRascunho('pessoa')
+        setAviso(
+          `Quem respondeu foi um robô (atendimento automático).${r.opcao ? ` O menu tem a opção ${r.opcao} para falar com atendente — já coloquei na mensagem.` : ''} Sugestão: pedir para falar com o responsável ou alguém da equipe.`,
+        )
+      } else if (r.intencao === 'recusa') {
         // "Não quero agora": uma única mensagem leve de "só dá uma olhada". Se recusar de novo, para por aqui.
         if (conversa.mensagens.some((m) => m.tipo === 'olhada')) {
           setTexto('')
@@ -292,7 +300,7 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
             placeholder="Escreva ou gere uma mensagem"
           />
           <div className="flex flex-wrap gap-2">
-            <button className="btn-ghost border border-white/10" onClick={() => gerar(primeiroContato ? 'primeiro' : interessado ? 'fechamento' : conversa.status === 'recusou' && !jaMandouOlhada ? 'olhada' : 'resposta')} disabled={!!ocupado}>
+            <button className="btn-ghost border border-white/10" onClick={() => gerar(primeiroContato ? 'primeiro' : interessado ? 'fechamento' : conversa.status === 'bot' ? 'pessoa' : conversa.status === 'recusou' && !jaMandouOlhada ? 'olhada' : 'resposta')} disabled={!!ocupado}>
               {ocupado === 'gerar' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Gerar outra
             </button>
             <button className="btn-ghost border border-white/10" onClick={copiar} disabled={!texto.trim()}>

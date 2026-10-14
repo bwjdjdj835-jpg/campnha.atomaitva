@@ -82,8 +82,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/abelha/enriquecer` (`server/abelha.js`) — busca o negócio no Firecrawl e extrai sobre/horário/serviços
     (Claude com structured output; sem chave, só horário por regex). Todo campo volta com a URL da fonte; campo que
     aponta para fonte inexistente é descartado.
-  - `POST /api/tigre/{mensagem,classificar,enviar,publicar}` (`server/tigre.js`): Claude (`claude-opus-5-5`,
-    effort low, `fallbacks: "default"`) escreve mensagens e lê respostas (sem chave: `src/lib/tigreTextos.js`);
+  - `POST /api/tigre/{mensagem,classificar,enviar,publicar}` (`server/tigre.js`): a IA escreve mensagens e lê respostas —
+    **Groq primeiro** (`GROQ_API_KEY`, apelido "groq"/`gsk_`, modelo `GROQ_MODEL` ou `llama-3.3-70b-versatile`, API no formato
+    OpenAI; decisão do usuário para não gastar créditos do Claude); Claude (`claude-opus-5-5`, effort low,
+    `fallbacks: "default"`) só sem Groq; sem chave (ou Groq falhando): `src/lib/tigreTextos.js`;
     envio pela Z-API (`ZAPI_*`, prioridade) ou WhatsApp Cloud API da Meta (1º contato só por template
     `WHATSAPP_TEMPLATE`); deploy no Vercel. `/enviar` exige
     `aprovado: true` e `/publicar` exige `pagamentoConfirmado: true`.
@@ -101,6 +103,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   **recusa leve** ("não quero agora", "no momento não", "fica pra próxima") → UMA mensagem `olhada` ("só dá uma olhadinha
   no projeto, sem compromisso", `MODELOS.olhada`), marcada com `tipo: 'olhada'`; se recusar de novo, o Tigre não sugere
   mais nada). Na dúvida entre recusa e parar, vale parar (`OPT_OUT` vem antes de `RECUSA`).
+  **Robô** (resposta automática, menu, assistente virtual — regex `BOT`, intenção `bot`, status "Respondeu um robô") →
+  rascunho `pessoa` pedindo para falar com o responsável/alguém da equipe; `opcaoDeAtendente` acha no menu o número da
+  opção "falar com atendente" (inclusive 2️⃣) e põe na 1ª linha da mensagem.
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
 - Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo),
   **modelo premium** (pedido do usuário a partir de um roteiro do Lovable; cada seção só aparece com dado):

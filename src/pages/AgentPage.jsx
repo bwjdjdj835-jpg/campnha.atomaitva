@@ -207,7 +207,7 @@ function AgentPage() {
                 : agent.id === 'abelha'
                   ? `Conectado · busca na web ${keys.firecrawl ? '✓' : '✗ (só auditoria)'} · Claude ${keys.claude ? '✓' : '✗ (só horário por padrão de texto)'}`
                   : agent.id === 'tigre'
-                  ? `Conectado · Claude ${keys.claude ? '✓' : '✗ (usa modelos de texto)'} · WhatsApp ${keys.whatsappProvedor === 'zapi' ? 'Z-API ✓' : keys.whatsapp ? 'Meta ✓' : '✗ (envio pelo seu WhatsApp)'} · Vercel ${keys.vercel ? '✓' : '✗'}`
+                  ? `Conectado · IA ${keys.groq ? 'Groq ✓' : keys.claude ? 'Claude ✓' : '✗ (usa modelos de texto)'} · WhatsApp ${keys.whatsappProvedor === 'zapi' ? 'Z-API ✓' : keys.whatsapp ? 'Meta ✓' : '✗ (envio pelo seu WhatsApp)'} · Vercel ${keys.vercel ? '✓' : '✗'}`
                   : agent.id === 'gato'
                   ? `Conectado · Firecrawl ${keys.firecrawl ? '✓ (pesquisa sites profissionais)' : '✗ (sem pesquisa de referências — usa os padrões base)'} · pasta online ${keys.pasta ? '✓' : '✗'}`
                   : agent.id === 'leao'
