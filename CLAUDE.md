@@ -204,6 +204,8 @@ e "Leão Dourado" foi unificado como **Leão**.
   (ids dos leads) e as rodadas seguintes continuam nela sem nova busca; cada rodada faz até "Clientes por rodada"
   (`porNicho`) e para para aprovação; o nicho só entra em `auto.feitos` quando a lista acaba (`esgotou`). Botão
   "Continuar: <nicho>" (`nichoEmAndamento`) até o fim, depois "Começar: <próximo>". "Recomeçar" limpa `listas`.
+  Migração `auto.v` < 2: apaga UMA vez as marcas antigas de `feitos`/`listas` (as versões antigas marcavam nicho como
+  feito com poucos clientes e seguiam sozinhas até confeitaria) — tudo recomeça na barbearia; contatados continuam pulados.
   `rodarAutomatico` para depois do nicho com cliente pronto (nicho sem cliente passa direto) e devolve
   `resumo.proximo` (`proximoNicho`). O próximo só começa pela Área do Administrador,
   quando não há nada para aprovar nem sendo preparado: botão "Começar: <nicho>" → `prepararInicio` (pede a gravação no
