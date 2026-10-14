@@ -11,6 +11,10 @@ import { enriquecer } from './abelha.js'
 import { gravarVideo } from './video.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
+// Aceita a chave do Google com outros nomes de variável (ex.: "google" no Vercel).
+process.env.GOOGLE_PLACES_API_KEY ||=
+  process.env.google || process.env.GOOGLE || process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY || ''
+
 export const app = new Hono().basePath('/api')
 
 const keys = () => ({
