@@ -6,7 +6,7 @@
 import { Hono } from 'hono'
 import { buscarNegocios } from './pinguim.js'
 import { buscarFotos, tirarPrint, linkPermitidoParaPrint } from './leao.js'
-import { estudarReferencias } from './gato.js'
+import { estudar } from './gato.js'
 import { hospedar, listarPastas, temPasta } from './pasta.js'
 import { enriquecer } from './abelha.js'
 import { gravarVideo } from './video.js'
@@ -95,7 +95,7 @@ app.post('/gato/estudar', async (c) => {
   if (!keys().firecrawl) {
     return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
   }
-  return c.json({ referencias: await estudarReferencias(categoria || 'comércio local') })
+  return c.json(await estudar(categoria || 'comércio local'))
 })
 
 app.post('/tigre/mensagem', async (c) => {

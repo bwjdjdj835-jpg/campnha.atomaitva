@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video } from 'lucide-react'
+import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video, X, Plus, GraduationCap, LayoutList, PenLine } from 'lucide-react'
 import { TEMAS } from '../lib/ClienteSite.jsx'
 import { gerarZipFinal, gravarVideoPrevia, SEM_DOWNLOAD } from '../services/agents.js'
 import { setPipeline } from '../store/pipeline.js'
@@ -13,6 +13,7 @@ function marcarSite(siteId, campos) {
 // Prévia ao vivo do site (mesmo componente que vai no ZIP) + aprovação obrigatória antes do ZIP final.
 export default function GatoPreview({ preview }) {
   const [tema, setTema] = useState(preview.dados.tema)
+  const [conteudo, setConteudo] = useState(preview.dados.conteudo || {})
   const [device, setDevice] = useState('desktop')
   const [fotosUrl, setFotosUrl] = useState(null)
   const [aprovado, setAprovado] = useState(false)
@@ -34,19 +35,36 @@ export default function GatoPreview({ preview }) {
     }
   }, [preview])
 
+  // A prévia espera você parar de digitar (cada atualização recarrega o site no quadro).
+  const [conteudoPrevia, setConteudoPrevia] = useState(conteudo)
+  useEffect(() => {
+    const t = setTimeout(() => setConteudoPrevia(conteudo), 500)
+    return () => clearTimeout(t)
+  }, [conteudo])
+
   const srcDoc = useMemo(
-    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema }, fotosUrl) : ''),
-    [preview, tema, fotosUrl],
+    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, conteudo: conteudoPrevia }, fotosUrl) : ''),
+    [preview, tema, conteudoPrevia, fotosUrl],
   )
 
-  function trocarTema(t) {
-    setTema(t)
+  function desaprovar() {
     if (aprovado) {
-      setAprovado(false) // mudou o visual: precisa aprovar de novo
+      setAprovado(false)
       setEntregue(null)
       setVideo(null)
       marcarSite(preview.siteId, { status: 'preview' })
     }
+  }
+
+  function trocarTema(t) {
+    setTema(t)
+    desaprovar() // mudou o visual: precisa aprovar de novo
+  }
+
+  // Editar um campo = você assumiu o texto: ele deixa de ser "sugestão do Gato".
+  function editar(campo, valor) {
+    setConteudo((c) => ({ ...c, [campo]: valor, sugerido: (c.sugerido || []).filter((x) => x !== campo) }))
+    desaprovar()
   }
 
   function aprovar() {
@@ -57,7 +75,7 @@ export default function GatoPreview({ preview }) {
   async function baixarFinal() {
     setGerando(true)
     try {
-      const r = await gerarZipFinal(preview, tema)
+      const r = await gerarZipFinal(preview, tema, conteudo)
       setEntregue(r)
       marcarSite(preview.siteId, { zipFinal: r.nomeZip })
     } finally {
@@ -138,9 +156,44 @@ export default function GatoPreview({ preview }) {
         </div>
       </div>
 
+      <EditorConteudo conteudo={conteudo} editar={editar} />
+
+      {preview.secoes?.length > 0 && (
+        <div className="px-5 pb-4">
+          <div className="label flex items-center gap-1.5"><LayoutList size={14} /> Seções que os cursos e modelos recomendam</div>
+          <ul className="flex flex-wrap gap-2">
+            {preview.secoes.map((x) => (
+              <li
+                key={x.id}
+                title={x.fontes.join('\n')}
+                className={`text-xs px-2.5 py-1 rounded-full border ${x.temos ? 'border-emerald-400/30 text-emerald-300' : 'border-amber-400/30 text-amber-300'}`}
+              >
+                {x.temos ? '✓' : '…'} {x.nome} · {x.vezes} fonte(s){x.temos ? '' : ' — precisa de dado real'}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {preview.cursos?.length > 0 && (
+        <div className="px-5 pb-4">
+          <div className="label flex items-center gap-1.5"><GraduationCap size={14} /> Cursos e tutoriais estudados</div>
+          <ul className="space-y-1">
+            {preview.cursos.map((c) => (
+              <li key={c.url}>
+                <a href={c.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-slate-300 hover:text-neon">
+                  <ExternalLink size={13} /> {c.titulo}
+                  {c.fonte && <span className="text-xs text-slate-500">· {c.fonte}</span>}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {preview.referencias.length > 0 && (
         <div className="px-5 pb-4">
-          <div className="label">Referências estudadas</div>
+          <div className="label">Modelos de sites profissionais estudados</div>
           <ul className="space-y-1">
             {preview.referencias.map((r) => (
               <li key={r.url}>
@@ -207,5 +260,67 @@ export default function GatoPreview({ preview }) {
         </div>
       )}
     </section>
+  )
+}
+
+// Conteúdo do site antes da aprovação. Os campos com "sugestão" vieram do típico do segmento (não são fatos do
+// negócio): confira com o cliente, edite ou apague. A Abelha troca pelo dado real quando encontra.
+function EditorConteudo({ conteudo, editar }) {
+  const sugerido = conteudo.sugerido || []
+  const Selo = ({ campo }) =>
+    sugerido.includes(campo) ? (
+      <span className="ml-2 rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-normal normal-case tracking-normal text-amber-300">sugestão — confira</span>
+    ) : null
+  return (
+    <div className="px-5 pb-5 space-y-4">
+      <div className="label flex items-center gap-1.5"><PenLine size={14} /> Conteúdo do site (edite antes de aprovar)</div>
+      <div>
+        <div className="label">Sobre <Selo campo="sobre" /></div>
+        <textarea rows={3} className="input" value={conteudo.sobre || ''} onChange={(e) => editar('sobre', e.target.value)} />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Lista titulo="Serviços" campo="servicos" itens={conteudo.servicos || []} editar={editar} selo={<Selo campo="servicos" />} />
+        <Lista titulo="Diferenciais" campo="diferenciais" itens={conteudo.diferenciais || []} editar={editar} selo={<Selo campo="diferenciais" />} />
+        <Lista titulo="Como funciona (passos)" campo="passos" itens={conteudo.passos || []} editar={editar} selo={<Selo campo="passos" />} />
+        <div>
+          <div className="label">Perguntas frequentes <Selo campo="faq" /></div>
+          <ul className="space-y-1.5">
+            {(conteudo.faq || []).map((f, i) => (
+              <li key={f.p} className="flex items-start gap-2 text-sm text-slate-300">
+                <span className="flex-1"><b className="text-white">{f.p}</b> {f.r}</span>
+                <button className="btn-ghost !p-1" title="Tirar" onClick={() => editar('faq', conteudo.faq.filter((_, j) => j !== i))}><X size={14} /></button>
+              </li>
+            ))}
+            {!(conteudo.faq || []).length && <li className="text-xs text-slate-500">Seção escondida.</li>}
+          </ul>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Lista({ titulo, campo, itens, editar, selo }) {
+  const [novo, setNovo] = useState('')
+  const adicionar = () => {
+    const v = novo.trim()
+    if (v && !itens.includes(v)) editar(campo, [...itens, v])
+    setNovo('')
+  }
+  return (
+    <div>
+      <div className="label">{titulo} {selo}</div>
+      <ul className="flex flex-wrap gap-1.5">
+        {itens.map((x) => (
+          <li key={x} className="inline-flex items-center gap-1 rounded-full border border-white/10 py-0.5 pl-2.5 pr-1 text-xs text-slate-200">
+            {x}
+            <button className="rounded-full p-0.5 hover:bg-white/10" title="Tirar" onClick={() => editar(campo, itens.filter((y) => y !== x))}><X size={12} /></button>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-2 flex gap-2">
+        <input className="input !py-1.5 text-sm" placeholder="Adicionar…" value={novo} onChange={(e) => setNovo(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && adicionar()} />
+        <button className="btn-ghost border border-white/10 !px-2" onClick={adicionar} title="Adicionar"><Plus size={16} /></button>
+      </div>
+    </div>
   )
 }

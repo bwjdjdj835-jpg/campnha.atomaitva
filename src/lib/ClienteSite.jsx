@@ -77,6 +77,9 @@ export const TEMAS = {
 export default function Site({ dados }) {
   const { negocio, imagens = [], conteudo = {} } = dados
   const servicos = conteudo.servicos || []
+  const diferenciais = conteudo.diferenciais || []
+  const passos = conteudo.passos || []
+  const faq = conteudo.faq || []
   const t = TEMAS[dados.tema] || TEMAS.claro
   const capa = imagens[0]
   const galeria = imagens.slice(1)
@@ -166,6 +169,21 @@ export default function Site({ dados }) {
           </section>
         )}
 
+        {diferenciais.length > 0 && (
+          <section className="anim-revelar">
+            <p className={'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>Por que escolher</p>
+            <h2 className="mt-3 mb-8 text-3xl font-bold sm:text-4xl">Nossos diferenciais</h2>
+            <ul className="grid gap-4 sm:grid-cols-3">
+              {diferenciais.map((d) => (
+                <li key={d} className={'rounded-2xl border p-6 transition duration-300 hover:-translate-y-1 hover:shadow-xl ' + t.destaque}>
+                  <span className={'text-2xl ' + t.acento}>✦</span>
+                  <p className="mt-3 text-lg font-semibold leading-snug">{d}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {servicos.length > 0 && (
           <section className="anim-revelar">
             <p className={'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>O que fazemos</p>
@@ -198,6 +216,20 @@ export default function Site({ dados }) {
             </div>
           </section>
         )}
+        {passos.length > 0 && (
+          <section className="anim-revelar">
+            <p className={'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>Simples assim</p>
+            <h2 className="mt-3 mb-8 text-3xl font-bold sm:text-4xl">Como funciona</h2>
+            <ol className="grid gap-4 sm:grid-cols-3">
+              {passos.map((p, i) => (
+                <li key={p} className={'relative rounded-2xl border p-6 ' + t.cartao}>
+                  <span className={'text-5xl font-extrabold opacity-30 ' + t.acento}>{i + 1}</span>
+                  <p className="mt-2 text-lg font-semibold">{p}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
       </main>
 
       {(negocio.whatsapp || telefone) && (
@@ -219,6 +251,24 @@ export default function Site({ dados }) {
                 </a>
               )}
             </div>
+          </div>
+        </section>
+      )}
+
+      {faq.length > 0 && (
+        <section className="anim-revelar mx-auto max-w-3xl px-6 pt-24">
+          <p className={'text-center text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento}>Dúvidas</p>
+          <h2 className="mt-3 mb-8 text-center text-3xl font-bold sm:text-4xl">Perguntas frequentes</h2>
+          <div className="space-y-3">
+            {faq.map((f) => (
+              <details key={f.p} className={'group rounded-2xl border px-6 py-5 ' + t.cartao}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold">
+                  {f.p}
+                  <span className={'text-2xl transition group-open:rotate-45 ' + t.acento}>+</span>
+                </summary>
+                <p className={'mt-3 leading-relaxed ' + t.texto}>{f.r}</p>
+              </details>
+            ))}
           </div>
         </section>
       )}
