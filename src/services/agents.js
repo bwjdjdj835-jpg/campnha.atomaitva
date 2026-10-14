@@ -220,6 +220,9 @@ async function leao(inputs, log, { leads }) {
 
   // Sem foto nenhuma? Recorta a foto de capa do print do Google Maps.
   const printMaps = prints.find((p) => p.origem === 'maps')
+  // Avaliações reais do Google lidas da página do Maps (o servidor só manda as que estão escritas lá).
+  const depoimentos = printMaps?.depoimentos || []
+  if (depoimentos.length) log('ok', `${depoimentos.length} avaliação(ões) real(is) do Google para a seção de depoimentos`)
   if (!fotos.length && printMaps) {
     const capa = await recortarCapaDoMaps(blobDeBase64(printMaps.base64, printMaps.tipo)).catch(() => null)
     if (capa) {
@@ -263,6 +266,7 @@ async function leao(inputs, log, { leads }) {
     },
     imagens,
     prints: printsDados,
+    ...(depoimentos.length ? { conteudo: { depoimentos } } : {}),
   }
 
   const pasta = lead.demo ? null : await hospedarPasta(`${slugify(lead.nome)}-${siteId.slice(5)}`, dados, fotos, prints, log)
@@ -598,7 +602,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
   }
 
   log('info', `Fotos do cliente: ${fotos.length ? `${fotos.length} — a 1ª vira a capa, as outras a galeria` : 'nenhuma — capa em cor sólida'}`)
-  log('info', 'Site amplo: capa com água (a foto ondula seguindo o cursor), destaques, Sobre, Diferenciais, Serviços, galeria em mosaico, Como funciona, faixa de WhatsApp, Perguntas frequentes, contato e mapa')
+  log('info', `Site premium: nav de vidro, capa em tela cheia com o nome subindo palavra por palavra, faixa de serviços, números animados, Sobre, Diferenciais, lista de Serviços, galeria, Como funciona${dados.conteudo?.depoimentos?.length ? `, ${dados.conteudo.depoimentos.length} avaliação(ões) reais do Google` : ''}, Perguntas frequentes e chamada final "Agende →" com mapa`)
   const tema = dados.tema || temaSugerido(dados.negocio.categoria)
   log('info', `Tema sugerido para "${dados.negocio.categoria || 'negócio'}": ${tema} (dá para trocar na prévia)`)
   log('warn', 'Prévia pronta — confira e clique em "Aprovar prévia" para liberar o ZIP final')
@@ -663,11 +667,13 @@ export async function enviarVideoPelaApi({ telefone, video, legenda }) {
 }
 
 // Só é chamado depois do clique em "Aprovar prévia".
-export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo, modelo = preview.dados.modelo, efeitos = true) {
+export async function gerarZipFinal(preview, tema, conteudo = preview.dados.conteudo, modelo = preview.dados.modelo, efeitos = true, estilo = {}) {
   const dados = {
     ...preview.dados,
     tema,
     efeitos,
+    hero: estilo.hero || 'agua',
+    galeria: estilo.galeria || 'uniforme',
     conteudo,
     modelo: tema === 'modelo' ? modelo : undefined,
     gerador: 'Gato Negro — Central de Agentes',

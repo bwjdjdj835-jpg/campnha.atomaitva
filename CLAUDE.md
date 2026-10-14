@@ -102,10 +102,20 @@ e "Leão Dourado" foi unificado como **Leão**.
   no projeto, sem compromisso", `MODELOS.olhada`), marcada com `tipo: 'olhada'`; se recusar de novo, o Tigre não sugere
   mais nada). Na dúvida entre recusa e parar, vale parar (`OPT_OUT` vem antes de `RECUSA`).
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
-- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo):
-  capa grande com água, destaques (nota, horário, cidade, WhatsApp — só dados reais), faixa de serviços correndo, Sobre,
-  Diferenciais, Serviços, galeria uniforme, Como funciona, faixa de contato com foto de fundo, Perguntas frequentes,
-  contato + mapa, botão fixo de WhatsApp.
+- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo),
+  **modelo premium** (pedido do usuário a partir de um roteiro do Lovable; cada seção só aparece com dado):
+  barra de progresso, nav flutuante de vidro, hero em tela cheia (`dados.hero`: 'agua' padrão ou 'parallax') com o nome
+  subindo palavra por palavra (`.anim-palavra`) + granulado (`.granulado`) + `conteudo.slogan`, faixa marquee de
+  serviços, números com contador (`data-contar`: nota e nº de avaliações), Sobre editorial, Diferenciais
+  (string ou `{titulo,texto}`), lista grande de Serviços com hover (string ou `{nome,descricao,preco}`), galeria
+  (`dados.galeria`: 'uniforme' padrão ou 'bento'), Como funciona, **depoimentos em carrossel** (`conteudo.depoimentos`
+  `[{texto,nota,autor}]`, `data-carrossel`), FAQ, chamada final gigante "Agende →" + contato + mapa P&B que ganha cor
+  no hover, botão fixo de WhatsApp. Links da nav com `target="_self"` (a prévia tem `<base target="_blank">`).
+- Depoimentos reais: o print do Maps no Leão (`tirarPrint`) pede também o formato `json` do Firecrawl com as
+  avaliações; `depoimentosConferidos` só aceita a avaliação cujo texto aparece no markdown da página (nunca inventa),
+  no máx. 5; o Leão grava em `dados.conteudo.depoimentos`.
+- Gato: "Escolha o estilo" mostra os temas lado a lado em miniaturas reais (`htmlDaPrevia(..., CSS_MINIATURA)`) e os
+  seletores Capa (água/parallax) e Galeria (uniforme/bento); `gerarZipFinal(..., { hero, galeria })` grava a escolha.
   Vai como texto (`?raw`) para `src/Site.jsx` do ZIP e renderiza a prévia — prévia aprovada = site entregue.
   `src/lib/siteTemplate.js` monta o resto do projeto React + Vite + Tailwind.
 - Efeitos interativos do site do cliente (estilo 21st.dev / Code Eagle / GSAP, sem bibliotecas):

@@ -78,6 +78,7 @@ function ligarAgua(area) {
   }
 
   function gota(px, py, forca, raio, duracao) {
+    if (!w || !saida) return // área ainda sem tamanho (ex.: miniatura que não apareceu): nada para ondular
     const cx = Math.round(px)
     const cy = Math.round(py)
     for (let dy = -raio; dy <= raio; dy++) {

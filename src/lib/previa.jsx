@@ -54,7 +54,8 @@ export function linkDaFonte(dados) {
   return `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(fonte).replace(/%20/g, '+')}:wght@400;600;700;800&display=swap">`
 }
 
-export function htmlDaPrevia(dados, fotosUrl) {
+// cssExtra: só para as miniaturas dos temas (ex.: capa mais baixa para aparecer o resto do site).
+export function htmlDaPrevia(dados, fotosUrl, cssExtra = '') {
   const comFotos = {
     ...dados,
     imagens: (dados.imagens || [])
@@ -64,7 +65,7 @@ export function htmlDaPrevia(dados, fotosUrl) {
   const html = renderToStaticMarkup(<Site dados={comFotos} />)
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><base target="_blank">
-${linkDaFonte(dados)}<style>${clienteCss}</style></head><body>${html}<script>${aguaScript}
+${linkDaFonte(dados)}<style>${clienteCss}${cssExtra}</style></head><body>${html}<script>${aguaScript}
 iniciarAgua(document)
 ${efeitosScript}
 iniciarEfeitos(document)
@@ -122,3 +123,7 @@ export async function gravarPreviaNoNavegador(iframe, ms = 12000) {
   await parou
   return new Blob(partes, { type: (tipo || 'video/webm').split(';')[0] })
 }
+
+// Miniatura do tema no painel: capa baixa e sem animação de entrada, para comparar cores e seções lado a lado.
+export const CSS_MINIATURA =
+  'header#topo{height:380px!important;min-height:0!important}header#topo h1{font-size:64px!important}nav{position:absolute!important}.anim-subir,.anim-zoom{animation:none!important}'

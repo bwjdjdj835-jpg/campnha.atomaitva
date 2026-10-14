@@ -5,13 +5,19 @@
 //   [data-brilho]   cartões com uma luz que segue o cursor
 //   [data-magnetico] botões que "puxam" levemente na direção do cursor
 //   [data-parallax] fotos que andam um pouco mais devagar que a rolagem
+//   [data-parallax-hero] foto da capa descendo devagar ao rolar (hero "parallax")
+//   [data-progresso] barra de progresso da rolagem
+//   [data-contar]   números que contam de 0 até o valor quando aparecem (data-casas = casas decimais)
+//   [data-carrossel] depoimentos que passam sozinhos (botões [data-carrossel-ant] / [data-carrossel-prox])
 // Respeita "reduzir movimento".
 
 export function iniciarEfeitos(raiz, tentativas) {
   raiz = raiz || document
   tentativas = tentativas === undefined ? 30 : tentativas
   if (typeof window === 'undefined') return
-  const alvos = raiz.querySelectorAll('[data-revelar],[data-brilho],[data-magnetico],[data-parallax]')
+  const alvos = raiz.querySelectorAll(
+    '[data-revelar],[data-brilho],[data-magnetico],[data-parallax],[data-parallax-hero],[data-progresso],[data-contar],[data-carrossel]',
+  )
   // No site em React a página pode ainda não estar na tela: tenta de novo por alguns instantes.
   if (!alvos.length && tentativas > 0) {
     setTimeout(() => iniciarEfeitos(raiz, tentativas - 1), 100)
@@ -45,6 +51,71 @@ export function iniciarEfeitos(raiz, tentativas) {
     revelar.forEach((el) => observador.observe(el))
   }
   if (calmo) return
+
+  // Barra de progresso + parallax da capa (um só ouvinte de rolagem).
+  const barra = raiz.querySelector('[data-progresso]')
+  const capa = raiz.querySelector('[data-parallax-hero]')
+  if (barra || capa) {
+    let quadro = 0
+    const rolar = () => {
+      quadro = 0
+      const doc = document.documentElement
+      if (barra) barra.style.transform = 'scaleX(' + Math.min(1, window.scrollY / Math.max(1, doc.scrollHeight - window.innerHeight)) + ')'
+      if (capa && window.scrollY < window.innerHeight * 1.2) {
+        capa.style.transform = 'translateY(' + (window.scrollY * 0.35).toFixed(1) + 'px) scale(1.08)'
+      }
+    }
+    window.addEventListener('scroll', () => quadro || (quadro = requestAnimationFrame(rolar)), { passive: true })
+    rolar()
+  }
+
+  // Números contando quando aparecem na tela.
+  const numeros = raiz.querySelectorAll('[data-contar]')
+  if (numeros.length && 'IntersectionObserver' in window) {
+    const contar = (el) => {
+      const alvo = parseFloat(el.getAttribute('data-contar')) || 0
+      const casas = parseInt(el.getAttribute('data-casas') || '0', 10)
+      const inicio = performance.now()
+      const passo = (agora) => {
+        const p = Math.min(1, (agora - inicio) / 1600)
+        const v = alvo * (1 - Math.pow(1 - p, 3))
+        el.textContent = v.toFixed(casas).replace('.', ',')
+        if (p < 1) requestAnimationFrame(passo)
+      }
+      requestAnimationFrame(passo)
+    }
+    const obs = new IntersectionObserver((entradas) => {
+      entradas.forEach((e) => {
+        if (!e.isIntersecting) return
+        obs.unobserve(e.target)
+        contar(e.target)
+      })
+    }, { threshold: 0.6 })
+    numeros.forEach((el) => {
+      el.textContent = (0).toFixed(parseInt(el.getAttribute('data-casas') || '0', 10)).replace('.', ',')
+      obs.observe(el)
+    })
+  }
+
+  // Carrossel de depoimentos: passa sozinho a cada 5 s (para quando o cursor está em cima).
+  raiz.querySelectorAll('[data-carrossel]').forEach((trilho) => {
+    const secao = trilho.closest('section') || raiz
+    const largura = () => (trilho.firstElementChild ? trilho.firstElementChild.getBoundingClientRect().width + 16 : 300)
+    const ir = (dir) => {
+      const fim = trilho.scrollLeft + trilho.clientWidth >= trilho.scrollWidth - 8
+      trilho.scrollTo({ left: dir > 0 && fim ? 0 : trilho.scrollLeft + dir * largura(), behavior: 'smooth' })
+    }
+    const ant = secao.querySelector('[data-carrossel-ant]')
+    const prox = secao.querySelector('[data-carrossel-prox]')
+    if (ant) ant.addEventListener('click', () => ir(-1))
+    if (prox) prox.addEventListener('click', () => ir(1))
+    let parado = false
+    trilho.addEventListener('pointerenter', () => (parado = true))
+    trilho.addEventListener('pointerleave', () => (parado = false))
+    setInterval(() => {
+      if (!parado && !document.hidden && trilho.scrollWidth > trilho.clientWidth + 8) ir(1)
+    }, 5000)
+  })
 
   // Luz que segue o cursor nos cartões.
   raiz.querySelectorAll('[data-brilho]').forEach((el) => {

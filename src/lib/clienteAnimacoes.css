@@ -93,3 +93,30 @@
   .anim-letra, .faixa-correr { animation: none !important; }
   .efeito-oculto, .efeito-oculto [data-cascata] { opacity: 1 !important; transform: none !important; }
 }
+
+/* ---- Modelo premium ---- */
+/* Nome da capa subindo palavra por palavra (cada palavra sai de baixo de uma "máscara"). */
+@keyframes cliente-palavra { from { transform: translateY(110%); } to { transform: none; } }
+.anim-palavra { animation: cliente-palavra 0.9s cubic-bezier(0.2, 0.75, 0.15, 1) both; }
+
+/* Granulado de filme por cima da capa. */
+.granulado {
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+}
+
+/* "Role ↓" piscando devagar. */
+@keyframes cliente-pulso-suave { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
+.anim-pulso-suave { animation: cliente-pulso-suave 2.4s ease-in-out infinite; }
+
+/* Carrossel de depoimentos: rola de lado, sem barra aparecendo. */
+.carrossel { scrollbar-width: none; scroll-behavior: smooth; }
+.carrossel::-webkit-scrollbar { display: none; }
+
+/* Barra de progresso de rolagem. */
+[data-progresso] { transition: transform 0.08s linear; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-palavra, .anim-pulso-suave { animation: none !important; }
+}
