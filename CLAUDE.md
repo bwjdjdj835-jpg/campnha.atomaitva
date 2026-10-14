@@ -70,9 +70,14 @@ e "Leão Dourado" foi unificado como **Leão**.
     e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
     (prioridade) → estilo do estudo → tema por segmento.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
-  - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,
-    opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Só quando o servidor tem navegador de verdade
-    (`keys.videoServidor` = `servidorGrava()`: fora de Vercel/Netlify e o executável do Chromium existe); se a
+  - `POST /api/gato/video` (`server/video.js`) — grava 9 s da prévia em 390×844 **quadro a quadro** (print em 2× a
+    20 quadros/s, juntado pelo ffmpeg-static em MP4 H.264 High 780×1688 — nítido e nunca corrompe; sem ffmpeg, cai no
+    gravador do Playwright em WebM). Navegador: `acharNavegador()` = CHROMIUM_PATH → Chromium do Playwright → **Google
+    Chrome / Edge instalados** (Windows/Mac/Linux). Só quando o servidor tem navegador de verdade
+    (`keys.videoServidor` = `servidorGrava()`: fora de Vercel/Netlify e algum navegador existe). **`iniciar-windows.bat`**
+    (pedido do usuário, "gravar pelo computador"): confere o Node, `npm install` na 1ª vez, cria `server/.env` a partir
+    do `.env.example` (abre o Bloco de Notas para colar as chaves) e roda `npm run dev` abrindo http://localhost:5173 —
+    aí o automático grava pelo próprio computador, sem pedir para compartilhar a aba; se a
     gravação no servidor falhar, o Gato cai para a gravação no navegador (pede novo clique se já passou do tempo
     em que o navegador aceita `getDisplayMedia`). **No Vercel** o Gato grava no navegador do usuário
     (`gravarPreviaNoNavegador` em `src/lib/previa.jsx`: `getDisplayMedia` com `preferCurrentTab`, recorte no iframe
