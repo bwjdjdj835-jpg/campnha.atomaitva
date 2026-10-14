@@ -6,20 +6,32 @@ import { agents, getAgent } from '../data/agents.js'
 import AgentBadge from '../components/AgentBadge.jsx'
 import LogConsole from '../components/LogConsole.jsx'
 import LeadsTable from '../components/LeadsTable.jsx'
-import { runAgent } from '../services/agents.js'
+import { runAgent, listarPastas } from '../services/agents.js'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 const GatoPreview = lazy(() => import('../components/GatoPreview.jsx'))
+const PreviaLeao = lazy(() => import('../components/PreviaLeao.jsx'))
 import TigrePainel from '../components/TigrePainel.jsx'
 import AbelhaPainel from '../components/AbelhaPainel.jsx'
 
-export default function AgentPage() {
+// Cada agente começa com a página zerada (sem logs nem prévias do agente anterior).
+export default function AgentPageRota() {
+  const { id } = useParams()
+  return <AgentPage key={id} />
+}
+
+function AgentPage() {
   const { id } = useParams()
   const agent = getAgent(id)
   const { leads, sites, conversas } = usePipeline()
   const keys = useApiStatus()
   const [busca] = useSearchParams()
-  // "Mandar pro Leão" abre esta página com ?link=… já preenchido.
-  const [values, setValues] = useState(() => (busca.get('link') ? { link: busca.get('link') } : {}))
+  // "Mandar pro Leão" abre esta página com ?link=… já preenchido (e o Leão manda pro Gato com ?site=…).
+  const [values, setValues] = useState(() =>
+    busca.get('link') ? { link: busca.get('link') } : busca.get('site') ? { site: busca.get('site') } : {},
+  )
+  const pastas = usePastas(id === 'gato')
+  const pastasSoOnline = pastas.filter((p) => !sites.some((x) => x.pasta === p.url))
+  const [previaLeao, setPreviaLeao] = useState(null)
   const [logs, setLogs] = useState([])
   const [running, setRunning] = useState(false)
   const [preview, setPreview] = useState(null)
@@ -35,6 +47,7 @@ export default function AgentPage() {
     setPreview(null)
     setTigre(null)
     setAbelha(null)
+    setPreviaLeao(null)
     try {
       const res = await runAgent(agent.id, values, (l) => setLogs((p) => [...p, l]), { leads, sites, conversas })
       if (res.leads) {
@@ -44,6 +57,7 @@ export default function AgentPage() {
         })
       }
       if (res.site) setPipeline((s) => ({ sites: [res.site, ...s.sites] }))
+      if (res.previa) setPreviaLeao(res.previa)
       if (res.tigre) setTigre(res.tigre)
       if (res.abelha) setAbelha(res.abelha)
       if (res.preview) {
@@ -103,15 +117,22 @@ export default function AgentPage() {
                   </Link>
                 )
               ) : f.select === 'sites' ? (
-                sites.length ? (
+                sites.length || pastasSoOnline.length ? (
                   <select className="input" value={values[f.key] || ''}
                     onChange={(e) => setValues({ ...values, [f.key]: e.target.value, zip: undefined })}>
                     <option value="">{f.placeholder}</option>
                     {sites.map((x) => (
                       <option key={x.id} value={x.id}>
-                        {x.demo ? '[DEMO] ' : ''}{x.nome} — {x.zip}{x.status === 'aprovado' ? ' ✓ aprovado' : ''}
+                        {x.demo ? '[DEMO] ' : ''}{x.pasta ? '☁ ' : ''}{x.nome} — {x.zip}{x.status === 'aprovado' ? ' ✓ aprovado' : ''}
                       </option>
                     ))}
+                    {pastasSoOnline.length > 0 && (
+                      <optgroup label="Pasta online do Leão (outros aparelhos)">
+                        {pastasSoOnline.map((p) => (
+                          <option key={p.url} value={`pasta:${p.url}`}>☁ {p.pasta}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 ) : (
                   <Link to="/agente/leao" className="block rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-slate-400 hover:border-neon/50 hover:text-white transition">
@@ -168,7 +189,9 @@ export default function AgentPage() {
                   : agent.id === 'tigre'
                   ? `Conectado · Claude ${keys.claude ? '✓' : '✗ (usa modelos de texto)'} · WhatsApp ${keys.whatsappProvedor === 'zapi' ? 'Z-API ✓' : keys.whatsapp ? 'Meta ✓' : '✗ (envio pelo seu WhatsApp)'} · Vercel ${keys.vercel ? '✓' : '✗'}`
                   : agent.id === 'gato'
-                  ? `Conectado · Firecrawl ${keys.firecrawl ? '✓' : '✗ (sem pesquisa de referências — usa os padrões base)'}`
+                  ? `Conectado · Firecrawl ${keys.firecrawl ? '✓ (pesquisa sites profissionais)' : '✗ (sem pesquisa de referências — usa os padrões base)'} · pasta online ${keys.pasta ? '✓' : '✗'}`
+                  : agent.id === 'leao'
+                  ? `Conectado · fotos do Google ${keys.googlePlaces ? '✓' : '✗'} · prints ${keys.firecrawl ? '✓' : '✗ (precisa do Firecrawl)'} · pasta online ${keys.pasta ? '✓' : '✗ (conecte um Blob Store no Vercel)'}`
                   : `Conectado · fonte: ${keys.apify ? 'Google Maps (via Apify)' : keys.serpapi ? 'Google Maps (via SerpApi)' : keys.firecrawl ? 'Google Maps (via Firecrawl)' : keys.googlePlaces ? 'Google Places' : 'OpenStreetMap (grátis)'} · confirmação de domínio ${keys.firecrawl ? '✓' : '✗'}`}
           </p>
         </section>
@@ -207,6 +230,12 @@ export default function AgentPage() {
 
       {tigre && <TigrePainel key={tigre.siteId} siteId={tigre.siteId} rascunhoInicial={tigre.rascunho} keys={keys} />}
 
+      {previaLeao && (
+        <Suspense fallback={<div className="glass p-10 grid place-items-center"><Loader2 className="animate-spin text-neon" /></div>}>
+          <PreviaLeao key={previaLeao.siteId} previa={previaLeao} />
+        </Suspense>
+      )}
+
       {preview && (
         <Suspense fallback={<div className="glass p-10 grid place-items-center"><Loader2 className="animate-spin text-neon" /></div>}>
           <GatoPreview key={preview.dados.geradoEm + preview.siteId} preview={preview} />
@@ -226,6 +255,15 @@ export default function AgentPage() {
       )}
     </div>
   )
+}
+
+// Pastas online do Leão (Vercel Blob) — o Gato abre sites criados em outros aparelhos.
+function usePastas(ativo) {
+  const [pastas, setPastas] = useState([])
+  useEffect(() => {
+    if (ativo) listarPastas().then(setPastas)
+  }, [ativo])
+  return pastas
 }
 
 // Quais chaves o backend tem (null = backend fora do ar).

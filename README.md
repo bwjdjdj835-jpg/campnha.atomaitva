@@ -44,6 +44,10 @@ Só se o backend estiver fora do ar o app cai no **modo demonstração** (result
   **ID da instância** e o **Token** para `ZAPI_INSTANCE_ID` e `ZAPI_TOKEN`. Se ativou o "Token de segurança
   da conta", coloque-o em `ZAPI_CLIENT_TOKEN`. Cada mensagem continua passando pela sua aprovação.
 
+- **Pasta online do Leão** (Vercel Blob, opcional): no Vercel, *Storage → Create Database → Blob*, escolha
+  **Public** e conecte ao projeto. O Vercel cria o `BLOB_READ_WRITE_TOKEN` sozinho; faça um Redeploy. Com ela, o
+  Leão hospeda as fotos e o Gato Negro abre o site de qualquer aparelho.
+
 ### Vídeo da prévia (Gato Negro)
 
 O Gato grava um vídeo curto do site (formato de celular, MP4) para mandar ao cliente. Funciona com o app

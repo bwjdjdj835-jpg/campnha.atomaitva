@@ -14,7 +14,7 @@ async function buscarWeb(query) {
   const res = await fetch('https://api.firecrawl.dev/v2/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}` },
-    body: JSON.stringify({ query, limit: 6, country: 'BR', lang: 'pt' }),
+    body: JSON.stringify({ query, limit: 6, country: 'BR' }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(`Firecrawl: ${data.error || res.statusText}`)

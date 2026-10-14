@@ -39,8 +39,18 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/leao/fotos` — baixa fotos da ficha (Places Photos ou links googleusercontent.com vindos da SerpApi;
     outros hosts são recusados) sem expor chaves (`server/leao.js`).
   - `POST /api/leao/print` — print da página (Google Maps/Instagram/Facebook, lista fechada) via Firecrawl
-    `formats: ['screenshot','markdown']`; da página do Maps lê telefone, endereço e nota (`dadosDaPaginaMaps`).
-  - `POST /api/gato/estudar` — referências fixas (21st.dev, GSAP) + do segmento no Firecrawl (`server/gato.js`).
+    `formats: ['screenshot','markdown','images']`; da página do Maps lê telefone, endereço e nota (`dadosDaPaginaMaps`)
+    e as fotos do lugar (`fotosDaPaginaMaps`: googleusercontent `grass-cs`/`p`, sem avatares `/a-/`, pedidas em 1600px).
+    A chave do Google do usuário não recebe `places.photos` (nem da Torre Eiffel) — sem faturamento; por isso o Leão
+    usa essas fotos da página do Maps quando a ficha vem sem foto. `/leao/fotos` é chamado uma foto por vez
+    (a resposta da função do Vercel tem limite de ~4,5 MB).
+  - `POST /api/leao/hospedar` + `GET /api/leao/pastas` (`server/pasta.js`) — **pasta online** no Vercel Blob
+    (`BLOB_READ_WRITE_TOKEN`, store público): o Leão sobe `sites/<slug>-<id>/fotos/*`, `prints/*` e `dados.json`
+    (cada imagem ganha `hospedada` com o link). Um arquivo por requisição (limite ~4,5 MB da função).
+  - `POST /api/gato/estudar` — referências fixas (21st.dev, GSAP) + 3 buscas no Firecrawl v2 (`server/gato.js`):
+    vitrines de profissionais via `includeDomains` (Awwwards/Behance/Dribbble; Webflow/Framer/ThemeForest) e sites
+    brasileiros do ramo. A busca v2 não aceita `lang`.
+  - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
   - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,
     opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Precisa `npx playwright-core install chromium`
     ou `CHROMIUM_PATH`; não roda no Vercel. `POST /api/tigre/video` envia pela Z-API (`send-video`, base64).
@@ -61,10 +71,18 @@ e "Leão Dourado" foi unificado como **Leão**.
   Rascunho → "Aprovar e enviar" (API) ou "Abrir no meu WhatsApp" + "Já enviei". Resposta colada é
   classificada (interesse → alerta + rascunho de fechamento; pedido de parar → `nao_contatar`, contato bloqueado).
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
-- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 3 temas: noite/claro/vibrante).
+- Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 4 temas: noite/claro/studio/vibrante):
+  capa grande com água, destaques (nota, horário, cidade, WhatsApp — só dados reais), Sobre, Serviços, galeria em
+  mosaico, faixa de contato com foto de fundo, contato + mapa, botão fixo de WhatsApp.
   Vai como texto (`?raw`) para `src/Site.jsx` do ZIP e renderiza a prévia — prévia aprovada = site entregue.
   `src/lib/siteTemplate.js` monta o resto do projeto React + Vite + Tailwind.
 - Página inicial: `WaterRipple.jsx` (ondas de água em canvas seguindo o cursor/dedo no hero).
+- Capa do site do cliente: `src/lib/clienteAgua.js` (JS puro, vai no ZIP como `src/agua.js`) — a foto de capa ondula
+  seguindo o cursor (refração em canvas), gota de abertura, garoa a cada 8 s; para sozinho e volta à foto nítida.
+  Áreas marcadas com `data-agua` no `ClienteSite`. A prévia (`src/lib/previa.jsx`, usada por Leão e Gato) embute o script
+  e o iframe tem `allow-scripts` (sem `allow-same-origin`).
+- Leão mostra o painel `PreviaLeao.jsx` (dados extraídos, fotos, prévia) e manda pro Gato com `?site=<id>`.
+  Gato abre do IndexedDB, da pasta online do site (`site.pasta`) ou de uma pasta da lista (`pasta:<url>`, outro aparelho).
 - Leão aceita link colado (`src/lib/links.js`): acha o lead pelo Maps/Instagram/WhatsApp; link de Maps/Instagram
   fora da lista vira lead novo (nome do título, telefone/endereço da página). Prints vão em `public/prints/`
   (e `dados.prints`); sem fotos, recorta a capa do print do Maps (`recortarCapaDoMaps`, layout 1920×1080).
@@ -80,8 +98,7 @@ e "Leão Dourado" foi unificado como **Leão**.
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.
-2. **Leão**: ~~template + ZIP~~ feito. Falta hospedar as fotos em storage próprio (Cloudinary/Supabase) —
-   hoje o link salvo é o `photoUri` do Google, que pode expirar; as fotos vão dentro do ZIP.
+2. ~~Leão~~ — feito, com fotos hospedadas no Vercel Blob (pasta online).
 3. ~~Gato Negro~~ — feito.
 4. ~~Abelha~~ — feito.
 4b. ~~Fonte de Maps~~ — página do Maps via scrape do Firecrawl (sem API de Maps). Falta testar com a chave real do usuário.
