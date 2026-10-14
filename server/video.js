@@ -2,10 +2,11 @@
 // Abre o site num Chromium invisível, rola a página do topo ao fim (as animações aparecem no caminho)
 // e converte para MP4 (H.264), que o WhatsApp aceita.
 //
-// Precisa, no computador que roda o servidor:
-//   npm install                         (instala playwright-core e ffmpeg-static, opcionais)
-//   npx playwright-core install chromium   (baixa o navegador; ou defina CHROMIUM_PATH)
-// Não roda no Vercel (lá não há navegador): a interface avisa.
+// Precisa, no computador que roda o servidor (ex.: o notebook, com iniciar-windows.bat):
+//   npm install   (instala playwright-core e ffmpeg-static, opcionais)
+//   um navegador: usa o Google Chrome ou o Edge já instalados (Windows/Mac/Linux); senão CHROMIUM_PATH
+//   ou "npx playwright-core install chromium".
+// Não roda no Vercel (lá não há navegador): a interface grava pelo navegador do usuário.
 
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -17,6 +18,33 @@ const exec = promisify(execFile)
 const LARGURA = 390
 const ALTURA = 844
 
+// Navegador para gravar: CHROMIUM_PATH → Chromium do Playwright → Chrome/Edge instalados no computador.
+async function acharNavegador() {
+  const { existsSync } = await import('node:fs')
+  const candidatos = [process.env.CHROMIUM_PATH]
+  try {
+    const { chromium } = await import('playwright-core')
+    candidatos.push(chromium.executablePath())
+  } catch {
+    /* sem playwright-core */
+  }
+  const local = process.env.LOCALAPPDATA || ''
+  candidatos.push(
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    local && join(local, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/microsoft-edge',
+  )
+  return candidatos.find((c) => c && existsSync(c)) || null
+}
+
 async function carregarChromium() {
   let chromium
   try {
@@ -24,10 +52,12 @@ async function carregarChromium() {
   } catch {
     throw new Error('Gravação de vídeo indisponível neste servidor: rode "npm install" no computador.')
   }
+  const executavel = await acharNavegador()
+  if (!executavel) throw new Error('Navegador para gravar não encontrado: instale o Google Chrome (ou defina CHROMIUM_PATH).')
   try {
-    return await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {})
-  } catch {
-    throw new Error('Navegador para gravar não encontrado: rode "npx playwright-core install chromium" (ou defina CHROMIUM_PATH).')
+    return await chromium.launch({ executablePath: executavel })
+  } catch (e) {
+    throw new Error(`Não consegui abrir o navegador para gravar (${executavel}): ${e.message}`)
   }
 }
 
@@ -48,9 +78,8 @@ export async function servidorGrava() {
   podeGravarCache = false
   if (process.env.VERCEL || process.env.NETLIFY) return podeGravarCache
   try {
-    const { existsSync } = await import('node:fs')
-    const { chromium } = await import('playwright-core')
-    podeGravarCache = existsSync(process.env.CHROMIUM_PATH || chromium.executablePath())
+    await import('playwright-core')
+    podeGravarCache = Boolean(await acharNavegador())
   } catch {
     podeGravarCache = false
   }
@@ -59,21 +88,44 @@ export async function servidorGrava() {
 
 const suave = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
 
-export async function gravarVideo(html, { segundos = 12 } = {}) {
+// Grava quadro a quadro: rola a página, tira um print em 2× e o ffmpeg junta tudo em MP4 H.264 a 20 quadros/s.
+// Fica nítido e nunca corrompe (cada quadro é uma imagem inteira). Sem ffmpeg, cai no gravador do Playwright (WebM).
+const QUADROS_POR_SEGUNDO = 20
+
+export async function gravarVideo(html, { segundos = 9 } = {}) {
   const pasta = await mkdtemp(join(tmpdir(), 'gato-video-'))
   const navegador = await carregarChromium()
+  const ffmpeg = await caminhoFfmpeg()
   try {
     const contexto = await navegador.newContext({
       viewport: { width: LARGURA, height: ALTURA },
-      recordVideo: { dir: pasta, size: { width: LARGURA, height: ALTURA } },
+      deviceScaleFactor: ffmpeg ? 2 : 1,
+      ...(ffmpeg ? {} : { recordVideo: { dir: pasta, size: { width: LARGURA, height: ALTURA } } }),
     })
     const pagina = await contexto.newPage()
-    // A prévia é autossuficiente (fotos em data:); nada de rede durante a gravação.
-    await pagina.route(/^https?:/, (r) => r.abort())
-    await pagina.setContent(html, { waitUntil: 'load' })
+    // Fotos vêm em data:; a rede só leva o mapa e a fonte. Se demorar, grava assim mesmo.
+    await pagina.setContent(html, { waitUntil: 'load', timeout: 20_000 }).catch(() => {})
     await pagina.waitForTimeout(1800) // deixa a capa animar
 
     const total = await pagina.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)
+    if (ffmpeg) {
+      const quadros = segundos * QUADROS_POR_SEGUNDO
+      const capa = 2 * QUADROS_POR_SEGUNDO // 2 s parado na capa
+      for (let i = 0; i < quadros; i++) {
+        const t = i < capa ? 0 : (i - capa) / Math.max(1, quadros - capa - 1)
+        await pagina.evaluate((y) => window.scrollTo(0, y), Math.round(total * suave(t)))
+        await pagina.screenshot({ type: 'jpeg', quality: 88, path: join(pasta, `q${String(i).padStart(4, '0')}.jpg`) })
+      }
+      await contexto.close()
+      const mp4 = join(pasta, 'previa.mp4')
+      await exec(ffmpeg, [
+        '-y', '-framerate', String(QUADROS_POR_SEGUNDO), '-i', join(pasta, 'q%04d.jpg'),
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-movflags', '+faststart', '-an', mp4,
+      ])
+      return { tipo: 'video/mp4', buffer: await readFile(mp4) }
+    }
+
     const passos = 150
     const pausa = Math.max(16, ((segundos - 3) * 1000) / passos)
     for (let i = 1; i <= passos; i++) {
@@ -83,13 +135,7 @@ export async function gravarVideo(html, { segundos = 12 } = {}) {
     await pagina.waitForTimeout(1000)
     const video = pagina.video()
     await contexto.close() // fecha e finaliza o arquivo
-    const webm = await video.path()
-
-    const ffmpeg = await caminhoFfmpeg()
-    if (!ffmpeg) return { tipo: 'video/webm', buffer: await readFile(webm) }
-    const mp4 = join(pasta, 'previa.mp4')
-    await exec(ffmpeg, ['-y', '-i', webm, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '24', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', mp4])
-    return { tipo: 'video/mp4', buffer: await readFile(mp4) }
+    return { tipo: 'video/webm', buffer: await readFile(await video.path()) }
   } finally {
     await navegador.close().catch(() => {})
     await rm(pasta, { recursive: true, force: true }).catch(() => {})

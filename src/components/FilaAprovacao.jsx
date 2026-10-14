@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { CheckCircle2, Pencil, Trash2, Bot } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { videoDoSite, negocioDoSite } from '../services/agents.js'
+import { conferirProntos } from '../services/automatico.js'
 
 const marcarSite = (id, campos) => setPipeline((s) => ({ sites: s.sites.map((x) => (x.id === id ? { ...x, ...campos } : x)) }))
 
@@ -10,6 +11,10 @@ const marcarSite = (id, campos) => setPipeline((s) => ({ sites: s.sites.map((x) 
 // Aprovar abre a conversa do Tigre logo abaixo (mensagem + vídeo) para você mandar pelo seu WhatsApp.
 export default function FilaAprovacao({ onAbrir }) {
   const { sites, leads, conversas } = usePipeline()
+  // Só quem tem vídeo e mensagem prontos (os antigos sem vídeo vão para "Falta o vídeo" na Área do Administrador).
+  useEffect(() => {
+    conferirProntos()
+  }, [])
   const fila = sites.filter((s) => s.status === 'revisar')
   if (!fila.length) return null
   return (

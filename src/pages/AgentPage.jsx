@@ -39,7 +39,7 @@ function AgentPage() {
   const [logs, setLogs] = useState([])
   const [running, setRunning] = useState(false)
   const [preview, setPreview] = useState(null)
-  const [tigre, setTigre] = useState(null)
+  const [tigre, setTigre] = useState(() => (id === 'tigre' && busca.get('cliente') ? { siteId: busca.get('cliente') } : null))
   const [abelha, setAbelha] = useState(null)
 
   if (!agent) return <Navigate to="/" replace />

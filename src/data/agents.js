@@ -76,9 +76,9 @@ export const agents = [
         key: 'estudo',
         label: 'Estudo na internet antes de gerar',
         opcoes: [
-          { valor: '3', texto: 'Estudar 3 minutos (recomendado) — lê ~12 sites reais do ramo, modelos e cursos' },
-          { valor: '5', texto: 'Estudar 5 minutos — lê ~25 sites (gasta mais crédito do Firecrawl)' },
-          { valor: '70', texto: 'Estudar 70 segundos — gasta menos crédito' },
+          { valor: '1', texto: 'Estudar 1 minuto (recomendado) — lê ~6 sites reais do ramo, modelos e cursos' },
+          { valor: '3min', texto: 'Estudar 3 minutos — lê ~12 sites (gasta mais crédito do Firecrawl)' },
+          { valor: '5min', texto: 'Estudar 5 minutos — lê ~25 sites (gasta bem mais crédito)' },
           { valor: '0', texto: 'Rápido (~20 s) — só a pesquisa inicial' },
         ],
         lembrar: true,

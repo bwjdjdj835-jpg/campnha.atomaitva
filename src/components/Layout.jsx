@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { LayoutGrid, FolderCog, Menu, X, Bot } from 'lucide-react'
+import { LayoutGrid, FolderCog, Menu, X, Bot, ShieldCheck } from 'lucide-react'
 import { agents } from '../data/agents.js'
+import { usePipeline } from '../store/pipeline.js'
 
 function NavItem({ to, children, onClick }) {
   return (
@@ -27,6 +28,7 @@ export default function Layout() {
   const { pathname } = useLocation()
   const close = () => setOpen(false)
 
+  const paraAprovar = usePipeline().sites.filter((s) => s.status === 'revisar').length
   const sidebar = (
     <nav className="flex flex-col gap-1 p-4">
       <div className="flex items-center gap-3 px-2 pb-6 pt-2">
@@ -41,6 +43,10 @@ export default function Layout() {
       </NavItem>
       <NavItem to="/automatico" onClick={close}>
         <Bot size={18} /> Automático
+      </NavItem>
+      <NavItem to="/admin" onClick={close}>
+        <ShieldCheck size={18} /> <span className="flex-1">Administrador</span>
+        {paraAprovar > 0 && <span className="rounded-full bg-neon/20 px-2 text-[11px] text-neon">{paraAprovar}</span>}
       </NavItem>
       <div className="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest text-slate-500">Agentes</div>
       {agents.map((a) => (

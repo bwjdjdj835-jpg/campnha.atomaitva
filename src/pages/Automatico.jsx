@@ -4,7 +4,7 @@ import { Bot, Loader2, Play, Square, Video, RotateCcw, ArrowRight } from 'lucide
 import LogConsole from '../components/LogConsole.jsx'
 import { usePipeline } from '../store/pipeline.js'
 import { SELO_CONTATO } from '../lib/contato.js'
-import { NICHOS_PADRAO, rodarAutomatico, nichosFeitos, recomecarNichos, pararEstudo, pegarFluxo } from '../services/automatico.js'
+import { NICHOS_PADRAO, rodarAutomatico, regravarVideos, nichosFeitos, recomecarNichos, pararEstudo, pegarFluxo } from '../services/automatico.js'
 import { gravarVideoPrevia } from '../services/agents.js'
 import { pedirGravacaoDaAba, gravarComFluxo, SANDBOX_PREVIA } from '../lib/previa.jsx'
 
@@ -22,10 +22,10 @@ export default function Automatico() {
   const [cidade, setCidade] = useState(salvo.cidade || 'Cacoal - RO')
   const [nichos, setNichos] = useState(salvo.nichos || NICHOS_PADRAO.join('\n'))
   const [porNicho, setPorNicho] = useState(salvo.porNicho || '5')
-  const [estudo, setEstudo] = useState(salvo.estudo || '3')
-  const [abelha, setAbelha] = useState(salvo.abelha !== false)
-  const [comVideo, setComVideo] = useState(salvo.comVideo !== false)
-  const [rodando, setRodando] = useState(false)
+  // v3: rápido por padrão — Gato estuda 1 minuto só no 1º site de cada nicho (os outros reaproveitam), sem Abelha.
+  const [estudo, setEstudo] = useState(salvo.v === 3 ? salvo.estudo : '1')
+  const [abelha, setAbelha] = useState(salvo.v === 3 ? Boolean(salvo.abelha) : false)
+    const [rodando, setRodando] = useState(false)
   const [logs, setLogs] = useState([])
   const [etapa, setEtapa] = useState(null)
   const [estudio, setEstudio] = useState(null) // HTML da prévia sendo gravada
@@ -79,22 +79,22 @@ export default function Automatico() {
     }
     const f = fluxo.current
     if (!f || f.getVideoTracks()[0]?.readyState !== 'live') return null
+    // O quadro fica montado a rodada inteira (o recorte da gravação fica preso a ele); só troca a página dentro.
     const pronto = new Promise((r) => (carregou.current = r))
     setEstudio(html)
     await Promise.race([pronto, new Promise((r) => setTimeout(r, 8000))])
-    await new Promise((r) => setTimeout(r, 2500)) // fotos e efeitos da capa aparecerem
-    try {
-      return await gravarComFluxo(f, quadro.current, 12000)
-    } finally {
-      setEstudio(null)
-    }
+    await new Promise((r) => setTimeout(r, 1200)) // fotos e capa aparecerem
+    return gravarComFluxo(f, quadro.current, 9000)
   }
 
-  // Veio do botão "Iniciar inteligência artificial automática" da tela inicial: começa sozinho.
+  // Veio do botão "Iniciar inteligência artificial automática" (tela inicial) ou de "Começar: <nicho>" /
+  // "Gravar os vídeos que faltam" (Área do Administrador): começa sozinho com a autorização dada lá.
   useEffect(() => {
-    if (keys === undefined || busca.get('iniciar') !== '1') return
+    if (keys === undefined) return
+    const modo = busca.get('iniciar') === '1' ? 'rodada' : busca.get('regravar') === '1' ? 'regravar' : null
+    if (!modo) return
     setBusca({}, { replace: true })
-    comecar(pegarFluxo())
+    comecar(pegarFluxo(), modo)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys])
 
@@ -102,17 +102,21 @@ export default function Automatico() {
     fluxo.current = f
     f.getVideoTracks()[0].addEventListener('ended', () => {
       fluxo.current = null
-      log('warn', '🎬 Você parou de compartilhar a aba — os próximos clientes ficam sem vídeo')
+      // Sem vídeo o cliente não fica pronto: para em vez de gastar crédito à toa.
+      pararRef.current = true
+      pararEstudo()
+      log('error', '🎬 Você parou de compartilhar a aba — parei o automático (sem vídeo o cliente não fica pronto)')
     })
     log('ok', '🎬 Gravação autorizada — vale para todos os vídeos desta rodada')
   }
 
-  // fluxoPronto: autorização já dada na tela inicial (undefined = pedir agora; null = ficou sem vídeo).
-  async function comecar(fluxoPronto) {
+  // fluxoPronto: autorização já dada no clique de outra página (undefined = pedir agora; null = recusada).
+  // modo: 'rodada' (próximo nicho) | 'regravar' (só os vídeos que faltam).
+  async function comecar(fluxoPronto, modo = 'rodada') {
     const lista = nichos.split('\n').map((n) => n.trim()).filter(Boolean)
     if (!cidade.trim() || !lista.length) return
     try {
-      localStorage.setItem(CHAVE, JSON.stringify({ cidade, nichos, porNicho, estudo, abelha, comVideo }))
+      localStorage.setItem(CHAVE, JSON.stringify({ v: 3, cidade, nichos, porNicho, estudo, abelha }))
     } catch {
       /* sem storage */
     }
@@ -120,33 +124,44 @@ export default function Automatico() {
     setResumo(null)
     pararRef.current = false
     // A autorização para gravar precisa vir logo depois do clique: pede uma vez, vale para a rodada inteira.
-    if (fluxoPronto) ligarFluxo(fluxoPronto)
-    else if (fluxoPronto === null) log('warn', '🎬 Gravação não autorizada — seguindo sem vídeo (dá para gravar depois no Gato)')
-    else if (comVideo && !keys?.videoServidor) {
-      try {
-        ligarFluxo(await pedirGravacaoDaAba())
-      } catch (e) {
-        log('warn', `🎬 ${e.message} Seguindo sem vídeo.`)
+    // Vídeo é obrigatório (cliente só fica pronto com vídeo e mensagem): sem autorização para gravar, nem começa.
+    if (!keys?.videoServidor) {
+      let f = fluxoPronto
+      if (f === undefined) f = await pedirGravacaoDaAba().catch(() => null)
+      if (!f) {
+        log('error', '🎬 Sem autorização para gravar os vídeos — não comecei. Clique de novo e, quando o Chrome perguntar, escolha "Esta aba" → Compartilhar.')
+        return
       }
+      ligarFluxo(f)
     }
     setRodando(true)
     try {
-      const r = await rodarAutomatico(
-        { cidade: cidade.trim(), nichos: lista, porNicho: porNicho === 'todos' ? Infinity : Number(porNicho), estudo, abelha },
-        { log, etapa: setEtapa, parar: () => pararRef.current, gravar },
-      )
+      const ui = { log, etapa: setEtapa, parar: () => pararRef.current, gravar }
+      const r =
+        modo === 'regravar'
+          ? await regravarVideos(ui)
+          : await rodarAutomatico(
+              { cidade: cidade.trim(), nichos: lista, porNicho: porNicho === 'todos' ? Infinity : Number(porNicho), estudo, abelha },
+              ui,
+            )
+      if (modo === 'regravar') {
+        log(r.prontos ? 'ok' : 'warn', `Vídeos gravados: ${r.prontos} · sem vídeo ainda: ${r.erros}`)
+        setTimeout(() => navigate('/admin'), 2000)
+        return
+      }
       setResumo(r)
       log(pararRef.current ? 'warn' : 'ok', `${pararRef.current ? 'Parado' : 'Rodada concluída'}: ${r.prontos} cliente(s) pronto(s) para aprovar · ${r.pulados} pulado(s) · ${r.erros} com erro`)
-      // Terminou com clientes prontos: vai para o Tigre, onde estão os vídeos e as mensagens de cada um.
+      // Terminou o nicho: vai para a Área do Administrador. O próximo nicho só começa quando você aprovar lá.
       if (!pararRef.current && r.prontos > 0) {
-        log('ok', 'Abrindo o 🐯 Tigre com os clientes prontos…')
-        setTimeout(() => navigate('/agente/tigre'), 2500)
+        log('ok', `Nicho "${r.nicho}" pronto. Aprove os clientes na Área do Administrador${r.proximo ? ` — depois é só clicar em começar "${r.proximo}"` : ''}.`)
+        setTimeout(() => navigate('/admin'), 2000)
       }
     } catch (e) {
       log('error', e.message)
     } finally {
       fluxo.current?.getTracks().forEach((t) => t.stop())
       fluxo.current = null
+      setEstudio(null)
       setEtapa(null)
       setRodando(false)
     }
@@ -181,7 +196,7 @@ export default function Automatico() {
         <p className="mt-3 text-slate-400 max-w-2xl mx-auto">
           Nicho por nicho: o 🐧 Pinguim acha os comércios sem site, o 🦁 Leão monta, o 🐈‍⬛ Gato faz a prévia, a 🐝 Abelha
           completa, o vídeo é gravado e o 🐯 Tigre escreve a mensagem. <strong className="text-white">Nada é enviado</strong> — no
-          fim você aprova cada cliente no Tigre e manda pelo seu WhatsApp.
+          fim você aprova cada cliente na Área do Administrador e manda pelo seu WhatsApp.
         </p>
       </section>
 
@@ -207,21 +222,18 @@ export default function Automatico() {
             <div>
               <label className="label" htmlFor="auto-estudo">Estudo do Gato (1 vez por nicho)</label>
               <select id="auto-estudo" className="input" value={estudo} onChange={(e) => setEstudo(e.target.value)} disabled={rodando}>
-                <option value="3">3 minutos (padrão)</option>
-                <option value="70">70 segundos</option>
-                <option value="0">Rápido</option>
+                <option value="1">1 minuto (padrão)</option>
+                <option value="0">Estudo rápido (~20 s)</option>
+                <option value="nenhum">Sem estudo — o mais rápido</option>
+                <option value="3min">3 minutos</option>
               </select>
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" className="accent-cyan-400 w-4 h-4" checked={abelha} onChange={(e) => setAbelha(e.target.checked)} disabled={rodando} />
-            🐝 Abelha completa o site com dados públicos que têm fonte (horário, sobre, serviços)
+            🐝 Abelha completa o site com dados públicos que têm fonte (horário, sobre, serviços) — deixa mais lento
           </label>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" className="accent-cyan-400 w-4 h-4" checked={comVideo} onChange={(e) => setComVideo(e.target.checked)} disabled={rodando} />
-            🎬 Gravar o vídeo da prévia de cada cliente
-          </label>
-          {comVideo && keys && !keys.videoServidor && (
+          {keys && !keys.videoServidor && (
             <p className="text-xs text-slate-400">
               Ao começar, o Chrome pergunta se pode <strong className="text-slate-200">compartilhar esta aba</strong>: escolha
               "Esta aba" e clique em Compartilhar. É <strong className="text-slate-200">uma vez só</strong> para todos os vídeos.
@@ -271,8 +283,8 @@ export default function Automatico() {
           </div>
           <div className="glass p-5 space-y-3">
             <h3 className="text-sm font-semibold text-white">Clientes</h3>
-            <Link to="/agente/tigre" className="flex items-center gap-2 rounded-xl border border-neon/30 px-3 py-2 text-sm text-neon hover:bg-neon/10">
-              🐯 {aprovar.length} aguardando sua aprovação <ArrowRight size={14} className="ml-auto" />
+            <Link to="/admin" className="flex items-center gap-2 rounded-xl border border-neon/30 px-3 py-2 text-sm text-neon hover:bg-neon/10">
+              🛡️ {aprovar.length} aguardando sua aprovação <ArrowRight size={14} className="ml-auto" />
             </Link>
             {placar.map(([st, lista]) => (
               <details key={st} className="text-sm">
@@ -295,7 +307,7 @@ export default function Automatico() {
       {estudio && (
         <div className="fixed bottom-4 right-4 z-50 rounded-2xl border border-neon/40 bg-black shadow-glow overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-neon">
-            <Video size={14} className="animate-pulse" /> Gravando a prévia — não feche esta aba
+            <Video size={14} className="animate-pulse" /> Estúdio de gravação — não feche esta aba
           </div>
           <iframe
             ref={quadro}

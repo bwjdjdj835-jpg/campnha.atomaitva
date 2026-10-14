@@ -63,16 +63,21 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/gato/aprofundar` (`aprofundar(categoria, rodada, lidos)`) — uma rodada do **estudo de 3 minutos**:
     2 buscas BR de sites reais do ramo (sem vitrines/redes/diretórios, `NAO_E_SITE_DO_RAMO`) + leitura com `branding`
     de até 6 páginas iniciais novas (8 pedidos). O Gato (`gato()` em `src/services/agents.js`) faz o estudo inicial e
-    uma rodada por minuto (`ESTUDOS`: **3 min** = rodadas 1–2, padrão escolhido pelo usuário; 5 min = rodadas 1–4;
-    70 s = rodada 1; rápido = só a inicial); cada rodada usa uma dupla de buscas diferente (`BUSCAS_POR_RODADA`);
+    uma rodada por minuto (`ESTUDOS`: **1 min** = rodada 1, padrão escolhido pelo usuário; `3min` = rodadas 1–2;
+    `5min` = rodadas 1–4; rápido = só a inicial; valores antigos '3'/'5'/'70' caem no padrão); cada rodada usa uma dupla de buscas diferente (`BUSCAS_POR_RODADA`);
     campo "Estudo" e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`).
     `estiloDoEstudo` só usa leituras com `confianca` de cor ≥ `CONFIANCA_MINIMA` (0,5, vinda do `branding.confidence`)
     e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
     (prioridade) → estilo do estudo → tema por segmento.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
-  - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,
-    opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Só quando o servidor tem navegador de verdade
-    (`keys.videoServidor` = `servidorGrava()`: fora de Vercel/Netlify e o executável do Chromium existe); se a
+  - `POST /api/gato/video` (`server/video.js`) — grava 9 s da prévia em 390×844 **quadro a quadro** (print em 2× a
+    20 quadros/s, juntado pelo ffmpeg-static em MP4 H.264 High 780×1688 — nítido e nunca corrompe; sem ffmpeg, cai no
+    gravador do Playwright em WebM). Navegador: `acharNavegador()` = CHROMIUM_PATH → Chromium do Playwright → **Google
+    Chrome / Edge instalados** (Windows/Mac/Linux). Só quando o servidor tem navegador de verdade
+    (`keys.videoServidor` = `servidorGrava()`: fora de Vercel/Netlify e algum navegador existe). **`iniciar-windows.bat`**
+    (pedido do usuário, "gravar pelo computador"): confere o Node, `npm install` na 1ª vez, cria `server/.env` a partir
+    do `.env.example` (abre o Bloco de Notas para colar as chaves) e roda `npm run dev` abrindo http://localhost:5173 —
+    aí o automático grava pelo próprio computador, sem pedir para compartilhar a aba; se a
     gravação no servidor falhar, o Gato cai para a gravação no navegador (pede novo clique se já passou do tempo
     em que o navegador aceita `getDisplayMedia`). **No Vercel** o Gato grava no navegador do usuário
     (`gravarPreviaNoNavegador` em `src/lib/previa.jsx`: `getDisplayMedia` com `preferCurrentTab`, recorte no iframe
@@ -103,7 +108,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   **recusa leve** ("não quero agora", "no momento não", "fica pra próxima") → UMA mensagem `olhada` ("só dá uma olhadinha
   no projeto, sem compromisso", `MODELOS.olhada`), marcada com `tipo: 'olhada'`; se recusar de novo, o Tigre não sugere
   mais nada). Na dúvida entre recusa e parar, vale parar (`OPT_OUT` vem antes de `RECUSA`).
-  **Robô** (resposta automática, menu, assistente virtual — regex `BOT`, intenção `bot`, status "Respondeu um robô") →
+  **Robô** (resposta automática, saudação do WhatsApp Business com horário/links de agendamento/"podemos demorar"/
+  "agradeço o contato"/"seja muito bem-vindo", menu, assistente virtual — regex `BOT`, intenção `bot`, status
+  "Respondeu um robô") →
   rascunho `pessoa` pedindo para falar com o responsável/alguém da equipe; `opcaoDeAtendente` acha no menu o número da
   opção "falar com atendente" (inclusive 2️⃣) e põe na 1ª linha da mensagem.
   **Conversa contínua:** toda resposta colada ("Ler e sugerir resposta") gera a próxima mensagem — interesse, dúvida e
@@ -178,8 +185,38 @@ e "Leão Dourado" foi unificado como **Leão**.
   **Tela inicial:** botão "Iniciar inteligência artificial automática" — pede a gravação da aba no próprio clique
   (`guardarFluxo`), abre `/automatico?iniciar=1` (começa sozinho com `pegarFluxo()` e as opções salvas) e, ao terminar
   com clientes prontos, abre o Tigre.
-  No Tigre, `FilaAprovacao.jsx` lista os `revisar` (vídeo + mensagem): "Aprovar prévia e mensagem" → status `aprovado`
-  e abre o `TigrePainel` com o rascunho; "Ajustar no Gato" / "Descartar".
+  **Rápido por padrão** (pedido do usuário: "só gravar o vídeo e mandar mensagem"): estudo do Gato de **1 minuto** só no
+  1º site de cada nicho (os outros reaproveitam; `nenhum` = sem estudo) e Abelha desligada (opções `v: 3` em
+  `central-agentes:automatico`); vídeo de 9 s; o
+  vídeo + mensagem de um cliente (`finalizar`) roda enquanto o próximo site é montado (`montarSite`, fila `filaFinal`).
+  Status do site: `preparando` → `revisar` **só com vídeo E mensagem** (pedido do usuário); sem vídeo → `sem_video`
+  (lista "Falta o vídeo" na Área do Administrador, botão "Gravar os vídeos que faltam" → `/automatico?regravar=1` →
+  `regravarVideos`; cada um dá para descartar). `conferirProntos()` (Admin e fila do Tigre) arruma os antigos:
+  `revisar` sem vídeo → `sem_video`, sem mensagem → escreve. Vídeo é obrigatório: sem autorização para gravar o
+  automático nem começa, e parar de compartilhar a aba para a rodada. O próximo nicho só libera com "Para aprovar" e
+  "Falta o vídeo" vazios. O quadro de gravação fica montado a rodada
+  inteira (`gravarComFluxo` só recorta de novo se o quadro mudar e tem tempo máximo em cada passo — antes o 2º vídeo travava).
+  **Um nicho por vez** (pedido do usuário): `rodarAutomatico` para depois do 1º nicho com cliente pronto (nicho sem
+  cliente passa direto) e devolve `resumo.proximo` (`proximoNicho`). O próximo só começa pela Área do Administrador,
+  quando não há nada para aprovar nem sendo preparado: botão "Começar: <nicho>" → `prepararInicio` (pede a gravação no
+  clique; a tela inicial usa o mesmo) → `/automatico?iniciar=1`. Antes, o automático seguia sozinho para o nicho
+  seguinte e, se você saísse da página para aprovar, a gravação era encerrada (salão ficou sem vídeo).
+  Ao terminar abre a **Área do Administrador** (`/admin`, `src/pages/Admin.jsx`, contador no menu): cartões "Para aprovar"
+  com vídeo e mensagem editável em **dois passos** (o wa.me só leva texto, e compartilhar vídeo + texto juntos faz o
+  WhatsApp largar o vídeo): 1️⃣ vídeo — "Mandar o vídeo no WhatsApp" (Web Share só com o arquivo) / "Salvar vídeo (MP4)"
+  (Downloads; anexar pelo 📎); 2️⃣ mensagem — "Aprovar e abrir no WhatsApp" (wa.me com DDI 55) / "Copiar"; mais "Ver
+  prévia", "Gerar outra", "Ajustar no Gato", "Descartar". Gravação prioriza MP4 H.264 (`TIPO_VIDEO`, 4 Mbps, quadro-chave a cada 1 s; o
+  tipo do blob guarda o codec — "video/mp4" sem codec vira `codecs=vp9`, pois só é escolhido sem H.264) e avisa quando
+  `videoAceitoNoWhatsApp` é falso. O vídeo (automático e Gato) usa `htmlDaPrevia(..., CSS_GRAVACAO, { agua: false })`:
+  sem água e sem granulado, que no vídeo comprimido pareciam defeito. **Vídeo corrompido (só o 1º quadro, resto cinza):**
+  o Chrome gerava MP4 H.264 quebrado quando o tamanho da captura mudava no meio (recorte entrando, zoom do Windows).
+  `gravarComFluxo` agora desenha a captura num **canvas de tamanho fixo** (largura 540, altura pelo formato do quadro
+  medido no começo; recorte à mão se o Region Capture falhar) e grava `canvas.captureStream(30)` com `start()` sem
+  fatias (MP4 inteiro);
+  "Já enviei" registra a mensagem (+ vídeo) na conversa (status `contatado`, site `aprovado`). Aba "Enviados" com selo,
+  **"Ele respondeu"** (cola a resposta → `lerResposta` → mensagem sugerida → "Aprovar e abrir no WhatsApp" → "Já enviei"
+  = `registrarEnviada`) e "Conversa completa" (`/agente/tigre?cliente=<id>`). A lógica de ler a resposta e escolher a
+  próxima mensagem fica em `src/services/tigreConversa.js` (usada pelo `TigrePainel` e pelo Admin). O Tigre também mostra a fila (`FilaAprovacao.jsx`).
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência).
 

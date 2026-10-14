@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, Play, Bot, Loader2 } from 'lucide-react'
-import { guardarFluxo } from '../services/automatico.js'
-import { pedirGravacaoDaAba } from '../lib/previa.jsx'
+import { prepararInicio } from '../services/automatico.js'
 import { agents } from '../data/agents.js'
 import OrchestraHub from '../components/OrchestraHub.jsx'
 import AgentBadge from '../components/AgentBadge.jsx'
@@ -33,16 +32,13 @@ export default function Dashboard() {
   const primeiroNicho = (auto.nichos || 'barbearia').split('\n')[0]
 
   // Pede a gravação da aba aqui mesmo (o navegador só pergunta logo depois de um clique) e abre o automático,
-  // que começa sozinho e no fim leva para o Tigre.
+  // que começa sozinho e no fim leva para a Área do Administrador.
   async function iniciarAutomatico() {
     setIniciando(true)
-    let fluxo
-    if (auto.comVideo !== false && !videoServidor) {
-      fluxo = await pedirGravacaoDaAba().catch(() => null)
-    }
-    guardarFluxo(fluxo)
+    await prepararInicio({ videoServidor })
     navigate('/automatico?iniciar=1')
   }
+
 
   const stats = [
     { label: 'Leads sem site', value: leads.length },
@@ -72,7 +68,7 @@ export default function Dashboard() {
               {iniciando ? <Loader2 size={20} className="animate-spin" /> : <Bot size={20} />} Iniciar inteligência artificial automática
             </button>
             <p className="mt-2 text-xs text-slate-400">
-              Roda os 5 agentes sozinhos em {auto.cidade || 'Cacoal - RO'}, começando em {primeiroNicho}, e no fim abre o 🐯 Tigre
+              Roda os 5 agentes sozinhos em {auto.cidade || 'Cacoal - RO'}, começando em {primeiroNicho}, e no fim abre a 🛡️ Área do Administrador
               com o vídeo e a mensagem de cada cliente. Nada é enviado sem você.{' '}
               <Link to="/automatico" className="text-neon hover:underline">Ajustar cidade e nichos</Link>
             </p>

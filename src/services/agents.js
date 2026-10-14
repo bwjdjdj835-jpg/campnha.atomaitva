@@ -425,14 +425,15 @@ export async function lerPacoteLeao(blob) {
 }
 
 // ---------- 🐈‍⬛ Estudo longo do Gato ----------
-// Estudo antes de gerar (campo "Estudo"): 3 min (padrão) = inicial + 2 rodadas (uma por minuto — o plano grátis do
-// Firecrawl aceita ~10 pedidos/min); 5 min = 4 rodadas; 70 s = 1 rodada; rápido = só a inicial. "Encerrar" corta o tempo.
+// Estudo antes de gerar (campo "Estudo"): 1 min (padrão, pedido do usuário) = inicial + 1 rodada; 3 min = 2 rodadas
+// (uma por minuto — o plano grátis do Firecrawl aceita ~10 pedidos/min); 5 min = 4 rodadas; rápido = só a inicial.
+// Valores antigos guardados no navegador ('3', '5', '70') caem no padrão de 1 minuto. "Encerrar" corta o tempo.
 const ESTUDOS = {
-  3: { duracao: 3 * 60_000, rodadas: [1, 2] },
-  5: { duracao: 5 * 60_000, rodadas: [1, 2, 3, 4] },
-  70: { duracao: 70_000, rodadas: [1] },
+  1: { duracao: 60_000, rodadas: [1] },
+  '3min': { duracao: 3 * 60_000, rodadas: [1, 2] },
+  '5min': { duracao: 5 * 60_000, rodadas: [1, 2, 3, 4] },
 }
-let DURACAO_ESTUDO = ESTUDOS[3].duracao
+let DURACAO_ESTUDO = ESTUDOS[1].duracao
 const CONFIANCA_MINIMA = 0.5 // leitura de cores do Firecrawl abaixo disso não entra no estilo
 let encerrarAgora = false
 export const encerrarEstudo = () => (encerrarAgora = true)
@@ -539,9 +540,14 @@ async function gato(inputs, log, { sites, leads = [] }) {
     .split(/[\s,]+/)
     .filter((x) => /^https?:\/\//i.test(x))
   if (linksModelos.length > 4) log('warn', `Você colou ${linksModelos.length} sites modelo — leio os 4 primeiros (limite do Firecrawl por minuto)`)
-  const guardado = inputs.reaproveitar ? estudoDoNicho.get(chaveNicho(dados.negocio.categoria)) : null
+  // estudo "nenhum" (modo automático rápido): sem pesquisa — tema do segmento, sem gastar Firecrawl nem tempo.
+  const semEstudo = inputs.estudo === 'nenhum'
+  const guardado = semEstudo
+    ? { referencias: [], cursos: [], secoes: [], modelos: [], estudados: [] }
+    : inputs.reaproveitar ? estudoDoNicho.get(chaveNicho(dados.negocio.categoria)) : null
   const inicioEstudo = Date.now()
-  if (guardado) log('ok', `Reaproveitando o estudo já feito para "${dados.negocio.categoria}" (sem gastar Firecrawl de novo)`)
+  if (semEstudo) log('info', 'Modo rápido: sem estudo de referências — tema pronto do segmento')
+  else if (guardado) log('ok', `Reaproveitando o estudo já feito para "${dados.negocio.categoria}" (sem gastar Firecrawl de novo)`)
   else log('info', 'Firecrawl: pesquisando sites de desenvolvedores, 21st.dev, Code Eagle, GSAP, modelos grátis e cursos de como montar um site completo')
   let referencias = []
   let cursos = []
@@ -568,7 +574,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
   // Estudo longo: rodadas (uma por minuto) lendo sites reais do ramo, até completar o tempo escolhido.
   const estudados = guardado ? [...guardado.estudados] : []
   const estudoLongo = !guardado && inputs.estudo !== '0' && (referencias.length || modelos.length)
-  const plano = ESTUDOS[inputs.estudo] || ESTUDOS[3] // padrão: 3 minutos
+  const plano = ESTUDOS[inputs.estudo] || ESTUDOS[1] // padrão: 1 minuto
   DURACAO_ESTUDO = plano.duracao
   if (estudoLongo) {
     log('info', `Estudo de ${mmss(DURACAO_ESTUDO)}: lendo sites de verdade do ramo (cores, fontes e seções) — ou clique em "Encerrar estudo"`)
@@ -669,7 +675,7 @@ export async function enviarVideoPelaApi({ telefone, video, legenda }) {
     const r = new FileReader()
     r.onload = () => resolve(r.result)
     r.onerror = () => reject(r.error)
-    r.readAsDataURL(video)
+    r.readAsDataURL(new Blob([video], { type: video.type.split(';')[0] })) // sem ";codecs=…" no data URI
   })
   return api('/tigre/video', { telefone, video: dataUri, legenda, aprovado: true })
 }
