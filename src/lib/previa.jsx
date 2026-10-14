@@ -108,8 +108,10 @@ const noMaximo = (promessa, ms) => Promise.race([promessa, new Promise((r) => se
 // tamanho da captura mudar no meio (o recorte entrando, zoom do Windows…), o Chrome gerava um MP4 H.264 corrompido —
 // só o 1º quadro aparecia e o resto ficava cinza. Largura 540; a altura segue o formato do quadro (medido no começo).
 const LARGURA_VIDEO = 540
+// Duração padrão do vídeo (pedido do usuário: 9 s era curto demais para ver o comércio). Capa 3 s + rolagem devagar.
+export const DURACAO_VIDEO = 20_000
 
-export async function gravarComFluxo(stream, iframe, ms = 12000) {
+export async function gravarComFluxo(stream, iframe, ms = DURACAO_VIDEO) {
   const [faixa] = stream.getVideoTracks()
   if (!faixa || faixa.readyState === 'ended') throw new Error('A gravação da aba foi encerrada — autorize de novo.')
   if (window.CropTarget && faixa.cropTo && recortes.get(faixa) !== iframe) {
@@ -125,9 +127,12 @@ export async function gravarComFluxo(stream, iframe, ms = 12000) {
   const recortado = recortes.get(faixa) === iframe
 
   // Imagem da aba → <video> → canvas de tamanho fixo.
+  // O <video> fica na página (quase invisível): fora dela, alguns Chrome no Windows quase não atualizam a imagem.
   const fonte = document.createElement('video')
   fonte.muted = true
   fonte.playsInline = true
+  fonte.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none'
+  document.body.appendChild(fonte)
   fonte.srcObject = new MediaStream([faixa])
   await fonte.play().catch(() => {})
   for (let i = 0; i < 40 && !fonte.videoWidth; i++) await new Promise((r) => setTimeout(r, 50))
@@ -161,10 +166,10 @@ export async function gravarComFluxo(stream, iframe, ms = 12000) {
       ctx.fillRect(0, 0, LARGURA_VIDEO, ALTURA_VIDEO)
       ctx.drawImage(fonte, sx, sy, sw, sh, (LARGURA_VIDEO - dw) / 2, (ALTURA_VIDEO - dh) / 2, dw, dh)
     }
-    if (fonte.requestVideoFrameCallback) fonte.requestVideoFrameCallback(desenhar)
-    else requestAnimationFrame(desenhar)
   }
+  // Desenha 30 vezes por segundo, num relógio próprio: o vídeo tem quadros do começo ao fim mesmo se a captura atrasar.
   desenhar()
+  const relogio = setInterval(desenhar, 1000 / 30)
 
   const escolhido = TIPO_VIDEO()
   const gravador = new MediaRecorder(tela.captureStream(30), {
@@ -187,7 +192,9 @@ export async function gravarComFluxo(stream, iframe, ms = 12000) {
   if (gravador.state !== 'inactive') gravador.stop()
   await noMaximo(parou, 5000)
   desenhando = false
+  clearInterval(relogio)
   fonte.srcObject = null
+  fonte.remove()
   if (!partes.length) throw new Error('A gravação não captou nada — deixe esta aba aberta e na frente.')
   // Guarda o codec no tipo (ex.: "video/mp4;codecs=avc1…") para saber se o WhatsApp aceita.
   return new Blob(partes, { type: tipo || 'video/webm' })
@@ -210,7 +217,7 @@ const TIPO_VIDEO = () =>
 export const videoAceitoNoWhatsApp = (blob) => /^video\/mp4/.test(blob?.type || '') && (!/codecs=/.test(blob.type) || /avc[13]/.test(blob.type))
 
 // Grava o quadro da prévia no próprio navegador (Chrome/Edge no computador): um vídeo, uma autorização.
-export async function gravarPreviaNoNavegador(iframe, ms = 12000) {
+export async function gravarPreviaNoNavegador(iframe, ms = DURACAO_VIDEO) {
   // O recorte só pega a parte do quadro que está na tela: centraliza a prévia antes.
   iframe.scrollIntoView({ block: 'center' })
   const stream = await pedirGravacaoDaAba()

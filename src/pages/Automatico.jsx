@@ -25,7 +25,8 @@ export default function Automatico() {
   // v3: rápido por padrão — Gato estuda 1 minuto só no 1º site de cada nicho (os outros reaproveitam), sem Abelha.
   const [estudo, setEstudo] = useState(salvo.v === 3 ? salvo.estudo : '1')
   const [abelha, setAbelha] = useState(salvo.v === 3 ? Boolean(salvo.abelha) : false)
-    const [rodando, setRodando] = useState(false)
+  const [duracao, setDuracao] = useState(salvo.duracao || '20') // segundos do vídeo de cada cliente
+  const [rodando, setRodando] = useState(false)
   const [logs, setLogs] = useState([])
   const [etapa, setEtapa] = useState(null)
   const [estudio, setEstudio] = useState(null) // HTML da prévia sendo gravada
@@ -72,7 +73,7 @@ export default function Automatico() {
   async function gravar(html, siteId) {
     if (keys?.videoServidor) {
       try {
-        return await gravarVideoPrevia(html, siteId)
+        return await gravarVideoPrevia(html, siteId, Number(duracao))
       } catch (e) {
         log('warn', `🎬 Servidor não gravou (${e.message}) — tentando aqui no navegador`)
       }
@@ -84,7 +85,7 @@ export default function Automatico() {
     setEstudio(html)
     await Promise.race([pronto, new Promise((r) => setTimeout(r, 8000))])
     await new Promise((r) => setTimeout(r, 1200)) // fotos e capa aparecerem
-    return gravarComFluxo(f, quadro.current, 9000)
+    return gravarComFluxo(f, quadro.current, Number(duracao) * 1000)
   }
 
   // Veio do botão "Iniciar inteligência artificial automática" (tela inicial) ou de "Começar: <nicho>" /
@@ -116,7 +117,7 @@ export default function Automatico() {
     const lista = nichos.split('\n').map((n) => n.trim()).filter(Boolean)
     if (!cidade.trim() || !lista.length) return
     try {
-      localStorage.setItem(CHAVE, JSON.stringify({ v: 3, cidade, nichos, porNicho, estudo, abelha }))
+      localStorage.setItem(CHAVE, JSON.stringify({ v: 3, cidade, nichos, porNicho, estudo, abelha, duracao }))
     } catch {
       /* sem storage */
     }
@@ -226,6 +227,14 @@ export default function Automatico() {
                 <option value="0">Estudo rápido (~20 s)</option>
                 <option value="nenhum">Sem estudo — o mais rápido</option>
                 <option value="3min">3 minutos</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label" htmlFor="auto-duracao">Duração do vídeo de cada cliente</label>
+              <select id="auto-duracao" className="input" value={duracao} onChange={(e) => setDuracao(e.target.value)} disabled={rodando}>
+                <option value="15">15 segundos</option>
+                <option value="20">20 segundos (padrão)</option>
+                <option value="30">30 segundos</option>
               </select>
             </div>
           </div>

@@ -99,7 +99,7 @@ app.get('/leao/pastas', async (c) => {
 })
 
 app.post('/gato/video', async (c) => {
-  const { html } = await c.req.json().catch(() => ({}))
+  const { html, segundos } = await c.req.json().catch(() => ({}))
   if (typeof html !== 'string' || !html.includes('<html')) return c.json({ error: 'Prévia inválida.' }, 400)
   if (html.length > 20_000_000) return c.json({ error: 'Prévia grande demais para gravar.' }, 413)
   // Sem navegador neste servidor (Vercel): quem chama aqui é uma versão antiga do app guardada no cache.
@@ -113,7 +113,7 @@ app.post('/gato/video', async (c) => {
       501,
     )
   }
-  const { tipo, buffer } = await gravarVideo(html)
+  const { tipo, buffer } = await gravarVideo(html, { segundos: Math.min(40, Math.max(8, Number(segundos) || 20)) })
   return new Response(buffer, { headers: { 'Content-Type': tipo, 'Content-Length': String(buffer.length) } })
 })
 

@@ -92,7 +92,7 @@ const suave = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
 // Fica nítido e nunca corrompe (cada quadro é uma imagem inteira). Sem ffmpeg, cai no gravador do Playwright (WebM).
 const QUADROS_POR_SEGUNDO = 20
 
-export async function gravarVideo(html, { segundos = 9 } = {}) {
+export async function gravarVideo(html, { segundos = 20 } = {}) {
   const pasta = await mkdtemp(join(tmpdir(), 'gato-video-'))
   const navegador = await carregarChromium()
   const ffmpeg = await caminhoFfmpeg()
@@ -110,7 +110,7 @@ export async function gravarVideo(html, { segundos = 9 } = {}) {
     const total = await pagina.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)
     if (ffmpeg) {
       const quadros = segundos * QUADROS_POR_SEGUNDO
-      const capa = 2 * QUADROS_POR_SEGUNDO // 2 s parado na capa
+      const capa = 3 * QUADROS_POR_SEGUNDO // 3 s parado na capa
       for (let i = 0; i < quadros; i++) {
         const t = i < capa ? 0 : (i - capa) / Math.max(1, quadros - capa - 1)
         await pagina.evaluate((y) => window.scrollTo(0, y), Math.round(total * suave(t)))

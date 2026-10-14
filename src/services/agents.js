@@ -646,13 +646,13 @@ async function gato(inputs, log, { sites, leads = [] }) {
 }
 
 // Grava o vídeo da prévia no servidor (Chromium + ffmpeg) e guarda no navegador para o Tigre.
-export async function gravarVideoPrevia(html, siteId) {
+export async function gravarVideoPrevia(html, siteId, segundos = 20) {
   let res
   try {
     res = await fetch('/api/gato/video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html }),
+      body: JSON.stringify({ html, segundos }),
     })
   } catch {
     throw new Error('Servidor fora do ar — a gravação precisa do app rodando no computador (npm run dev).')
