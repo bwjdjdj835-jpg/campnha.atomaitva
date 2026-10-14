@@ -90,6 +90,11 @@ export function pegarFluxo() {
   return f
 }
 
+// Versões antigas marcavam o nicho como feito depois de poucos clientes (e seguiam sozinhas até pizzaria/confeitaria).
+// Agora "feito" = lista inteira do nicho terminada: as marcas antigas são apagadas uma vez e tudo recomeça na barbearia.
+// (Quem já foi contatado ou já tem site feito continua sendo pulado pelo selo de contato.)
+if ((lerPipeline().auto?.v || 0) < 2) setPipeline((s) => ({ auto: { ...(s.auto || {}), v: 2, feitos: [], listas: {} } }))
+
 export const nichosFeitos = () => lerPipeline().auto?.feitos || []
 // Próximo nicho da lista que ainda não foi feito (null = todos feitos).
 export const proximoNicho = (nichos) => nichos.find((n) => !nichosFeitos().includes(chave(n))) || null
