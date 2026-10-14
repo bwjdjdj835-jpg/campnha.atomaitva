@@ -57,8 +57,12 @@ e "Leão Dourado" foi unificado como **Leão**.
     caber no limite de ~10 pedidos/min do plano grátis. A busca v2 não aceita `lang`.
   - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
   - `POST /api/gato/video` (`server/video.js`) — grava ~12 s da prévia em 390×844 com Chromium (playwright-core,
-    opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Precisa `npx playwright-core install chromium`
-    ou `CHROMIUM_PATH`; não roda no Vercel. `POST /api/tigre/video` envia pela Z-API (`send-video`, base64).
+    opcional) e converte para MP4 H.264 (ffmpeg-static, opcional). Só quando o app roda no computador
+    (`keys.videoServidor` = não está no Vercel). **No Vercel** o Gato grava no navegador do usuário
+    (`gravarPreviaNoNavegador` em `src/lib/previa.jsx`: `getDisplayMedia` com `preferCurrentTab`, recorte no iframe
+    com Region Capture, `MediaRecorder` em MP4 quando o navegador grava MP4, senão WebM; a prévia recebe
+    `postMessage({ tipo: 'passeio-previa' })` e passa um cursor na capa e rola a página). Chrome/Edge no computador.
+    `POST /api/tigre/video` envia pela Z-API (`send-video`, base64).
   - `POST /api/abelha/enriquecer` (`server/abelha.js`) — busca o negócio no Firecrawl e extrai sobre/horário/serviços
     (Claude com structured output; sem chave, só horário por regex). Todo campo volta com a URL da fonte; campo que
     aponta para fonte inexistente é descartado.
@@ -73,7 +77,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   regrava `index.html` com meta description + JSON-LD LocalBusiness, adiciona `conteudo.json` e `AUDITORIA.md`
   e salva como `${siteId}:final` (o Tigre publica a versão enriquecida).
 - Tigre (`src/components/TigrePainel.jsx`): conversa por cliente em `conversas[siteId]` (localStorage).
-  Rascunho → "Aprovar e enviar" (API) ou "Abrir no meu WhatsApp" + "Já enviei". Resposta colada é
+  **Envio manual é o padrão** (decisão do usuário: mensagem automática pode fazer o WhatsApp bloquear o número):
+  o Tigre gera a mensagem sugerida → "Abrir no meu WhatsApp" (wa.me com o texto) / "Copiar mensagem" + "Já enviei";
+  vídeo por "Compartilhar no WhatsApp" (Web Share no celular) ou "Baixar o vídeo". O envio pela API (Z-API/Meta)
+  só aparece se o usuário marcar a caixa de risco (`central-agentes:tigre-envio-api` no localStorage). Resposta colada é
   classificada (interesse → alerta + rascunho de fechamento; pedido de parar → `nao_contatar`, contato bloqueado).
   Pagamento confirmado → publica o ZIP final (IndexedDB `${siteId}:final`) no Vercel ou salva link manual.
 - Site do cliente: componente único `src/lib/ClienteSite.jsx` (sem imports, 5 temas: noite/claro/studio/vibrante/modelo):

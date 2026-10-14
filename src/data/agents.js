@@ -102,11 +102,11 @@ export const agents = [
     title: 'Tigre — Finalizando a venda e enviando o link',
     cta: 'Iniciar contato com os clientes',
     inputs: [{ key: 'cliente', label: 'Cliente', placeholder: 'Escolha um cliente com prévia aprovada', select: 'aprovados' }],
-    tools: ['WhatsApp Business Platform (Cloud API)', 'Claude (mensagens e leitura das respostas)', 'Vercel'],
+    tools: ['Seu WhatsApp (link com a mensagem pronta)', 'Claude (mensagens e leitura das respostas)', 'Vercel'],
     output: 'Alerta de cliente interessado + site publicado com link final',
     steps: [
       'Preparar mensagem personalizada (aguarda sua aprovação)',
-      'Enviar via WhatsApp Business',
+      'Você envia pelo seu WhatsApp (mensagem pronta, sem risco de bloqueio)',
       'Avisar você quando o cliente demonstrar interesse',
       'Publicar no Vercel/Netlify e enviar o link',
     ],

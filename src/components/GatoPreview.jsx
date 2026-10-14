@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video, X, Plus, GraduationCap, LayoutList, PenLine, Palette } from 'lucide-react'
 import { TEMAS } from '../lib/ClienteSite.jsx'
-import { gerarZipFinal, gravarVideoPrevia, SEM_DOWNLOAD } from '../services/agents.js'
+import { gerarZipFinal, gravarVideoPrevia, guardarVideo, SEM_DOWNLOAD } from '../services/agents.js'
 import { setPipeline } from '../store/pipeline.js'
-import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA } from '../lib/previa.jsx'
+import { fotosEmDataUrl, htmlDaPrevia, gravarPreviaNoNavegador, SANDBOX_PREVIA } from '../lib/previa.jsx'
 
 function marcarSite(siteId, campos) {
   if (!siteId) return
@@ -24,6 +24,7 @@ export default function GatoPreview({ preview }) {
   const [video, setVideo] = useState(null) // { url, tipo, tamanho }
   const [erroVideo, setErroVideo] = useState(null)
   const videoUrl = useRef(null)
+  const quadro = useRef(null)
   useEffect(() => () => videoUrl.current && URL.revokeObjectURL(videoUrl.current), [])
 
   useEffect(() => {
@@ -90,11 +91,21 @@ export default function GatoPreview({ preview }) {
     }
   }
 
+  // No computador (npm run dev) o servidor grava com Chromium; no Vercel grava aqui no navegador.
   async function gravar() {
     setGravando(true)
     setErroVideo(null)
     try {
-      const blob = await gravarVideoPrevia(srcDoc, preview.siteId)
+      const status = await fetch('/api/status').then((r) => r.json()).catch(() => null)
+      let blob
+      if (status?.keys?.videoServidor) {
+        blob = await gravarVideoPrevia(srcDoc, preview.siteId)
+      } else {
+        setDevice('mobile')
+        await new Promise((r) => setTimeout(r, 600)) // espera o quadro virar celular
+        blob = await gravarPreviaNoNavegador(quadro.current)
+        await guardarVideo(preview.siteId, blob)
+      }
       if (videoUrl.current) URL.revokeObjectURL(videoUrl.current)
       videoUrl.current = URL.createObjectURL(blob)
       setVideo({ url: videoUrl.current, tipo: blob.type, tamanho: blob.size })
@@ -154,7 +165,7 @@ export default function GatoPreview({ preview }) {
           style={{ maxWidth: device === 'mobile' ? 390 : '100%' }}
         >
           {srcDoc ? (
-            <iframe title="Prévia do site" srcDoc={srcDoc} sandbox={SANDBOX_PREVIA} className="block w-full h-[640px]" />
+            <iframe ref={quadro} title="Prévia do site" srcDoc={srcDoc} sandbox={SANDBOX_PREVIA} className="block w-full h-[640px]" />
           ) : (
             <div className="grid h-[640px] place-items-center text-slate-500">
               <Loader2 className="animate-spin" />
@@ -281,11 +292,12 @@ export default function GatoPreview({ preview }) {
         <div className="px-5 pb-5 space-y-3 border-t border-white/5 pt-4">
           <div className="label">Vídeo da prévia para o cliente</div>
           <p className="text-xs text-slate-400">
-            Grava ~12 s do site rolando, em formato de celular (MP4), para mandar no WhatsApp. O Tigre também consegue enviar.
+            Grava ~12 s do site em formato de celular: a capa com a água e a página rolando. O navegador vai pedir
+            permissão — escolha <b>“Esta aba”</b> e clique em <b>Compartilhar</b>. Funciona no Chrome ou Edge do computador.
           </p>
           <button onClick={gravar} disabled={gravando || !srcDoc} className="btn-ghost border border-white/10">
             {gravando ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />}
-            {gravando ? 'Gravando… (uns 15 segundos)' : video ? 'Gravar de novo' : 'Gravar vídeo da prévia'}
+            {gravando ? 'Gravando… não mexa na página (uns 12 segundos)' : video ? 'Gravar de novo' : 'Gravar vídeo da prévia'}
           </button>
           {video && (
             <div className="flex flex-col sm:flex-row gap-4 items-start">

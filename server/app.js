@@ -35,6 +35,7 @@ const keys = () => ({
   whatsappTemplate: Boolean(process.env.WHATSAPP_TEMPLATE),
   vercel: Boolean(process.env.VERCEL_TOKEN),
   pasta: temPasta(),
+  videoServidor: !process.env.VERCEL, // no Vercel não há navegador: o vídeo é gravado no navegador do usuário
 })
 
 app.get('/status', (c) => c.json({ ok: true, keys: keys() }))

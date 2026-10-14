@@ -8,6 +8,28 @@ import aguaSource from './clienteAgua.js?raw'
 // O arquivo é um módulo (export); na prévia ele roda como script comum.
 const aguaScript = aguaSource.replace(/^export /gm, '').replace(/<\/script/gi, '<\\/script')
 
+// Passeio para o vídeo: o app manda postMessage({ tipo: 'passeio-previa', ms }) e a prévia passa um
+// "cursor" pela capa (a água segue) e depois rola até o fim, devagar.
+const passeioScript = `
+addEventListener('message', function (e) {
+  if (!e.data || e.data.tipo !== 'passeio-previa') return
+  var total = e.data.ms || 11000, capa = 3000, inicio = performance.now()
+  scrollTo(0, 0)
+  function quadro(agora) {
+    var t = agora - inicio
+    if (t < capa) {
+      var p = t / capa
+      dispatchEvent(new PointerEvent('pointermove', { clientX: innerWidth * (0.15 + 0.7 * p), clientY: innerHeight * (0.35 + 0.15 * Math.sin(p * 6.28)) }))
+    } else {
+      var q = Math.min(1, (t - capa) / (total - capa))
+      var suave = q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2
+      scrollTo(0, suave * (document.documentElement.scrollHeight - innerHeight))
+    }
+    if (t < total) requestAnimationFrame(quadro)
+  }
+  requestAnimationFrame(quadro)
+})`
+
 export const paraDataUrl = (blob) =>
   new Promise((resolve, reject) => {
     const r = new FileReader()
@@ -40,8 +62,58 @@ export function htmlDaPrevia(dados, fotosUrl) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><base target="_blank">
 ${linkDaFonte(dados)}<style>${clienteCss}</style></head><body>${html}<script>${aguaScript}
-iniciarAgua(document)</script></body></html>`
+iniciarAgua(document)
+${passeioScript}</script></body></html>`
 }
 
 // Scripts liberados só para o efeito de água; sem allow-same-origin, a prévia não acessa o app.
 export const SANDBOX_PREVIA = 'allow-scripts allow-popups allow-popups-to-escape-sandbox'
+
+// Grava o quadro da prévia no próprio navegador (Chrome/Edge no computador): o usuário autoriza gravar a aba,
+// o vídeo é recortado só no quadro (Region Capture) e a prévia faz o passeio. MP4 quando o navegador grava MP4.
+export async function gravarPreviaNoNavegador(iframe, ms = 12000) {
+  if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === 'undefined') {
+    throw new Error(
+      'Este navegador não grava a tela. Use o Chrome ou o Edge no computador — ou, no celular, abra a prévia e use o gravador de tela do aparelho.',
+    )
+  }
+  // O recorte só pega a parte do quadro que está na tela: centraliza a prévia antes.
+  iframe.scrollIntoView({ block: 'center' })
+  let stream
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 30 },
+      audio: false,
+      preferCurrentTab: true,
+      selfBrowserSurface: 'include',
+    })
+  } catch (e) {
+    if (e?.name === 'NotAllowedError') {
+      throw new Error('Gravação cancelada — para gravar, escolha "Esta aba" e clique em Compartilhar.')
+    }
+    throw new Error(`Não consegui gravar a tela (${e?.message || e}).`)
+  }
+  const [faixa] = stream.getVideoTracks()
+  if (window.CropTarget && faixa.cropTo) {
+    try {
+      await faixa.cropTo(await window.CropTarget.fromElement(iframe))
+    } catch {
+      /* sem recorte: grava a aba inteira */
+    }
+  }
+  const tipo = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t))
+  const gravador = new MediaRecorder(stream, { mimeType: tipo, videoBitsPerSecond: 5_000_000 })
+  const partes = []
+  gravador.ondataavailable = (e) => e.data.size && partes.push(e.data)
+  const parou = new Promise((resolve) => (gravador.onstop = resolve))
+  gravador.start(500)
+  iframe.contentWindow?.postMessage({ tipo: 'passeio-previa', ms: ms - 800 }, '*')
+  await new Promise((resolve) => {
+    const t = setTimeout(resolve, ms)
+    faixa.addEventListener('ended', () => (clearTimeout(t), resolve()), { once: true })
+  })
+  if (gravador.state !== 'inactive') gravador.stop()
+  stream.getTracks().forEach((t) => t.stop())
+  await parou
+  return new Blob(partes, { type: (tipo || 'video/webm').split(';')[0] })
+}
