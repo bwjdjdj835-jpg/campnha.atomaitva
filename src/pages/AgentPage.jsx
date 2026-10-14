@@ -6,7 +6,7 @@ import { agents, getAgent } from '../data/agents.js'
 import AgentBadge from '../components/AgentBadge.jsx'
 import LogConsole from '../components/LogConsole.jsx'
 import LeadsTable, { JaTemSite } from '../components/LeadsTable.jsx'
-import { runAgent, listarPastas } from '../services/agents.js'
+import { runAgent, listarPastas, encerrarEstudo } from '../services/agents.js'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 const GatoPreview = lazy(() => import('../components/GatoPreview.jsx'))
 const PreviaLeao = lazy(() => import('../components/PreviaLeao.jsx'))
@@ -170,6 +170,13 @@ function AgentPage() {
                   <input type="file" accept=".zip" className="hidden"
                     onChange={(e) => setValues({ ...values, [f.key]: e.target.files[0], site: undefined })} />
                 </label>
+              ) : f.opcoes ? (
+                <select className="input" value={values[f.key] ?? f.opcoes[0].valor}
+                  onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}>
+                  {f.opcoes.map((o) => (
+                    <option key={o.valor} value={o.valor}>{o.texto}</option>
+                  ))}
+                </select>
               ) : f.textarea ? (
                 <textarea rows={5} className="input font-mono" placeholder={f.placeholder}
                   value={values[f.key] || ''} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} />
@@ -183,6 +190,11 @@ function AgentPage() {
             {running ? <Loader2 className="animate-spin" size={20} /> : <Rocket size={20} />}
             {running ? 'Trabalhando…' : agent.cta}
           </button>
+          {running && agent.id === 'gato' && values.estudo !== '0' && (
+            <button onClick={encerrarEstudo} className="btn-ghost w-full border border-white/10 text-sm">
+              Encerrar estudo e gerar agora
+            </button>
+          )}
           <p className="text-xs text-slate-500 text-center">
             {!agent.live
               ? 'Modo demonstração: os logs e resultados deste agente ainda são simulados.'

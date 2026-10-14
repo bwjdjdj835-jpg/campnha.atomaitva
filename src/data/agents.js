@@ -67,9 +67,18 @@ export const agents = [
       { key: 'zip', label: 'Ou envie o ZIP do Leão', placeholder: 'Toque para escolher o ZIP gerado pelo Leão', file: true },
       {
         key: 'modelos',
-        label: 'Sites modelo (opcional, até 4 — um link por linha)',
-        placeholder: 'https://www.nextcodeeagle.com\nhttps://21st.dev\nhttps://um-site-que-voce-gostou.com.br',
+        label: 'Seu modelo de site (opcional) — cole o link; o Gato usa as cores e a fonte dele',
+        placeholder: 'https://um-site-que-voce-gostou.com.br\n(até 4 links, um por linha — sem link, o Gato escolhe pelo estudo)',
         textarea: true,
+        lembrar: true,
+      },
+      {
+        key: 'estudo',
+        label: 'Estudo na internet antes de gerar',
+        opcoes: [
+          { valor: '3', texto: 'Estudar 3 minutos (recomendado) — lê sites reais do ramo, modelos e cursos' },
+          { valor: '0', texto: 'Rápido (~20 s) — só a pesquisa inicial' },
+        ],
         lembrar: true,
       },
     ],
@@ -86,6 +95,7 @@ export const agents = [
       'Ler dados estruturados do ZIP',
       'Pesquisar modelos de desenvolvedores, sites grátis e cursos (Firecrawl)',
       'Ler seus sites modelo: seções, cores e fontes',
+      'Estudar 3 minutos: sites reais do ramo (estilo mais usado)',
       'Montar o site em React + Tailwind',
       'Mostrar prévia ao vivo e aguardar aprovação',
     ],

@@ -191,6 +191,56 @@ export async function estudar(categoria, modelos = []) {
   }
 }
 
+// ---------- Estudo longo (rodadas de ~1 minuto, por causa do limite do plano grátis) ----------
+// Cada rodada procura sites REAIS de negócios do segmento e lê o estilo de até MAX_POR_RODADA deles
+// (2 buscas + 6 leituras = 8 pedidos). O app chama uma rodada por minuto durante o estudo.
+const MAX_POR_RODADA = 6
+// Vitrines, bibliotecas, redes sociais e diretórios não são "site de negócio" para estudar estilo.
+const NAO_E_SITE_DO_RAMO =
+  /(^|\.)(dribbble|behance|awwwards|webflow|framer|themeforest|html5up|templatemo|free-css|onepagelove|colorlib|21st|nextcodeeagle|gsap|instagram|facebook|youtube|wikipedia|pinterest|tiktok|linkedin|medium|reclameaqui|google|guiamais|apontador|ifood|tripadvisor|booksy|trinks|wix|canva|hostinger|shopify|wordpress)\./
+
+const buscasDaRodada = (categoria, rodada) =>
+  rodada <= 1
+    ? [
+        { query: `site ${categoria}`, country: 'BR', limit: 8 },
+        { query: `${categoria} agendamento whatsapp site oficial`, country: 'BR', limit: 6 },
+      ]
+    : [
+        { query: `melhores sites de ${categoria}`, country: 'BR', limit: 8 },
+        { query: `${categoria} premium site`, country: 'BR', limit: 6 },
+      ]
+
+export async function aprofundar(categoria, rodada = 1, jaLidos = []) {
+  const lidosHosts = new Set(jaLidos.map((u) => hostDe(u)))
+  const resultados = await Promise.allSettled(buscasDaRodada(categoria, rodada).map(buscar))
+  if (resultados.every((r) => r.status === 'rejected')) throw resultados[0].reason
+  const alvos = []
+  for (const r of resultados) {
+    if (r.status !== 'fulfilled') continue
+    for (const item of r.value) {
+      const host = hostDe(item.url)
+      if (!host || lidosHosts.has(host) || NAO_E_SITE_DO_RAMO.test(host)) continue
+      lidosHosts.add(host)
+      alvos.push(`https://${host}/`) // a página inicial mostra a identidade visual do site
+      if (alvos.length >= MAX_POR_RODADA) break
+    }
+    if (alvos.length >= MAX_POR_RODADA) break
+  }
+  const lidos = await Promise.allSettled(alvos.map(lerModelo))
+  return {
+    lidos: lidos.filter((r) => r.status === 'fulfilled').map((r) => r.value),
+    falhas: lidos.filter((r) => r.status === 'rejected').length,
+  }
+}
+
+function hostDe(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+
 export async function estudarReferencias(categoria) {
   const resultados = await Promise.allSettled(buscas(categoria).map(buscar))
   const falhas = resultados.filter((r) => r.status === 'rejected')
