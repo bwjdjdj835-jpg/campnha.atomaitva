@@ -11,9 +11,10 @@ import { enriquecer } from './abelha.js'
 import { gravarVideo } from './video.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
-// Aceita a chave do Google com outros nomes de variável (ex.: "google" no Vercel).
+// Aceita a chave do Google em qualquer variável com "google" no nome (ex.: "google" no Vercel).
+// Chaves do Google começam com "AIza".
 process.env.GOOGLE_PLACES_API_KEY ||=
-  process.env.google || process.env.GOOGLE || process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY || ''
+  Object.entries(process.env).find(([k, v]) => /google/i.test(k) && /^AIza/.test(String(v).trim()))?.[1]?.trim() || ''
 
 export const app = new Hono().basePath('/api')
 
