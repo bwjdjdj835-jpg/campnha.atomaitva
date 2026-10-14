@@ -116,8 +116,8 @@ export async function gravarComFluxo(stream, iframe, ms = 12000) {
       /* sem recorte: grava a aba inteira */
     }
   }
-  const tipo = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t))
-  const gravador = new MediaRecorder(new MediaStream([faixa]), { mimeType: tipo, videoBitsPerSecond: 5_000_000 })
+  const gravador = new MediaRecorder(new MediaStream([faixa]), { mimeType: TIPO_VIDEO(), videoBitsPerSecond: 2_500_000 })
+  const tipo = gravador.mimeType || TIPO_VIDEO()
   const partes = []
   gravador.ondataavailable = (e) => e.data.size && partes.push(e.data)
   const parou = new Promise((resolve) => (gravador.onstop = resolve))
@@ -130,8 +130,25 @@ export async function gravarComFluxo(stream, iframe, ms = 12000) {
   if (gravador.state !== 'inactive') gravador.stop()
   await noMaximo(parou, 3000)
   if (!partes.length) throw new Error('A gravação não captou nada — deixe esta aba aberta e na frente.')
-  return new Blob(partes, { type: (tipo || 'video/webm').split(';')[0] })
+  // Guarda o codec no tipo (ex.: "video/mp4;codecs=avc1…") para saber se o WhatsApp aceita.
+  return new Blob(partes, { type: tipo || 'video/webm' })
 }
+
+// MP4 com H.264 primeiro: é o que o WhatsApp aceita. "video/mp4" sem codec pode sair em VP9 (Chromium sem H.264).
+const TIPO_VIDEO = () =>
+  [
+    'video/mp4;codecs=avc1.42E01E',
+    'video/mp4;codecs=avc1.4D401F',
+    'video/mp4;codecs=avc1.640028',
+    'video/mp4;codecs=avc1',
+    'video/mp4;codecs=avc3',
+    'video/mp4',
+    'video/webm;codecs=vp9',
+    'video/webm',
+  ].find((t) => MediaRecorder.isTypeSupported(t))
+
+// O WhatsApp aceita MP4 com H.264 (avc1/avc3). Sem o codec no tipo (vídeos antigos), confia no MP4.
+export const videoAceitoNoWhatsApp = (blob) => /^video\/mp4/.test(blob?.type || '') && (!/codecs=/.test(blob.type) || /avc[13]/.test(blob.type))
 
 // Grava o quadro da prévia no próprio navegador (Chrome/Edge no computador): um vídeo, uma autorização.
 export async function gravarPreviaNoNavegador(iframe, ms = 12000) {

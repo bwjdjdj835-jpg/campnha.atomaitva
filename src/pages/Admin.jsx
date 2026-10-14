@@ -4,7 +4,7 @@ import { ShieldCheck, CheckCircle2, Copy, Download, Share2, Eye, EyeOff, Refresh
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { videoDoSite, negocioDoSite, rascunho, lerPacoteLeao } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
-import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA } from '../lib/previa.jsx'
+import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
 
 // 🛡️ Área do Administrador: tudo o que a IA fez no modo automático passa por aqui.
@@ -143,8 +143,11 @@ function CartaoAprovar({ site, negocio, conversa }) {
   }, [site.id])
 
   const ext = video?.blob.type.includes('mp4') ? 'mp4' : 'webm'
-  const arquivo = video && new File([video.blob], `previa-${site.nome}.${ext}`, { type: video.blob.type })
+  const aceito = video && videoAceitoNoWhatsApp(video.blob)
+  const nomeArquivo = `previa-${site.nome.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')}.${ext}`
+  const arquivo = video && new File([video.blob], nomeArquivo, { type: video.blob.type.split(';')[0] })
   const podeCompartilhar = arquivo && typeof navigator !== 'undefined' && navigator.canShare?.({ files: [arquivo] })
+  const [videoFeito, setVideoFeito] = useState(false) // passo 1 (vídeo salvo ou compartilhado)
 
   // O cartão fica aqui até você confirmar "Já enviei" (aí o site vira aprovado e o cliente vai para "Enviados").
   function aprovar() {
@@ -152,11 +155,20 @@ function CartaoAprovar({ site, negocio, conversa }) {
     setAbriu(true)
   }
 
-  // Celular: manda o vídeo e a mensagem juntos (folha de compartilhar → WhatsApp → contato).
-  async function compartilhar() {
+  // Salva o vídeo no aparelho (pasta Downloads no computador).
+  function salvarVideo() {
+    const a = document.createElement('a')
+    a.href = video.url
+    a.download = nomeArquivo
+    a.click()
+    setVideoFeito(true)
+  }
+
+  // Compartilha SÓ o vídeo: junto com texto, o WhatsApp (principalmente no computador) fica com o texto e larga o vídeo.
+  async function compartilharVideo() {
     try {
-      await navigator.share({ files: [arquivo], text: texto })
-      aprovar()
+      await navigator.share({ files: [arquivo] })
+      setVideoFeito(true)
     } catch {
       /* cancelado */
     }
@@ -224,43 +236,58 @@ function CartaoAprovar({ site, negocio, conversa }) {
           </div>
           <label className="label" htmlFor={`msg-${site.id}`}>Mensagem (dá para editar)</label>
           <textarea id={`msg-${site.id}`} rows={4} className="input" value={texto} onChange={(e) => setTexto(e.target.value)} />
-          <div className="flex flex-wrap gap-2">
-            {podeCompartilhar && (
-              <button className="btn-primary !py-2 !px-4 text-sm" onClick={compartilhar} disabled={!texto.trim()}>
-                <Share2 size={16} /> Aprovar e mandar vídeo + mensagem
-              </button>
-            )}
-            <a
-              className={`${podeCompartilhar ? 'btn-ghost border border-white/10' : 'btn-primary !py-2 !px-4'} text-sm ${!texto.trim() || !fone ? 'pointer-events-none opacity-40' : ''}`}
-              href={`https://wa.me/${fone}?text=${encodeURIComponent(texto)}`}
-              target="_blank"
-              rel="noreferrer"
-              onClick={aprovar}
-            >
-              <CheckCircle2 size={16} /> Aprovar e abrir no WhatsApp
-            </a>
-            {video && (
-              <a className="btn-ghost border border-white/10 text-sm" href={video.url} download={arquivo.name}>
-                <Download size={16} /> Baixar vídeo
+          {/* Passo 1: vídeo. O link do WhatsApp (wa.me) só leva texto — o vídeo vai separado. */}
+          {video && (
+            <div className={`rounded-xl border px-4 py-3 space-y-2 ${videoFeito ? 'border-emerald-400/30 bg-emerald-400/5' : 'border-white/10'}`}>
+              <div className="text-sm font-medium text-white">{videoFeito ? '✅' : '1️⃣'} Vídeo da prévia</div>
+              <div className="flex flex-wrap gap-2">
+                {podeCompartilhar && (
+                  <button className="btn-primary !py-2 !px-4 text-sm" onClick={compartilharVideo}>
+                    <Share2 size={16} /> Mandar o vídeo no WhatsApp
+                  </button>
+                )}
+                <button className={`${podeCompartilhar ? 'btn-ghost border border-white/10' : 'btn-primary !py-2 !px-4'} text-sm`} onClick={salvarVideo}>
+                  <Download size={16} /> Salvar vídeo {ext === 'mp4' ? '(MP4)' : '(WebM)'}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500">
+                {podeCompartilhar
+                  ? '"Mandar o vídeo" abre o compartilhar: escolha o WhatsApp e o cliente. Ou salve e anexe pelo 📎 na conversa.'
+                  : 'Salva na pasta Downloads. Na conversa do WhatsApp, clique no 📎 → Fotos e vídeos e escolha o arquivo (ou arraste para a conversa).'}
+                {!aceito && ' ⚠️ Este vídeo não saiu em MP4 H.264 e o WhatsApp pode recusar. Use o Google Chrome ou o Edge atualizados e grave de novo (no Gato ou rodando o automático).'}
+              </p>
+            </div>
+          )}
+
+          {/* Passo 2: mensagem */}
+          <div className="rounded-xl border border-white/10 px-4 py-3 space-y-2">
+            <div className="text-sm font-medium text-white">{video ? '2️⃣' : '1️⃣'} Mensagem</div>
+            <div className="flex flex-wrap gap-2">
+              <a
+                className={`btn-primary !py-2 !px-4 text-sm ${!texto.trim() || !fone ? 'pointer-events-none opacity-40' : ''}`}
+                href={`https://wa.me/${fone}?text=${encodeURIComponent(texto)}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={aprovar}
+              >
+                <CheckCircle2 size={16} /> Aprovar e abrir no WhatsApp
               </a>
-            )}
-            <button className="btn-ghost border border-white/10 text-sm" onClick={copiar} disabled={!texto.trim()}>
-              {copiado ? <CheckCircle2 size={16} /> : <Copy size={16} />} {copiado ? 'Copiada!' : 'Copiar mensagem'}
-            </button>
+              <button className="btn-ghost border border-white/10 text-sm" onClick={copiar} disabled={!texto.trim()}>
+                {copiado ? <CheckCircle2 size={16} /> : <Copy size={16} />} {copiado ? 'Copiada!' : 'Copiar mensagem'}
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">Abre a conversa do cliente com a mensagem já escrita — é só tocar em enviar.</p>
           </div>
-          {abriu ? (
+
+          {abriu && (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
-              <span className="flex-1">Mandou a mensagem{video ? ' e o vídeo' : ''} no WhatsApp?</span>
+              <span className="flex-1">
+                {video && !videoFeito ? 'Falta o vídeo (passo 1). ' : ''}Mandou a mensagem{video ? ' e o vídeo' : ''} no WhatsApp?
+              </span>
               <button className="btn-primary !py-1.5 !px-3 text-sm" onClick={jaEnviei}>
                 <CheckCircle2 size={16} /> Já enviei
               </button>
             </div>
-          ) : (
-            <p className="text-xs text-slate-500">
-              {podeCompartilhar
-                ? 'No celular: "Aprovar e mandar vídeo + mensagem" abre o compartilhar — escolha o WhatsApp e o contato.'
-                : 'No computador: "Aprovar e abrir no WhatsApp" abre a conversa com a mensagem pronta; depois arraste o vídeo baixado para a conversa.'}
-            </p>
           )}
           <div className="flex flex-wrap gap-2 border-t border-white/5 pt-3">
             <button className="btn-ghost text-xs" onClick={verPrevia}>

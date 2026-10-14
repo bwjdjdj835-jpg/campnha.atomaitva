@@ -674,7 +674,7 @@ export async function enviarVideoPelaApi({ telefone, video, legenda }) {
     const r = new FileReader()
     r.onload = () => resolve(r.result)
     r.onerror = () => reject(r.error)
-    r.readAsDataURL(video)
+    r.readAsDataURL(new Blob([video], { type: video.type.split(';')[0] })) // sem ";codecs=…" no data URI
   })
   return api('/tigre/video', { telefone, video: dataUri, legenda, aprovado: true })
 }

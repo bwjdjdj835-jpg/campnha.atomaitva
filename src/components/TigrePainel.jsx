@@ -229,10 +229,11 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
 
   // Celular: abre a folha de compartilhar do aparelho (escolha o WhatsApp e o contato).
   const podeCompartilhar =
-    video && typeof navigator !== 'undefined' && navigator.canShare?.({ files: [new File([video.blob], `previa.${extVideo}`, { type: video.blob.type })] })
+    video && typeof navigator !== 'undefined' && navigator.canShare?.({ files: [new File([video.blob], `previa.${extVideo}`, { type: video.blob.type.split(';')[0] })] })
   async function compartilharVideo() {
     try {
-      await navigator.share({ files: [new File([video.blob], `previa-${site.nome}.${extVideo}`, { type: video.blob.type })], text: legenda })
+      // Só o arquivo: junto com texto, o WhatsApp costuma ficar com o texto e largar o vídeo.
+      await navigator.share({ files: [new File([video.blob], `previa-${site.nome}.${extVideo}`, { type: video.blob.type.split(';')[0] })] })
     } catch {
       /* cancelado */
     }

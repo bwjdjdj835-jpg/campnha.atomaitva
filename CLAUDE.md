@@ -184,8 +184,11 @@ e "Leão Dourado" foi unificado como **Leão**.
   Status do site: `preparando` → `revisar` (vídeo e mensagem prontos). O quadro de gravação fica montado a rodada
   inteira (`gravarComFluxo` só recorta de novo se o quadro mudar e tem tempo máximo em cada passo — antes o 2º vídeo travava).
   Ao terminar abre a **Área do Administrador** (`/admin`, `src/pages/Admin.jsx`, contador no menu): cartões "Para aprovar"
-  com vídeo, mensagem editável, "Aprovar e abrir no WhatsApp" (wa.me com DDI 55) / no celular "Aprovar e mandar vídeo +
-  mensagem" (Web Share), "Baixar vídeo", "Copiar", "Ver prévia", "Gerar outra", "Ajustar no Gato", "Descartar";
+  com vídeo e mensagem editável em **dois passos** (o wa.me só leva texto, e compartilhar vídeo + texto juntos faz o
+  WhatsApp largar o vídeo): 1️⃣ vídeo — "Mandar o vídeo no WhatsApp" (Web Share só com o arquivo) / "Salvar vídeo (MP4)"
+  (Downloads; anexar pelo 📎); 2️⃣ mensagem — "Aprovar e abrir no WhatsApp" (wa.me com DDI 55) / "Copiar"; mais "Ver
+  prévia", "Gerar outra", "Ajustar no Gato", "Descartar". Gravação prioriza MP4 H.264 (`TIPO_VIDEO`, 2,5 Mbps; o tipo do
+  blob guarda o codec) e avisa quando `videoAceitoNoWhatsApp` é falso;
   "Já enviei" registra a mensagem (+ vídeo) na conversa (status `contatado`, site `aprovado`). Aba "Enviados" com selo e
   "Responder no Tigre" (`/agente/tigre?cliente=<id>` abre a conversa). O Tigre também mostra a fila (`FilaAprovacao.jsx`).
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
