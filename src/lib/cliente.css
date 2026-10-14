@@ -1,0 +1,6 @@
+/* CSS do site do cliente, compilado com a config padrão (sem o tema da Central). Vai inline na prévia. */
+@import "./clienteAnimacoes.css";
+@config "../../tailwind.cliente.config.js";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
