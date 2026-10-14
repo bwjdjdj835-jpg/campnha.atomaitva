@@ -54,8 +54,9 @@ export function linkDaFonte(dados) {
   return `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(fonte).replace(/%20/g, '+')}:wght@400;600;700;800&display=swap">`
 }
 
-// cssExtra: só para as miniaturas dos temas (ex.: capa mais baixa para aparecer o resto do site).
-export function htmlDaPrevia(dados, fotosUrl, cssExtra = '') {
+// cssExtra: miniaturas dos temas (capa mais baixa) ou gravação do vídeo (sem granulado).
+// agua: false na gravação — as ondas na foto parecem defeito no vídeo comprimido.
+export function htmlDaPrevia(dados, fotosUrl, cssExtra = '', { agua = true } = {}) {
   const comFotos = {
     ...dados,
     imagens: (dados.imagens || [])
@@ -66,7 +67,7 @@ export function htmlDaPrevia(dados, fotosUrl, cssExtra = '') {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><base target="_blank">
 ${linkDaFonte(dados)}<style>${clienteCss}${cssExtra}</style></head><body>${html}<script>${aguaScript}
-iniciarAgua(document)
+${agua ? 'iniciarAgua(document)' : ''}
 ${efeitosScript}
 iniciarEfeitos(document)
 ${passeioScript}</script></body></html>`
@@ -116,8 +117,16 @@ export async function gravarComFluxo(stream, iframe, ms = 12000) {
       /* sem recorte: grava a aba inteira */
     }
   }
-  const gravador = new MediaRecorder(new MediaStream([faixa]), { mimeType: TIPO_VIDEO(), videoBitsPerSecond: 2_500_000 })
-  const tipo = gravador.mimeType || TIPO_VIDEO()
+  await new Promise((r) => setTimeout(r, 300)) // primeiro quadro já recortado
+  const escolhido = TIPO_VIDEO()
+  const gravador = new MediaRecorder(new MediaStream([faixa]), {
+    mimeType: escolhido,
+    videoBitsPerSecond: 4_000_000,
+    videoKeyFrameIntervalDuration: 1000, // quadro-chave a cada 1 s (onde o navegador aceita): menos "borrão" na rolagem
+  })
+  // "video/mp4" sem codec só é escolhido quando o navegador NÃO grava H.264 (sai VP9 dentro do MP4, que o WhatsApp
+  // e o player do Windows mostram quebrado) — marca isso no tipo para avisar.
+  const tipo = /codecs=/.test(gravador.mimeType || '') ? gravador.mimeType : escolhido === 'video/mp4' ? 'video/mp4;codecs=vp9' : escolhido
   const partes = []
   gravador.ondataavailable = (e) => e.data.size && partes.push(e.data)
   const parou = new Promise((resolve) => (gravador.onstop = resolve))
@@ -161,6 +170,9 @@ export async function gravarPreviaNoNavegador(iframe, ms = 12000) {
     stream.getTracks().forEach((t) => t.stop())
   }
 }
+
+// Gravação do vídeo: sem o granulado de filme da capa (no vídeo comprimido ele vira imagem quebrada).
+export const CSS_GRAVACAO = '.granulado{display:none!important}'
 
 // Miniatura do tema no painel: capa baixa e sem animação de entrada, para comparar cores e seções lado a lado.
 export const CSS_MINIATURA =

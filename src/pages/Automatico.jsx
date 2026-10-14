@@ -22,9 +22,9 @@ export default function Automatico() {
   const [cidade, setCidade] = useState(salvo.cidade || 'Cacoal - RO')
   const [nichos, setNichos] = useState(salvo.nichos || NICHOS_PADRAO.join('\n'))
   const [porNicho, setPorNicho] = useState(salvo.porNicho || '5')
-  // v2: o automático ficou rápido por padrão (sem estudo do Gato e sem Abelha) — só site, vídeo e mensagem.
-  const [estudo, setEstudo] = useState(salvo.v === 2 ? salvo.estudo : 'nenhum')
-  const [abelha, setAbelha] = useState(salvo.v === 2 ? Boolean(salvo.abelha) : false)
+  // v3: rápido por padrão — Gato estuda 1 minuto só no 1º site de cada nicho (os outros reaproveitam), sem Abelha.
+  const [estudo, setEstudo] = useState(salvo.v === 3 ? salvo.estudo : '1')
+  const [abelha, setAbelha] = useState(salvo.v === 3 ? Boolean(salvo.abelha) : false)
   const [comVideo, setComVideo] = useState(salvo.comVideo !== false)
   const [rodando, setRodando] = useState(false)
   const [logs, setLogs] = useState([])
@@ -110,7 +110,7 @@ export default function Automatico() {
     const lista = nichos.split('\n').map((n) => n.trim()).filter(Boolean)
     if (!cidade.trim() || !lista.length) return
     try {
-      localStorage.setItem(CHAVE, JSON.stringify({ v: 2, cidade, nichos, porNicho, estudo, abelha, comVideo }))
+      localStorage.setItem(CHAVE, JSON.stringify({ v: 3, cidade, nichos, porNicho, estudo, abelha, comVideo }))
     } catch {
       /* sem storage */
     }
@@ -206,10 +206,10 @@ export default function Automatico() {
             <div>
               <label className="label" htmlFor="auto-estudo">Estudo do Gato (1 vez por nicho)</label>
               <select id="auto-estudo" className="input" value={estudo} onChange={(e) => setEstudo(e.target.value)} disabled={rodando}>
-                <option value="nenhum">Sem estudo — mais rápido (padrão)</option>
-                <option value="0">Estudo rápido</option>
-                <option value="70">70 segundos</option>
-                <option value="3">3 minutos</option>
+                <option value="1">1 minuto (padrão)</option>
+                <option value="0">Estudo rápido (~20 s)</option>
+                <option value="nenhum">Sem estudo — o mais rápido</option>
+                <option value="3min">3 minutos</option>
               </select>
             </div>
           </div>

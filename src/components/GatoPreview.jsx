@@ -3,7 +3,7 @@ import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye
 import { TEMAS } from '../lib/ClienteSite.jsx'
 import { gerarZipFinal, gravarVideoPrevia, guardarVideo, SEM_DOWNLOAD } from '../services/agents.js'
 import { setPipeline } from '../store/pipeline.js'
-import { fotosEmDataUrl, htmlDaPrevia, gravarPreviaNoNavegador, SANDBOX_PREVIA, CSS_MINIATURA } from '../lib/previa.jsx'
+import { fotosEmDataUrl, htmlDaPrevia, gravarPreviaNoNavegador, SANDBOX_PREVIA, CSS_MINIATURA, CSS_GRAVACAO } from '../lib/previa.jsx'
 
 function marcarSite(siteId, campos) {
   if (!siteId) return
@@ -52,6 +52,12 @@ export default function GatoPreview({ preview }) {
   const srcDoc = useMemo(
     () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia }, fotosUrl) : ''),
     [preview, tema, modelo, efeitos, hero, galeria, conteudoPrevia, fotosUrl],
+  )
+  // Versão para o vídeo: sem água e sem granulado (no vídeo comprimido parecem defeito). O quadro mostra esta
+  // versão enquanto grava.
+  const srcDocGravacao = useMemo(
+    () => (gravando && fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia }, fotosUrl, CSS_GRAVACAO, { agua: false }) : ''),
+    [gravando, preview, tema, modelo, efeitos, hero, galeria, conteudoPrevia, fotosUrl],
   )
   // Miniaturas dos temas lado a lado (mesma prévia real do cliente, só trocando o tema).
   const temasLado = ['noite', 'claro', 'studio', 'vibrante', ...(modelo ? ['modelo'] : [])]
@@ -121,7 +127,8 @@ export default function GatoPreview({ preview }) {
       const status = gravarAqui.current ? null : await fetch('/api/status').then((r) => r.json()).catch(() => null)
       let blob = null
       if (status?.keys?.videoServidor) {
-        blob = await gravarVideoPrevia(srcDoc, preview.siteId).catch(() => null) // falhou: grava aqui mesmo
+        const html = htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia }, fotosUrl, CSS_GRAVACAO, { agua: false })
+        blob = await gravarVideoPrevia(html, preview.siteId).catch(() => null) // falhou: grava aqui mesmo
         if (!blob) {
           gravarAqui.current = true
           // O navegador só deixa gravar a tela logo depois de um clique.
@@ -250,7 +257,7 @@ export default function GatoPreview({ preview }) {
           style={{ maxWidth: device === 'mobile' ? 390 : '100%' }}
         >
           {srcDoc ? (
-            <iframe ref={quadro} title="Prévia do site" srcDoc={srcDoc} sandbox={SANDBOX_PREVIA} className="block w-full h-[640px]" />
+            <iframe ref={quadro} title="Prévia do site" srcDoc={srcDocGravacao || srcDoc} sandbox={SANDBOX_PREVIA} className="block w-full h-[640px]" />
           ) : (
             <div className="grid h-[640px] place-items-center text-slate-500">
               <Loader2 className="animate-spin" />

@@ -63,8 +63,8 @@ e "Leão Dourado" foi unificado como **Leão**.
   - `POST /api/gato/aprofundar` (`aprofundar(categoria, rodada, lidos)`) — uma rodada do **estudo de 3 minutos**:
     2 buscas BR de sites reais do ramo (sem vitrines/redes/diretórios, `NAO_E_SITE_DO_RAMO`) + leitura com `branding`
     de até 6 páginas iniciais novas (8 pedidos). O Gato (`gato()` em `src/services/agents.js`) faz o estudo inicial e
-    uma rodada por minuto (`ESTUDOS`: **3 min** = rodadas 1–2, padrão escolhido pelo usuário; 5 min = rodadas 1–4;
-    70 s = rodada 1; rápido = só a inicial); cada rodada usa uma dupla de buscas diferente (`BUSCAS_POR_RODADA`);
+    uma rodada por minuto (`ESTUDOS`: **1 min** = rodada 1, padrão escolhido pelo usuário; `3min` = rodadas 1–2;
+    `5min` = rodadas 1–4; rápido = só a inicial; valores antigos '3'/'5'/'70' caem no padrão); cada rodada usa uma dupla de buscas diferente (`BUSCAS_POR_RODADA`);
     campo "Estudo" e botão "Encerrar estudo e gerar agora" (`encerrarEstudo`).
     `estiloDoEstudo` só usa leituras com `confianca` de cor ≥ `CONFIANCA_MINIMA` (0,5, vinda do `branding.confidence`)
     e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
@@ -178,8 +178,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   **Tela inicial:** botão "Iniciar inteligência artificial automática" — pede a gravação da aba no próprio clique
   (`guardarFluxo`), abre `/automatico?iniciar=1` (começa sozinho com `pegarFluxo()` e as opções salvas) e, ao terminar
   com clientes prontos, abre o Tigre.
-  **Rápido por padrão** (pedido do usuário: "só gravar o vídeo e mandar mensagem"): estudo do Gato `nenhum` (sem
-  Firecrawl, tema do segmento) e Abelha desligada (opções `v: 2` em `central-agentes:automatico`); vídeo de 9 s; o
+  **Rápido por padrão** (pedido do usuário: "só gravar o vídeo e mandar mensagem"): estudo do Gato de **1 minuto** só no
+  1º site de cada nicho (os outros reaproveitam; `nenhum` = sem estudo) e Abelha desligada (opções `v: 3` em
+  `central-agentes:automatico`); vídeo de 9 s; o
   vídeo + mensagem de um cliente (`finalizar`) roda enquanto o próximo site é montado (`montarSite`, fila `filaFinal`).
   Status do site: `preparando` → `revisar` (vídeo e mensagem prontos). O quadro de gravação fica montado a rodada
   inteira (`gravarComFluxo` só recorta de novo se o quadro mudar e tem tempo máximo em cada passo — antes o 2º vídeo travava).
@@ -187,8 +188,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   com vídeo e mensagem editável em **dois passos** (o wa.me só leva texto, e compartilhar vídeo + texto juntos faz o
   WhatsApp largar o vídeo): 1️⃣ vídeo — "Mandar o vídeo no WhatsApp" (Web Share só com o arquivo) / "Salvar vídeo (MP4)"
   (Downloads; anexar pelo 📎); 2️⃣ mensagem — "Aprovar e abrir no WhatsApp" (wa.me com DDI 55) / "Copiar"; mais "Ver
-  prévia", "Gerar outra", "Ajustar no Gato", "Descartar". Gravação prioriza MP4 H.264 (`TIPO_VIDEO`, 2,5 Mbps; o tipo do
-  blob guarda o codec) e avisa quando `videoAceitoNoWhatsApp` é falso;
+  prévia", "Gerar outra", "Ajustar no Gato", "Descartar". Gravação prioriza MP4 H.264 (`TIPO_VIDEO`, 4 Mbps, quadro-chave a cada 1 s; o
+  tipo do blob guarda o codec — "video/mp4" sem codec vira `codecs=vp9`, pois só é escolhido sem H.264) e avisa quando
+  `videoAceitoNoWhatsApp` é falso. O vídeo (automático e Gato) usa `htmlDaPrevia(..., CSS_GRAVACAO, { agua: false })`:
+  sem água e sem granulado, que no vídeo comprimido pareciam defeito ("vídeo bugado");
   "Já enviei" registra a mensagem (+ vídeo) na conversa (status `contatado`, site `aprovado`). Aba "Enviados" com selo e
   "Responder no Tigre" (`/agente/tigre?cliente=<id>` abre a conversa). O Tigre também mostra a fila (`FilaAprovacao.jsx`).
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;

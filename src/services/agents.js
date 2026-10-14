@@ -425,14 +425,15 @@ export async function lerPacoteLeao(blob) {
 }
 
 // ---------- 🐈‍⬛ Estudo longo do Gato ----------
-// Estudo antes de gerar (campo "Estudo"): 3 min (padrão) = inicial + 2 rodadas (uma por minuto — o plano grátis do
-// Firecrawl aceita ~10 pedidos/min); 5 min = 4 rodadas; 70 s = 1 rodada; rápido = só a inicial. "Encerrar" corta o tempo.
+// Estudo antes de gerar (campo "Estudo"): 1 min (padrão, pedido do usuário) = inicial + 1 rodada; 3 min = 2 rodadas
+// (uma por minuto — o plano grátis do Firecrawl aceita ~10 pedidos/min); 5 min = 4 rodadas; rápido = só a inicial.
+// Valores antigos guardados no navegador ('3', '5', '70') caem no padrão de 1 minuto. "Encerrar" corta o tempo.
 const ESTUDOS = {
-  3: { duracao: 3 * 60_000, rodadas: [1, 2] },
-  5: { duracao: 5 * 60_000, rodadas: [1, 2, 3, 4] },
-  70: { duracao: 70_000, rodadas: [1] },
+  1: { duracao: 60_000, rodadas: [1] },
+  '3min': { duracao: 3 * 60_000, rodadas: [1, 2] },
+  '5min': { duracao: 5 * 60_000, rodadas: [1, 2, 3, 4] },
 }
-let DURACAO_ESTUDO = ESTUDOS[3].duracao
+let DURACAO_ESTUDO = ESTUDOS[1].duracao
 const CONFIANCA_MINIMA = 0.5 // leitura de cores do Firecrawl abaixo disso não entra no estilo
 let encerrarAgora = false
 export const encerrarEstudo = () => (encerrarAgora = true)
@@ -573,7 +574,7 @@ async function gato(inputs, log, { sites, leads = [] }) {
   // Estudo longo: rodadas (uma por minuto) lendo sites reais do ramo, até completar o tempo escolhido.
   const estudados = guardado ? [...guardado.estudados] : []
   const estudoLongo = !guardado && inputs.estudo !== '0' && (referencias.length || modelos.length)
-  const plano = ESTUDOS[inputs.estudo] || ESTUDOS[3] // padrão: 3 minutos
+  const plano = ESTUDOS[inputs.estudo] || ESTUDOS[1] // padrão: 1 minuto
   DURACAO_ESTUDO = plano.duracao
   if (estudoLongo) {
     log('info', `Estudo de ${mmss(DURACAO_ESTUDO)}: lendo sites de verdade do ramo (cores, fontes e seções) — ou clique em "Encerrar estudo"`)

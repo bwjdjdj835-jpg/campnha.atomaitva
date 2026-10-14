@@ -8,7 +8,7 @@ import { runAgent, conferirSite, gerarZipFinal, gerarColmeia, lerPacoteLeao, gua
 import { lerZip } from '../lib/zipStore.js'
 import { lerPipeline, setPipeline } from '../store/pipeline.js'
 import { contatoDoLead } from '../lib/contato.js'
-import { fotosEmDataUrl, htmlDaPrevia } from '../lib/previa.jsx'
+import { fotosEmDataUrl, htmlDaPrevia, CSS_GRAVACAO } from '../lib/previa.jsx'
 
 export const NICHOS_PADRAO = [
   'barbearia',
@@ -90,7 +90,7 @@ export function pegarFluxo() {
 export const nichosFeitos = () => lerPipeline().auto?.feitos || []
 export const recomecarNichos = () => setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [] } }))
 
-// opcoes: { cidade, nichos, porNicho, estudo ('nenhum' | '0' | '70' | '3'), abelha }
+// opcoes: { cidade, nichos, porNicho, estudo ('1' = 1 minuto, padrão | '0' | 'nenhum' | '3min'), abelha }
 // ui: { log(level, msg), etapa({ nicho, comercio, passo }), parar() → bool, gravar(html, siteId) → Blob | null }
 export async function rodarAutomatico(opcoes, ui) {
   const { log, etapa, parar } = ui
@@ -211,8 +211,11 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
 
   passo('🐈‍⬛ Gato fazendo a prévia')
   const nichoGato = chave(lead.categoria || nicho)
-  if (estudo !== 'nenhum' && !estudados.has(nichoGato)) await gastar(9, log, parar)
+  const estudaAgora = estudo !== 'nenhum' && !estudados.has(nichoGato)
+  if (estudaAgora) await gastar(9, log, parar)
   const rg = await runAgent('gato', { site: siteId, estudo, reaproveitar: true }, onLog, lerPipeline())
+  // A rodada do estudo (1 minuto ou mais) também usou ~8 pedidos: entra na conta para o próximo site não levar 429.
+  if (estudaAgora && estudo !== '0') await gastar(8, log, parar)
   estudados.add(nichoGato)
   aplicar(rg)
   const pv = rg.preview
@@ -240,7 +243,7 @@ async function finalizar({ siteId, nome }, { nicho }, ui) {
   etapa({ nicho, comercio: nome, passo: '🎬 Gravando o vídeo da prévia' })
   try {
     const pacote = await lerPacoteLeao(await lerZip(`${siteId}:final`))
-    const html = htmlDaPrevia(pacote.dados, await fotosEmDataUrl(pacote.fotos))
+    const html = htmlDaPrevia(pacote.dados, await fotosEmDataUrl(pacote.fotos), CSS_GRAVACAO, { agua: false })
     const video = await gravar(html, siteId)
     if (video) {
       await guardarVideo(siteId, video)
