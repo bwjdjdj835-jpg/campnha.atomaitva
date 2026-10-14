@@ -8,7 +8,10 @@ const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
 ]
+// Cada servidor tem até 20 s; os públicos às vezes travam e respondem 504.
+const ESPERA_MS = 20000
 
 const norm = (s) =>
   String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
@@ -53,7 +56,10 @@ export function tagsDaCategoria(categoria) {
 
 async function areaDaCidade(cidade) {
   const url = `${NOMINATIM}?${new URLSearchParams({ q: `${cidade}, Brasil`, format: 'json', limit: '5', addressdetails: '0' })}`
-  const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'pt-BR' } })
+  const res = await fetch(url, {
+    headers: { 'User-Agent': UA, 'Accept-Language': 'pt-BR' },
+    signal: AbortSignal.timeout(ESPERA_MS),
+  })
   if (!res.ok) throw new Error(`OpenStreetMap (Nominatim): ${res.status}`)
   const lugares = await res.json()
   const rel = lugares.find((l) => l.osm_type === 'relation')
@@ -76,9 +82,13 @@ export function montarQuery(areaId, categoria) {
     const [k, v] = t.split('=')
     return `  nwr["${k}"="${v}"](area.a);`
   })
-  linhas.push(`  nwr["name"~"${nomeRe}",i]["shop"](area.a);`)
-  linhas.push(`  nwr["name"~"${nomeRe}",i]["amenity"](area.a);`)
-  linhas.push(`  nwr["name"~"${nomeRe}",i]["craft"](area.a);`)
+  // Procurar pelo nome (regex) numa cidade inteira é pesado e derruba o Overpass com 504;
+  // só usa quando a categoria não tem tag conhecida.
+  if (!tags.length) {
+    linhas.push(`  nwr["name"~"${nomeRe}",i]["shop"](area.a);`)
+    linhas.push(`  nwr["name"~"${nomeRe}",i]["amenity"](area.a);`)
+    linhas.push(`  nwr["name"~"${nomeRe}",i]["craft"](area.a);`)
+  }
   return `[out:json][timeout:25];
 area(id:${areaId})->.a;
 (
@@ -88,13 +98,14 @@ out center tags 150;`
 }
 
 async function overpass(query) {
-  let ultimoErro
+  const erros = []
   for (const url of OVERPASS) {
     try {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ data: query }),
+        signal: AbortSignal.timeout(ESPERA_MS),
       })
       if (!res.ok) throw new Error(`${res.status}`)
       // Servidor ocupado às vezes responde 200 com HTML de erro.
@@ -102,10 +113,10 @@ async function overpass(query) {
       if (!data) throw new Error('resposta inválida (servidor ocupado)')
       return data.elements || []
     } catch (e) {
-      ultimoErro = e
+      erros.push(`${new URL(url).hostname} ${e.name === 'TimeoutError' ? 'demorou demais' : e.message}`)
     }
   }
-  throw new Error(`OpenStreetMap (Overpass) indisponível: ${ultimoErro?.message}`)
+  throw new Error(`OpenStreetMap (Overpass) indisponível: ${erros.join(', ')}`)
 }
 
 const endereco = (t) =>
@@ -153,7 +164,7 @@ export async function buscarOsm({ categoria, cidade }, log) {
   const { areaId, nome } = await areaDaCidade(cidade)
   log('info', `Área: ${nome}`)
   const tags = tagsDaCategoria(categoria)
-  log('info', `Overpass: ${tags.length ? tags.join(', ') + ' + ' : ''}nome contendo "${categoria}"`)
+  log('info', `Overpass: ${tags.length ? tags.join(', ') : `nome contendo "${categoria}"`}`)
   const elementos = await overpass(montarQuery(areaId, categoria))
   const vistos = new Set()
   return elementos
