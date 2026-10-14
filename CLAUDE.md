@@ -103,7 +103,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   **recusa leve** ("não quero agora", "no momento não", "fica pra próxima") → UMA mensagem `olhada` ("só dá uma olhadinha
   no projeto, sem compromisso", `MODELOS.olhada`), marcada com `tipo: 'olhada'`; se recusar de novo, o Tigre não sugere
   mais nada). Na dúvida entre recusa e parar, vale parar (`OPT_OUT` vem antes de `RECUSA`).
-  **Robô** (resposta automática, menu, assistente virtual — regex `BOT`, intenção `bot`, status "Respondeu um robô") →
+  **Robô** (resposta automática, saudação do WhatsApp Business com horário/links de agendamento/"podemos demorar"/
+  "agradeço o contato"/"seja muito bem-vindo", menu, assistente virtual — regex `BOT`, intenção `bot`, status
+  "Respondeu um robô") →
   rascunho `pessoa` pedindo para falar com o responsável/alguém da equipe; `opcaoDeAtendente` acha no menu o número da
   opção "falar com atendente" (inclusive 2️⃣) e põe na 1ª linha da mensagem.
   **Conversa contínua:** toda resposta colada ("Ler e sugerir resposta") gera a próxima mensagem — interesse, dúvida e
@@ -197,8 +199,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   tipo do blob guarda o codec — "video/mp4" sem codec vira `codecs=vp9`, pois só é escolhido sem H.264) e avisa quando
   `videoAceitoNoWhatsApp` é falso. O vídeo (automático e Gato) usa `htmlDaPrevia(..., CSS_GRAVACAO, { agua: false })`:
   sem água e sem granulado, que no vídeo comprimido pareciam defeito ("vídeo bugado");
-  "Já enviei" registra a mensagem (+ vídeo) na conversa (status `contatado`, site `aprovado`). Aba "Enviados" com selo e
-  "Responder no Tigre" (`/agente/tigre?cliente=<id>` abre a conversa). O Tigre também mostra a fila (`FilaAprovacao.jsx`).
+  "Já enviei" registra a mensagem (+ vídeo) na conversa (status `contatado`, site `aprovado`). Aba "Enviados" com selo,
+  **"Ele respondeu"** (cola a resposta → `lerResposta` → mensagem sugerida → "Aprovar e abrir no WhatsApp" → "Já enviei"
+  = `registrarEnviada`) e "Conversa completa" (`/agente/tigre?cliente=<id>`). A lógica de ler a resposta e escolher a
+  próxima mensagem fica em `src/services/tigreConversa.js` (usada pelo `TigrePainel` e pelo Admin). O Tigre também mostra a fila (`FilaAprovacao.jsx`).
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência).
 

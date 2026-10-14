@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShieldCheck, CheckCircle2, Play, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
+import { ShieldCheck, CheckCircle2, Play, Inbox, Ban, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { videoDoSite, negocioDoSite, rascunho, lerPacoteLeao } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
+import { lerResposta, registrarEnviada } from '../services/tigreConversa.js'
 import { NICHOS_PADRAO, proximoNicho, prepararInicio } from '../services/automatico.js'
 import { lerOpcoes } from './Automatico.jsx'
 
@@ -138,21 +139,9 @@ export default function Admin() {
             <p className="p-10 text-center text-slate-400">Nenhuma mensagem enviada ainda.</p>
           ) : (
             <ul>
-              {enviados.map((s) => {
-                const c = conversas[s.id]
-                const selo = SELO_CONTATO[c.status] || SELO_CONTATO.contatado
-                const ultima = [...c.mensagens].reverse().find((m) => m.de === 'cliente')
-                return (
-                  <li key={s.id} className="flex flex-wrap items-center gap-3 border-t border-white/5 first:border-t-0 px-5 py-3 text-sm">
-                    <span className="font-medium text-white">{s.nome}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${selo.cor}`}>{selo.texto}</span>
-                    <span className="min-w-0 flex-1 truncate text-slate-400">{ultima ? `“${ultima.texto}”` : 'Sem resposta ainda'}</span>
-                    <Link to={`/agente/tigre?cliente=${s.id}`} className="btn-ghost border border-white/10 !py-1 !px-3 text-xs">
-                      <MessageCircle size={14} /> Responder no Tigre
-                    </Link>
-                  </li>
-                )
-              })}
+              {enviados.map((s) => (
+                <ConversaRapida key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} />
+              ))}
             </ul>
           )}
         </section>
@@ -344,5 +333,97 @@ function CartaoAprovar({ site, negocio, conversa }) {
         <iframe title={`Prévia — ${site.nome}`} srcDoc={previa} sandbox={SANDBOX_PREVIA} className="mt-4 w-full h-[70vh] rounded-xl border border-white/10 bg-white" />
       )}
     </article>
+  )
+}
+
+// Aba Enviados: cola a resposta do cliente (ou do robô dele) e já recebe a próxima mensagem sugerida, sem ir ao Tigre.
+function ConversaRapida({ site, negocio, conversa }) {
+  const [aberta, setAberta] = useState(false)
+  const [resposta, setResposta] = useState('')
+  const [sugestao, setSugestao] = useState(null) // { texto, tipo, aviso }
+  const [ocupado, setOcupado] = useState(false)
+  const [abriu, setAbriu] = useState(false)
+  const [erro, setErro] = useState(null)
+  const selo = SELO_CONTATO[conversa.status] || SELO_CONTATO.contatado
+  const ultima = [...conversa.mensagens].reverse().find((m) => m.de === 'cliente')
+  const bloqueado = conversa.status === 'nao_contatar'
+  const fone = foneWhats(negocio)
+
+  async function ler() {
+    setOcupado(true)
+    setErro(null)
+    try {
+      const r = await lerResposta(site.id, negocio, resposta.trim())
+      setResposta('')
+      setSugestao(r)
+      setAbriu(false)
+    } catch (e) {
+      setErro(e.message)
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  function jaEnviei() {
+    registrarEnviada(site.id, sugestao.texto, sugestao.tipo)
+    setSugestao(null)
+    setAbriu(false)
+  }
+
+  return (
+    <li className="border-t border-white/5 first:border-t-0 px-5 py-3 text-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-medium text-white">{site.nome}</span>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${selo.cor}`}>{selo.texto}</span>
+        <span className="min-w-0 flex-1 truncate text-slate-400">{ultima ? `“${ultima.texto}”` : 'Sem resposta ainda'}</span>
+        {!bloqueado && (
+          <button className={`btn-ghost border !py-1 !px-3 text-xs ${aberta ? 'border-neon/50 text-neon' : 'border-white/10'}`} onClick={() => setAberta(!aberta)}>
+            <Inbox size={14} /> Ele respondeu
+          </button>
+        )}
+        <Link to={`/agente/tigre?cliente=${site.id}`} className="btn-ghost !py-1 !px-2 text-xs text-slate-400">
+          <MessageCircle size={14} /> Conversa completa
+        </Link>
+      </div>
+      {bloqueado && (
+        <p className="mt-2 flex items-center gap-2 text-xs text-rose-300"><Ban size={14} /> Pediu para não receber mensagens — contato bloqueado.</p>
+      )}
+      {aberta && !bloqueado && (
+        <div className="mt-3 space-y-3 rounded-xl border border-white/10 p-4">
+          <label className="label" htmlFor={`resp-${site.id}`}>Cole aqui o que chegou no WhatsApp (do cliente ou da mensagem automática dele)</label>
+          <textarea id={`resp-${site.id}`} rows={3} className="input" value={resposta} onChange={(e) => setResposta(e.target.value)} />
+          <button className="btn-primary !py-2 !px-4 text-sm" onClick={ler} disabled={!resposta.trim() || ocupado}>
+            {ocupado ? <Loader2 size={16} className="animate-spin" /> : <Inbox size={16} />} Ler e sugerir resposta
+          </button>
+          {erro && <p className="text-xs text-rose-300">{erro}</p>}
+          {sugestao && (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-400">{sugestao.aviso}</p>
+              {sugestao.texto ? (
+                <>
+                  <textarea rows={4} className="input" value={sugestao.texto} onChange={(e) => setSugestao({ ...sugestao, texto: e.target.value })} />
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      className={`btn-primary !py-2 !px-4 text-sm ${!fone ? 'pointer-events-none opacity-40' : ''}`}
+                      href={`https://wa.me/${fone}?text=${encodeURIComponent(sugestao.texto)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setAbriu(true)}
+                    >
+                      <CheckCircle2 size={16} /> Aprovar e abrir no WhatsApp
+                    </a>
+                    {abriu && (
+                      <button className="btn-ghost border border-emerald-400/40 text-emerald-200 text-sm" onClick={jaEnviei}>
+                        <CheckCircle2 size={16} /> Já enviei
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
+    </li>
   )
 }

@@ -3,7 +3,8 @@ import {
   MessageCircle, Send, RefreshCw, Loader2, BellRing, Ban, CheckCircle2, Rocket, ExternalLink, Inbox, Link2, Video, Download, Copy, Share2, ShieldAlert,
 } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
-import { negocioDoSite, rascunho, classificar, enviarPelaApi, publicarSite, videoDoSite, enviarVideoPelaApi } from '../services/agents.js'
+import { lerResposta, atualizarConversa } from '../services/tigreConversa.js'
+import { negocioDoSite, rascunho, enviarPelaApi, publicarSite, videoDoSite, enviarVideoPelaApi } from '../services/agents.js'
 
 const STATUS = {
   novo: { rotulo: 'Ainda não contatado', cor: 'bg-white/5 text-slate-300' },
@@ -17,14 +18,7 @@ const STATUS = {
   publicado: { rotulo: 'Site no ar', cor: 'bg-neon/15 text-neon-soft' },
 }
 
-const STATUS_DA_INTENCAO = { interesse: 'interessado', duvida: 'duvida', recusa: 'recusou', bot: 'bot', nao_contatar: 'nao_contatar', outro: 'contatado' }
 
-function atualizarConversa(siteId, fn) {
-  setPipeline((s) => {
-    const atual = s.conversas?.[siteId] || { status: 'novo', mensagens: [] }
-    return { conversas: { ...s.conversas, [siteId]: { ...atual, ...fn(atual) } } }
-  })
-}
 
 function marcarSite(siteId, status) {
   setPipeline((s) => ({ sites: s.sites.map((x) => (x.id === siteId ? { ...x, status } : x)) }))
@@ -117,46 +111,11 @@ export default function TigrePainel({ siteId, rascunhoInicial, keys }) {
 
   const registrarResposta = () =>
     tarefa('classificar', async () => {
-      const r = await classificar(resposta)
-      const novoStatus = STATUS_DA_INTENCAO[r.intencao] || 'contatado'
-      atualizarConversa(siteId, (c) => ({
-        mensagens: [...c.mensagens, { de: 'cliente', texto: resposta, at: new Date().toISOString(), intencao: r.intencao }],
-        status: ['vendido', 'publicado'].includes(c.status) ? c.status : novoStatus,
-      }))
+      const r = await lerResposta(siteId, negocio, resposta, { temVideo: Boolean(video) })
       setResposta('')
-      setAviso(`Leitura da resposta: ${r.resumo}`)
-      if (r.intencao === 'nao_contatar') {
-        setTexto('')
-        return
-      }
-      const historico = [...conversa.mensagens, { de: 'cliente', texto: resposta }]
-      setTipoRascunho(null)
-      // O Tigre sempre sugere a próxima mensagem (menos quando pediram para parar). Você confere e envia.
-      if (r.intencao === 'bot') {
-        // Robô (resposta automática / menu): pede para falar com uma pessoa, escolhendo a opção de atendente se houver.
-        setTexto((await rascunho('pessoa', negocio, historico)).texto)
-        setTipoRascunho('pessoa')
-        setAviso(
-          `Quem respondeu foi um robô (atendimento automático).${r.opcao ? ` O menu tem a opção ${r.opcao} para falar com atendente — já coloquei na mensagem.` : ''} Sugestão: pedir para falar com o responsável ou alguém da equipe.`,
-        )
-      } else if (r.intencao === 'recusa') {
-        // "Não quero agora": uma única mensagem leve de "só dá uma olhada". Se recusar de novo, só agradece e encerra.
-        if (conversa.mensagens.some((m) => m.tipo === 'olhada')) {
-          setTexto((await rascunho('despedida', negocio, historico)).texto)
-          setTipoRascunho('despedida')
-          setAviso('Recusou de novo depois do "só dá uma olhada" — sugestão: só agradecer e encerrar, sem insistir.')
-        } else {
-          setTexto((await rascunho('olhada', negocio, historico)).texto)
-          setTipoRascunho('olhada')
-          setAviso(
-            `Leitura da resposta: ${r.resumo} Sugestão: uma mensagem leve, só pra ele dar uma olhada no projeto${video ? ' (mande o vídeo da prévia junto)' : ''}. Só uma vez — sem insistir.`,
-          )
-        }
-      } else {
-        // Interesse, pergunta ou qualquer outra coisa (preço, "quem é?", engano, desconfiança…): responde o que ele disse.
-        setTexto((await rascunho('resposta', negocio, historico)).texto)
-        setAviso(`Leitura da resposta: ${r.resumo} A resposta sugerida está na caixa acima — confira e envie pelo seu WhatsApp.`)
-      }
+      setTexto(r.texto)
+      setTipoRascunho(r.tipo)
+      setAviso(r.aviso)
     })
 
   const enviarVideo = () =>

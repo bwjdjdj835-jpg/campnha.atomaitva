@@ -119,7 +119,7 @@ const Classificacao = z.object({
 })
 
 const CLASSIFICAR =
-  'Classifique a resposta recebida no WhatsApp depois de oferecermos um site a um comerciante. "bot" = quem respondeu foi um robô: resposta automática, menu de opções, assistente virtual, "em breve retornaremos", boas-vindas automáticas. "nao_contatar" = uma pessoa pediu para parar de receber mensagens (na dúvida entre recusa e nao_contatar, escolha nao_contatar). "interesse" = quer ver, saber preço ou fechar. "duvida" = pergunta sem decidir. "recusa" = não quer, mas sem pedir para parar. Resumo em uma frase curta em português.'
+  'Classifique a resposta recebida no WhatsApp depois de oferecermos um site a um comerciante. "bot" = quem respondeu foi um robô: saudação automática do WhatsApp Business (boas-vindas com horário de atendimento, links de agendamento, "podemos demorar para responder", "agradeço o contato"), menu de opções, assistente virtual, "em breve retornaremos". "nao_contatar" = uma pessoa pediu para parar de receber mensagens (na dúvida entre recusa e nao_contatar, escolha nao_contatar). "interesse" = quer ver, saber preço ou fechar. "duvida" = pergunta sem decidir. "recusa" = não quer, mas sem pedir para parar. Resumo em uma frase curta em português.'
 
 export async function classificarResposta(texto) {
   const ia = provedorIA()
