@@ -175,6 +175,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   (8 pedidos/min). Vídeo: servidor local grava sozinho; no Vercel `pedirGravacaoDaAba()` UMA vez no clique de começar e
   `gravarComFluxo(stream, iframe)` por cliente (iframe fixo no canto). Nichos concluídos ficam em `pipeline.auto.feitos`
   (continua de onde parou; "Recomeçar do 1º nicho"). Wake Lock + aviso ao fechar a aba.
+  **Tela inicial:** botão "Iniciar inteligência artificial automática" — pede a gravação da aba no próprio clique
+  (`guardarFluxo`), abre `/automatico?iniciar=1` (começa sozinho com `pegarFluxo()` e as opções salvas) e, ao terminar
+  com clientes prontos, abre o Tigre.
   No Tigre, `FilaAprovacao.jsx` lista os `revisar` (vídeo + mensagem): "Aprovar prévia e mensagem" → status `aprovado`
   e abre o `TigrePainel` com o rascunho; "Ajustar no Gato" / "Descartar".
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;

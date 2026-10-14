@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bot, Loader2, Play, Square, Video, RotateCcw, ArrowRight } from 'lucide-react'
 import LogConsole from '../components/LogConsole.jsx'
 import { usePipeline } from '../store/pipeline.js'
 import { SELO_CONTATO } from '../lib/contato.js'
-import { NICHOS_PADRAO, rodarAutomatico, nichosFeitos, recomecarNichos, pararEstudo } from '../services/automatico.js'
+import { NICHOS_PADRAO, rodarAutomatico, nichosFeitos, recomecarNichos, pararEstudo, pegarFluxo } from '../services/automatico.js'
 import { gravarVideoPrevia } from '../services/agents.js'
 import { pedirGravacaoDaAba, gravarComFluxo, SANDBOX_PREVIA } from '../lib/previa.jsx'
 
 const CHAVE = 'central-agentes:automatico'
-const lerOpcoes = () => {
+export const lerOpcoes = () => {
   try {
     return JSON.parse(localStorage.getItem(CHAVE) || '{}')
   } catch {
@@ -35,6 +35,8 @@ export default function Automatico() {
   const quadro = useRef(null)
   const carregou = useRef(null)
   const keys = useStatus()
+  const navigate = useNavigate()
+  const [busca, setBusca] = useSearchParams()
   const { sites, conversas } = usePipeline()
   const feitos = nichosFeitos()
 
@@ -88,7 +90,25 @@ export default function Automatico() {
     }
   }
 
-  async function comecar() {
+  // Veio do botão "Iniciar inteligência artificial automática" da tela inicial: começa sozinho.
+  useEffect(() => {
+    if (keys === undefined || busca.get('iniciar') !== '1') return
+    setBusca({}, { replace: true })
+    comecar(pegarFluxo())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keys])
+
+  function ligarFluxo(f) {
+    fluxo.current = f
+    f.getVideoTracks()[0].addEventListener('ended', () => {
+      fluxo.current = null
+      log('warn', '🎬 Você parou de compartilhar a aba — os próximos clientes ficam sem vídeo')
+    })
+    log('ok', '🎬 Gravação autorizada — vale para todos os vídeos desta rodada')
+  }
+
+  // fluxoPronto: autorização já dada na tela inicial (undefined = pedir agora; null = ficou sem vídeo).
+  async function comecar(fluxoPronto) {
     const lista = nichos.split('\n').map((n) => n.trim()).filter(Boolean)
     if (!cidade.trim() || !lista.length) return
     try {
@@ -100,14 +120,11 @@ export default function Automatico() {
     setResumo(null)
     pararRef.current = false
     // A autorização para gravar precisa vir logo depois do clique: pede uma vez, vale para a rodada inteira.
-    if (comVideo && !keys?.videoServidor) {
+    if (fluxoPronto) ligarFluxo(fluxoPronto)
+    else if (fluxoPronto === null) log('warn', '🎬 Gravação não autorizada — seguindo sem vídeo (dá para gravar depois no Gato)')
+    else if (comVideo && !keys?.videoServidor) {
       try {
-        fluxo.current = await pedirGravacaoDaAba()
-        fluxo.current.getVideoTracks()[0].addEventListener('ended', () => {
-          fluxo.current = null
-          log('warn', '🎬 Você parou de compartilhar a aba — os próximos clientes ficam sem vídeo')
-        })
-        log('ok', '🎬 Gravação autorizada — vale para todos os vídeos desta rodada')
+        ligarFluxo(await pedirGravacaoDaAba())
       } catch (e) {
         log('warn', `🎬 ${e.message} Seguindo sem vídeo.`)
       }
@@ -120,6 +137,11 @@ export default function Automatico() {
       )
       setResumo(r)
       log(pararRef.current ? 'warn' : 'ok', `${pararRef.current ? 'Parado' : 'Rodada concluída'}: ${r.prontos} cliente(s) pronto(s) para aprovar · ${r.pulados} pulado(s) · ${r.erros} com erro`)
+      // Terminou com clientes prontos: vai para o Tigre, onde estão os vídeos e as mensagens de cada um.
+      if (!pararRef.current && r.prontos > 0) {
+        log('ok', 'Abrindo o 🐯 Tigre com os clientes prontos…')
+        setTimeout(() => navigate('/agente/tigre'), 2500)
+      }
     } catch (e) {
       log('error', e.message)
     } finally {
@@ -211,7 +233,7 @@ export default function Automatico() {
               <Square size={18} /> Parar (termina o passo atual)
             </button>
           ) : (
-            <button onClick={comecar} disabled={keys === undefined} className="btn-primary w-full text-base py-4">
+            <button onClick={() => comecar()} disabled={keys === undefined} className="btn-primary w-full text-base py-4">
               <Play size={20} /> Começar o automático
             </button>
           )}

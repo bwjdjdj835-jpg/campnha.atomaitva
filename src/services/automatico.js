@@ -77,6 +77,16 @@ function aplicar(res) {
 const atualizarLead = (id, campos) => setPipeline((s) => ({ leads: s.leads.map((l) => (l.id === id ? { ...l, ...campos } : l)) }))
 const marcarSite = (id, campos) => setPipeline((s) => ({ sites: s.sites.map((x) => (x.id === id ? { ...x, ...campos } : x)) }))
 
+// Autorização de gravação pedida no clique da tela inicial (o navegador só pergunta logo depois de um clique);
+// a página do automático pega e usa. null = sem vídeo.
+let fluxoPronto
+export const guardarFluxo = (f) => (fluxoPronto = f)
+export function pegarFluxo() {
+  const f = fluxoPronto
+  fluxoPronto = undefined
+  return f
+}
+
 export const nichosFeitos = () => lerPipeline().auto?.feitos || []
 export const recomecarNichos = () => setPipeline((s) => ({ auto: { ...(s.auto || {}), feitos: [] } }))
 
