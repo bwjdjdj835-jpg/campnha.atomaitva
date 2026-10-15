@@ -317,6 +317,16 @@ e "Leão Dourado" foi unificado como **Leão**.
   cores no navegador (cor mais comum = fundo; mais comum bem colorida = destaque). O Castor aplica sozinho a de maior nota
   (selo "🏆 ESCOLHA DO CASTOR"); cada card mostra a sua imagem ou "👁️ Ver como fica no site real". O Gato copia cores, fonte e
   clima — o layout continua o do `ClienteSite`.
+- **🐈‍⬛ Gato monta o site IGUAL à imagem** (pedido do usuário: "a prévia ficou com a cara dos modelos antigos, não da imagem que
+  anexei"): escolher uma imagem enviada no Castor (`p.enviada`, inclusive a escolha automática da melhor) chama `montarPelaImagem`
+  no `GatoPreview` → `gerarSiteDaImagem` (`src/lib/siteProprio.js`) → `POST /api/gato/site-da-imagem` (`server/siteDaImagem.js`):
+  a IA lê a imagem e devolve UMA página HTML (layout, cores, fontes) com os dados reais do comércio e as fotos como `{{FOTO_n}}`.
+  IA: Gemini (`GEMINI_API_KEY`, `GEMINI_TEXT_MODEL` → `gemini-flash-latest` → `gemini-2.5-flash`) e, sem ele, Groq com visão.
+  `limparHtml` tira `<script>`, iframes, eventos `on*`, `javascript:`, `<img>` de fora e `<link>` que não é do Google Fonts.
+  O HTML vai em `dados.htmlProprio`: `htmlDaPrevia` usa ele no lugar do `ClienteSite` (troca as fotos por `trocarFotos` e põe
+  `<base>` + o script do passeio do vídeo), então prévia, vídeo, Aranha e ZIP final saem iguais; no ZIP o `index.html` é a
+  própria página (fotos em `public/fotos`). Faixa acima da prévia: montando / pronto (qual IA) / erro, "Gerar de novo" e
+  "Voltar ao modelo padrão"; trocar de tema também volta ao padrão. Textos editados depois só entram com "Gerar de novo".
 - **Time completo no menu e na tela inicial** (`src/data/equipe.js`, pedido do usuário): Pinguim → Leão → 🦫 Castor (abre o
   Gato) → Gato → Abelha → Tigre → 🕷️ Aranha (`/admin`) → 🦅 Águia (`/aguia`).
 - **🦅 Águia** (`src/pages/Aguia.jsx`, `src/lib/aguia.js`, `server/aguia.js`): números do processo (`numerosDaAguia`), o que

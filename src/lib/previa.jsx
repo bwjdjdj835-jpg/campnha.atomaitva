@@ -1,5 +1,6 @@
 // Monta o HTML da prévia do site do cliente (mesmo componente que vai no ZIP), com o CSS compilado
 // e o efeito de água embutidos. Usado pelo Leão (conferir dados e fotos) e pelo Gato Negro (aprovação).
+import { trocarFotos } from './siteProprio.js'
 import { renderToStaticMarkup } from 'react-dom/server'
 import Site, { fonteDoSite } from './ClienteSite.jsx'
 import clienteCss from './cliente.css?inline'
@@ -75,7 +76,16 @@ export function linkDaFonte(dados) {
 
 // cssExtra: miniaturas dos temas (capa mais baixa) ou gravação do vídeo (sem granulado).
 // agua: false na gravação — as ondas na foto parecem defeito no vídeo comprimido.
+function htmlDoSiteProprio(dados, fotosUrl, cssExtra) {
+  const html = trocarFotos(dados.htmlProprio, dados.imagens, (a) => fotosUrl[a] || '')
+  const cabeca = `<base target="_blank">${cssExtra ? `<style>${cssExtra}</style>` : ''}`
+  const comCabeca = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (h) => h + cabeca) : cabeca + html
+  const passeio = `<script>${passeioScript}</script>`
+  return /<\/body>/i.test(comCabeca) ? comCabeca.replace(/<\/body>/i, passeio + '</body>') : comCabeca + passeio
+}
+
 export function htmlDaPrevia(dados, fotosUrl, cssExtra = '', { agua = true } = {}) {
+  if (dados.htmlProprio) return htmlDoSiteProprio(dados, fotosUrl, cssExtra)
   const comFotos = {
     ...dados,
     imagens: (dados.imagens || [])
