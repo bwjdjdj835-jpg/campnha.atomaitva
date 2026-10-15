@@ -40,14 +40,37 @@ export default function FotosDoSite({ preview, onMudar }) {
   function trocar(lista) {
     const carimbo = Date.now().toString(36)
     const novas = lista.map((x, i) => ({ ...x, caminho: `/fotos/foto-${i + 1}-${carimbo}.${ext(x.blob.type)}` }))
+    // Os pares de Antes e Depois seguem as fotos (que foram renumeradas); par com foto tirada sai.
+    const novoCaminho = Object.fromEntries(novas.filter((x) => x.antigo).map((x) => [x.antigo, x.caminho]))
+    const antesDepois = (preview.dados.antesDepois || [])
+      .map((p) => ({ ...p, antes: novoCaminho[p.antes], depois: novoCaminho[p.depois] }))
+      .filter((p) => p.antes && p.depois)
     onMudar({
       ...preview,
       fotos: novas.map((x) => ({ caminho: x.caminho, blob: x.blob })),
-      dados: { ...preview.dados, imagens: novas.map((x) => ({ ...x.imagem, arquivo: x.caminho })) },
+      dados: { ...preview.dados, imagens: novas.map((x) => ({ ...x.imagem, arquivo: x.caminho })), antesDepois },
     })
   }
   const atuais = () =>
-    preview.fotos.map((f) => ({ blob: f.blob, imagem: imagens.find((i) => i.arquivo === f.caminho) || { nomeOriginal: 'foto' } }))
+    preview.fotos.map((f) => ({ blob: f.blob, antigo: f.caminho, imagem: imagens.find((i) => i.arquivo === f.caminho) || { nomeOriginal: 'foto' } }))
+
+  // ↔️ Antes e Depois (biblioteca do Gato): você escolhe o par de fotos reais do comércio.
+  const pares = preview.dados.antesDepois || []
+  const [antes, setAntes] = useState('')
+  const [depois, setDepois] = useState('')
+  const [legenda, setLegenda] = useState('')
+  const mudarDados = (campos) => onMudar({ ...preview, dados: { ...preview.dados, ...campos } })
+  function adicionarPar() {
+    if (!antes || !depois || antes === depois) return setAviso('Escolha uma foto para o ANTES e outra para o DEPOIS.')
+    mudarDados({ antesDepois: [...pares, { antes, depois, legenda: legenda.trim() || undefined }] })
+    setAntes('')
+    setDepois('')
+    setLegenda('')
+    setAviso('✅ Antes e Depois adicionado — arraste a linha na prévia.')
+  }
+  const numeroDa = (arquivo) => preview.fotos.findIndex((f) => f.caminho === arquivo) + 1
+  const agendaAtual = typeof preview.dados.agendamento === 'string' ? preview.dados.agendamento : preview.dados.agendamento?.url || ''
+  const [agenda, setAgenda] = useState(agendaAtual)
 
   async function adicionar(arquivos) {
     const lista = [...arquivos].filter((a) => a.type.startsWith('image/')).slice(0, MAX - preview.fotos.length)
@@ -67,7 +90,7 @@ export default function FotosDoSite({ preview, onMudar }) {
     <div className="space-y-3 border-b border-white/5 px-5 py-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1">
-          <div className="font-display font-semibold text-white">📸 Fotos do site ({preview.fotos.length})</div>
+          <div className="font-display font-semibold text-white">📸 Fotos e peças do site ({preview.fotos.length} fotos)</div>
           <p className="text-xs text-slate-400">
             {preview.fotos.length < 4
               ? 'Poucas fotos. Mande fotos do comércio (salve as fotos do Maps ou do Instagram dele no celular e escolha aqui).'
@@ -110,6 +133,77 @@ export default function FotosDoSite({ preview, onMudar }) {
           ))}
         </div>
       )}
+      {preview.fotos.length >= 2 && (
+        <div className="space-y-2 rounded-xl border border-white/10 p-3">
+          <div className="text-sm font-medium text-white">↔️ Antes e Depois (o visitante arrasta a linha para comparar)</div>
+          <p className="text-xs text-slate-400">Só com fotos reais do comércio — ex.: corte antes e depois, carro antes e depois do polimento.</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-xs text-slate-400">
+              Antes
+              <select className="input !py-1.5" value={antes} onChange={(e) => setAntes(e.target.value)}>
+                <option value="">Foto…</option>
+                {preview.fotos.map((f, i) => (
+                  <option key={f.caminho} value={f.caminho}>
+                    Foto {i + 1}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-400">
+              Depois
+              <select className="input !py-1.5" value={depois} onChange={(e) => setDepois(e.target.value)}>
+                <option value="">Foto…</option>
+                {preview.fotos.map((f, i) => (
+                  <option key={f.caminho} value={f.caminho}>
+                    Foto {i + 1}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="min-w-[10rem] flex-1 text-xs text-slate-400">
+              Legenda (opcional)
+              <input className="input !py-1.5" value={legenda} onChange={(e) => setLegenda(e.target.value)} placeholder="Ex.: Degradê com barba" />
+            </label>
+            <button className="btn-primary !py-2 !px-3 text-sm" onClick={adicionarPar}>
+              Adicionar
+            </button>
+          </div>
+          {pares.length > 0 && (
+            <ul className="flex flex-wrap gap-2 text-xs">
+              {pares.map((p, i) => (
+                <li key={i} className="flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-slate-200">
+                  Foto {numeroDa(p.antes)} → Foto {numeroDa(p.depois)}
+                  {p.legenda && <span className="text-slate-400">· {p.legenda}</span>}
+                  <button className="text-rose-300" title="Tirar" onClick={() => mudarDados({ antesDepois: pares.filter((_, j) => j !== i) })}>
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      <div className="space-y-2 rounded-xl border border-white/10 p-3">
+        <div className="text-sm font-medium text-white">📅 Agendamento online (link do próprio comércio)</div>
+        <p className="text-xs text-slate-400">
+          Calendly ou Cal.com aparecem como agenda dentro do site; outro link (Booksy, Trinks, Google Agenda…) vira o botão "Agendar online". Sem
+          link, o site agenda pelo WhatsApp.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <input className="input min-w-[14rem] flex-1 !py-1.5" value={agenda} onChange={(e) => setAgenda(e.target.value)} placeholder="https://calendly.com/…" />
+          <button
+            className="btn-ghost border border-white/10 !py-1.5 !px-3 text-sm"
+            onClick={() => {
+              const url = agenda.trim()
+              if (url && !/^https:\/\/\S+$/.test(url)) return setAviso('Cole o link completo, começando com https://')
+              mudarDados({ agendamento: url ? { url } : undefined })
+              setAviso(url ? '✅ Agendamento adicionado ao site.' : 'Agendamento tirado do site.')
+            }}
+          >
+            {agendaAtual ? 'Salvar link' : 'Adicionar ao site'}
+          </button>
+        </div>
+      </div>
       {aviso && <p className="text-xs text-slate-300">{aviso}</p>}
     </div>
   )

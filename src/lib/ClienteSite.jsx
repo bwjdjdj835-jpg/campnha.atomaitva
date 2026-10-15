@@ -137,6 +137,21 @@ function estiloDoModelo(modelo) {
 }
 
 // Fonte do Google Fonts do site (nunca a fonte genérica do sistema): a do modelo/Castor ou a do tema.
+// Link de agendamento do comércio: Calendly e Cal.com entram como agenda dentro da página; outros viram botão.
+export function linkDeAgenda(ag) {
+  const url = ag && (typeof ag === 'string' ? ag : ag.url)
+  if (!url || !/^https:\/\//.test(url)) return null
+  let host = ''
+  try {
+    host = new URL(url).hostname.replace(/^www\./, '')
+  } catch (e) {
+    return null
+  }
+  if (host === 'calendly.com') return { url, embutir: url + (url.indexOf('?') < 0 ? '?' : '&') + 'hide_gdpr_banner=1' }
+  if (host === 'cal.com' || host.endsWith('.cal.com')) return { url, embutir: url + (url.indexOf('?') < 0 ? '?' : '&') + 'embed=true' }
+  return { url, embutir: null }
+}
+
 export function fonteDoSite(dados) {
   const doModelo = dados.tema === 'modelo' && dados.modelo && dados.modelo.estilo && dados.modelo.estilo.fonte
   const fonte = doModelo || (TEMAS[dados.tema] && TEMAS[dados.tema].fonte) || 'Plus Jakarta Sans'
@@ -160,7 +175,15 @@ export default function Site({ dados }) {
   const doModelo = dados.tema === 'modelo' && dados.modelo
   const t = (doModelo ? TEMAS.modelo : TEMAS[dados.tema === 'modelo' ? 'noite' : dados.tema]) || TEMAS.claro
   const capa = imagens[0]
-  const galeria = imagens.slice(1)
+  // Antes e Depois: só com fotos reais que você marcou no Gato (par de fotos do próprio comércio).
+  const fotoPor = (arquivo) => imagens.filter((i) => i.arquivo === arquivo)[0]
+  const pares = (dados.antesDepois || [])
+    .map((p) => ({ antes: fotoPor(p.antes), depois: fotoPor(p.depois), legenda: p.legenda }))
+    .filter((p) => p.antes && p.depois && p.antes !== p.depois)
+  const noPar = (img) => pares.some((p) => p.antes === img || p.depois === img)
+  const galeria = imagens.slice(1).filter((img) => !noPar(img))
+  // Agendamento online: link real do comércio (Calendly / Cal.com viram agenda na página; outros, um botão).
+  const agenda = linkDeAgenda(dados.agendamento)
   const telefone = negocio.telefone && negocio.telefone !== '—' ? negocio.telefone : null
   const cidade = (negocio.endereco || '').split(' - ').slice(-2).join(' - ').replace(/,?\s*\d{5}-?\d{3}.*$/, '')
   const mapa =
@@ -172,6 +195,7 @@ export default function Site({ dados }) {
     servicos.length && ['#servicos', 'Serviços'],
     galeria.length && ['#fotos', 'Fotos'],
     (depoimentos.length || nota) && ['#avaliacoes', 'Avaliações'],
+    agenda && ['#agendar', 'Agendar'],
     ['#contato', 'Contato'],
   ].filter(Boolean)
   const rotulo = 'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento
@@ -204,7 +228,7 @@ export default function Site({ dados }) {
           ))}
         </div>
         {negocio.whatsapp && (
-          <a href={negocio.whatsapp} {...fx({ 'data-magnetico': '' })} className={'ml-auto shrink-0 rounded-full px-4 py-2 text-sm font-semibold sm:ml-0 ' + t.botao}>
+          <a href={negocio.whatsapp} {...fx({ 'data-magnetico': '' })} className={'micro ml-auto shrink-0 rounded-full px-4 py-2 text-sm font-semibold sm:ml-0 ' + t.botao}>
             Agendar
           </a>
         )}
@@ -245,7 +269,7 @@ export default function Site({ dados }) {
           {conteudo.slogan && <p className="anim-subir anim-atraso-2 mt-5 max-w-2xl text-xl text-white/90 sm:text-2xl">{conteudo.slogan}</p>}
           <div className="anim-subir anim-atraso-3 mt-8 flex flex-wrap items-center gap-3">
             {negocio.whatsapp && (
-              <a href={negocio.whatsapp} {...fx({ 'data-magnetico': '' })} className={'inline-flex items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-lg ' + t.botao}>
+              <a href={negocio.whatsapp} {...fx({ 'data-magnetico': '' })} className={'micro inline-flex items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-lg ' + t.botao}>
                 Agendar pelo WhatsApp →
               </a>
             )}
@@ -392,6 +416,7 @@ export default function Site({ dados }) {
                   <div
                     key={img.arquivo}
                     {...fx({ 'data-cascata': '' })}
+                    data-esqueleto=""
                     className={'group overflow-hidden rounded-3xl ' + (i % 6 === 0 ? 'col-span-2 row-span-2' : i % 6 === 3 ? 'sm:col-span-2' : '')}
                   >
                     <img src={img.arquivo} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
@@ -404,6 +429,7 @@ export default function Site({ dados }) {
                   <div
                     key={img.arquivo}
                     {...fx({ 'data-cascata': '' })}
+                    data-esqueleto=""
                     className={
                       'group aspect-[4/3] overflow-hidden rounded-3xl ' +
                       (galeria.length === 1
@@ -420,6 +446,29 @@ export default function Site({ dados }) {
                 ))}
               </div>
             )}
+          </section>
+        )}
+
+        {/* Antes e Depois: arraste a linha para comparar (fotos reais do comércio) */}
+        {pares.length > 0 && (
+          <section id="antes-depois" {...fx({ 'data-revelar': '' })}>
+            <p className={rotulo}>Resultado</p>
+            <h2 className="mt-3 mb-3 text-4xl font-bold tracking-tight sm:text-5xl">Antes e depois</h2>
+            <p className={'mb-10 ' + t.texto}>Arraste a linha para comparar.</p>
+            <div className={'grid gap-6 ' + (pares.length > 1 ? 'md:grid-cols-2' : 'mx-auto max-w-3xl')}>
+              {pares.map((p) => (
+                <figure key={p.antes.arquivo + p.depois.arquivo} {...fx({ 'data-cascata': '' })} className="space-y-3">
+                  <div data-antes-depois="" data-esqueleto="" className={cartaoVidro + 'aspect-[4/5] sm:aspect-[4/3] ' + t.cartao}>
+                    <img src={p.depois.arquivo} alt={'Depois' + (p.legenda ? ': ' + p.legenda : '')} />
+                    <img src={p.antes.arquivo} alt={'Antes' + (p.legenda ? ': ' + p.legenda : '')} className="ad-antes" />
+                    <span className="ad-rotulo" style={{ left: 12 }}>Antes</span>
+                    <span className="ad-rotulo" style={{ right: 12 }}>Depois</span>
+                    <div data-ad-linha="" role="slider" tabIndex={0} aria-label="Comparar antes e depois" aria-valuemin={0} aria-valuemax={100} aria-valuenow={50} />
+                  </div>
+                  {p.legenda && <figcaption className={'text-sm ' + t.texto}>{p.legenda}</figcaption>}
+                </figure>
+              ))}
+            </div>
           </section>
         )}
 
@@ -502,6 +551,23 @@ export default function Site({ dados }) {
         )}
       </main>
 
+      {/* Agendamento online: a agenda do comércio dentro da página (Calendly / Cal.com) ou botão para a agenda dele */}
+      {agenda && (
+        <section id="agendar" {...fx({ 'data-revelar': '' })} className="mx-auto max-w-6xl px-6 py-20">
+          <p className={rotulo}>Agendamento</p>
+          <h2 className="mt-3 mb-8 text-4xl font-bold tracking-tight sm:text-5xl">Escolha seu horário</h2>
+          {agenda.embutir ? (
+            <div data-esqueleto="" className={cartaoVidro + 'overflow-hidden ' + t.cartao}>
+              <iframe src={agenda.embutir} title={'Agenda de ' + negocio.nome} loading="lazy" className="block h-[680px] w-full border-0 bg-white" />
+            </div>
+          ) : (
+            <a href={agenda.url} className={'micro inline-flex items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-lg ' + t.botao}>
+              📅 Agendar online
+            </a>
+          )}
+        </section>
+      )}
+
       {/* Chamada final gigante + contato + mapa em preto e branco que ganha cor no hover */}
       <section id="contato" {...fx({ 'data-revelar': '' })} className={'border-t ' + t.secao}>
         <div className="mx-auto max-w-6xl px-6 py-24">
@@ -526,7 +592,7 @@ export default function Site({ dados }) {
                   </a>
                 )}
                 {linkMaps && (
-                  <a className={'inline-flex items-center gap-2 rounded-full px-6 py-3 text-base font-semibold ' + t.botao} href={linkMaps}>
+                  <a className={'micro inline-flex items-center gap-2 rounded-full px-6 py-3 text-base font-semibold ' + t.botao} href={linkMaps}>
                     📍 Como chegar (Google Maps)
                   </a>
                 )}

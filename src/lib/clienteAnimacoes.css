@@ -120,3 +120,107 @@
 @media (prefers-reduced-motion: reduce) {
   .anim-palavra, .anim-pulso-suave { animation: none !important; }
 }
+
+/* ---------- Biblioteca do Gato: Antes e Depois, esqueletos e micro-interações ---------- */
+[data-antes-depois] {
+  --pos: 50%;
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y; /* o dedo arrasta na horizontal e a página continua rolando */
+  user-select: none;
+  cursor: ew-resize;
+}
+[data-antes-depois] img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+[data-antes-depois] .ad-antes {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--pos)) 0 0);
+}
+[data-antes-depois] [data-ad-linha] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--pos);
+  width: 3px;
+  margin-left: -1.5px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15), 0 0 24px rgba(0, 0, 0, 0.35);
+  outline: none;
+}
+[data-antes-depois] [data-ad-linha]::after {
+  content: '⟷';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  font-size: 18px;
+  transform: translate(-50%, -50%) scale(1);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease-in-out;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+[data-antes-depois]:hover [data-ad-linha]::after,
+[data-antes-depois] [data-ad-linha]:focus-visible::after {
+  transform: translate(-50%, -50%) scale(1.12);
+}
+[data-antes-depois].ad-arrastando [data-ad-linha]::after {
+  transform: translate(-50%, -50%) scale(0.94);
+}
+[data-antes-depois] .ad-rotulo {
+  position: absolute;
+  top: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+[data-esqueleto] {
+  background: linear-gradient(100deg, rgba(127, 127, 127, 0.14) 30%, rgba(127, 127, 127, 0.3) 50%, rgba(127, 127, 127, 0.14) 70%);
+  background-size: 300% 100%;
+  animation: esqueleto-brilho 1.4s ease-in-out infinite;
+}
+[data-esqueleto] img,
+img[data-esqueleto] {
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+}
+[data-esqueleto].esqueleto-pronto {
+  animation: none;
+  background: none;
+}
+[data-esqueleto].esqueleto-pronto img,
+img[data-esqueleto].esqueleto-pronto {
+  opacity: 1;
+}
+@keyframes esqueleto-brilho {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.micro {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease-in-out, background-color 0.3s ease-in-out, filter 0.3s ease-in-out;
+}
+.micro:hover { transform: translateY(-2px); }
+.micro:active { transform: translateY(0) scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-esqueleto] { animation: none; }
+  .micro, .micro:hover, .micro:active { transform: none; }
+}
