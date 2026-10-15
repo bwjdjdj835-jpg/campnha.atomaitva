@@ -2,13 +2,18 @@
 // https://apify.com/compass/crawler-google-places — a partir de US$ 1,50 por 1.000 lugares; precisa de APIFY_TOKEN.
 // Usa a API HTTP "run-sync-get-dataset-items": roda o ator e já devolve os lugares (até ~5 min).
 
+import { partesDaCidade } from './osm.js'
+
 const ATOR = 'nwua9Gu5YrADL7ZDj'
-const MAX_LUGARES = 20
+const MAX_LUGARES = 30
 
 export async function buscarApify({ categoria, cidade }) {
+  // "Cacoal - RO" → "Cacoal, Rondônia, Brasil" (o Maps acha a cidade certa, não uma homônima).
+  const lugar = partesDaCidade(cidade)
   const entrada = {
     searchStringsArray: [categoria],
-    locationQuery: `${cidade}, Brasil`,
+    locationQuery: [lugar.cidade || cidade, lugar.estado, 'Brasil'].filter(Boolean).join(', '),
+    countryCode: 'br',
     maxCrawledPlacesPerSearch: MAX_LUGARES,
     language: 'pt-BR',
     // Todos os lugares: quem tem só Instagram no campo "site" também interessa — o Pinguim separa depois.
@@ -18,6 +23,9 @@ export async function buscarApify({ categoria, cidade }) {
     maxImages: 0,
     maxReviews: 0,
     maxQuestions: 0,
+    scrapeContacts: false,
+    includeWebResults: false,
+    scrapeDirectories: false,
   }
   const res = await fetch(`https://api.apify.com/v2/acts/${ATOR}/run-sync-get-dataset-items?timeout=240`, {
     method: 'POST',

@@ -30,7 +30,8 @@ e "Leão Dourado" foi unificado como **Leão**.
     marca os leads como `sem_firecrawl` e devolve `semCreditoFirecrawl`; `/pinguim/conferir` responde 402 `SEM_CREDITO`.
     O Automático e o Pinguim mostram "Firecrawl ✓ (N créditos)" ou "❌ SEM CRÉDITOS".
   - `POST /api/pinguim/buscar` — **real**: fonte em ordem — Google Maps via **Apify** (`server/apify.js`, ator
-    `nwua9Gu5YrADL7ZDj` Google Maps Scraper, `APIFY_TOKEN`, run-sync-get-dataset-items, pt-BR, 20 lugares)
+    `nwua9Gu5YrADL7ZDj` Google Maps Scraper, `APIFY_TOKEN` (apelido "apify"/`apify_api_`), run-sync-get-dataset-items, pt-BR,
+    30 lugares, `locationQuery` "Cidade, Estado, Brasil" por `partesDaCidade` + `countryCode: 'br'`)
     → Google Maps via SerpApi (`server/serpapi.js`,
     `SERPAPI_KEY`, 250 buscas grátis/mês, traz foto de capa) → Google Maps via Firecrawl (`server/maps.js`,
     Alexandria `firecrawl-maps/businesses/search`, 5 créditos, só precisa da FIRECRAWL_API_KEY)
@@ -77,7 +78,8 @@ e "Leão Dourado" foi unificado como **Leão**.
     `estiloDoEstudo` só usa leituras com `confianca` de cor ≥ `CONFIANCA_MINIMA` (0,5, vinda do `branding.confidence`)
     e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
     (prioridade) → estilo do estudo → tema por segmento.
-  - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob".
+  - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob", "groq" (`gsk_`),
+    "apify" (`apify_api_`), "serp" (64 hex).
   - `POST /api/gato/video` (`server/video.js`, body `{ html, segundos }`, 8–40) — grava **20 s** (padrão) da prévia em 390×844 **quadro a quadro** (print em 2× a
     20 quadros/s, juntado pelo ffmpeg-static em MP4 H.264 High 780×1688 — nítido e nunca corrompe; sem ffmpeg, cai no
     gravador do Playwright em WebM). Navegador: `acharNavegador()` = CHROMIUM_PATH → Chromium do Playwright → **Google
