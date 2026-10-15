@@ -14,6 +14,7 @@ import { creditosFirecrawl, erroDeCredito } from './firecrawlCreditos.js'
 import { gravarNaNuvem, temVideoNuvem } from './videoNuvem.js'
 import { enviarRelatorio, temEmail } from './aguia.js'
 import { designsDoCastor } from './castor.js'
+import { temNuvem, codigoValido, lerDados, gravarDados } from './nuvem.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
 // Aceita as chaves com outros nomes de variável (ex.: "google" ou "firecrawl" no Vercel):
@@ -46,6 +47,7 @@ const keys = () => ({
   whatsappTemplate: Boolean(process.env.WHATSAPP_TEMPLATE),
   vercel: Boolean(process.env.VERCEL_TOKEN),
   pasta: temPasta(),
+  nuvem: temNuvem(), // ☁️ dados salvos na nuvem (Upstash Redis)
   email: temEmail(), // 🦅 Águia manda relatório (Resend)
   emailDestino: Boolean(process.env.AGUIA_EMAIL),
   videoNuvem: temVideoNuvem(), // ScreenshotOne grava o vídeo da prévia (funciona no Vercel)
@@ -155,6 +157,20 @@ app.get('/gato/video-nuvem/baixar', async (c) => {
   const res = await fetch(u)
   if (!res.ok) return c.json({ error: 'Não consegui baixar o vídeo.' }, 502)
   return new Response(res.body, { headers: { 'Content-Type': res.headers.get('content-type') || 'video/mp4' } })
+})
+
+// ☁️ Dados do app na nuvem, pelo código da conta (o mesmo em todos os aparelhos).
+app.get('/dados', async (c) => {
+  const codigo = c.req.query('codigo')
+  if (!temNuvem()) return c.json({ error: 'Nuvem desligada.', code: 'NO_KEY' }, 503)
+  if (!codigoValido(codigo)) return c.json({ error: 'Código inválido.' }, 400)
+  return c.json({ dados: await lerDados(codigo) })
+})
+app.put('/dados', async (c) => {
+  const { codigo, dados } = await c.req.json().catch(() => ({}))
+  if (!temNuvem()) return c.json({ error: 'Nuvem desligada.', code: 'NO_KEY' }, 503)
+  if (!codigoValido(codigo) || !dados || typeof dados !== 'object') return c.json({ error: 'Pedido inválido.' }, 400)
+  return c.json(await gravarDados(codigo, dados))
 })
 
 // 🦫 Castor: 3 design systems criados pela Groq para o comércio (sem Groq: o app usa a matriz por nicho).

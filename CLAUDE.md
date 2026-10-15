@@ -308,7 +308,13 @@ e "Leão Dourado" foi unificado como **Leão**.
   gravadas: Pinguim (buscas), Leão (sites), Castor (escolhas), Gato (aprovações), Abelha (notas), Aranha/Tigre (respostas, vendas,
   "agora não").
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
-  `lerPipeline()` lê o estado atual fora do React (laço da conferência).
+  `lerPipeline()` lê o estado atual fora do React (laço da conferência); `assinar(fn)`; `erroLocal` quando o navegador recusa.
+- **☁️ Nuvem** (pedido do usuário: "o Tigre salva mas some quando entro de novo"): `server/nuvem.js` (Upstash Redis do Vercel
+  Marketplace: `KV_REST_API_URL`/`KV_REST_API_TOKEN` ou `UPSTASH_REDIS_REST_*`; `keys.nuvem`), `GET/PUT /api/dados` pelo
+  **código da conta** (chave no Redis = sha256 do código). Cliente `src/store/nuvem.js`: `iniciarNuvem()` no `main.jsx` puxa e
+  `juntar(local, nuvem)` (listas por id, conversa com mais mensagens, site com status mais adiantado, memórias e nichos somados),
+  salva 2 s depois de cada mudança, puxa de novo ao voltar para a aba e a cada 60 s. Página `/nuvem` (código, copiar, usar o
+  código de outro aparelho, passo a passo para ligar) e status no menu. Vídeos e ZIPs (IndexedDB) ficam no aparelho.
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.

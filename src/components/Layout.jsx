@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { LayoutGrid, FolderCog, Menu, X, Bot, ShieldCheck } from 'lucide-react'
 import { equipe } from '../data/equipe.js'
 import { usePipeline } from '../store/pipeline.js'
+import { estadoNuvem, ouvirNuvem } from '../store/nuvem.js'
 
 function NavItem({ to, children, onClick }) {
   return (
@@ -29,6 +30,8 @@ export default function Layout() {
   const close = () => setOpen(false)
 
   const paraAprovar = usePipeline().sites.filter((s) => s.status === 'revisar').length
+  const [nuvem, setNuvem] = useState({ ...estadoNuvem })
+  useEffect(() => ouvirNuvem(setNuvem), [])
   const sidebar = (
     <nav className="flex flex-col gap-1 p-4">
       <div className="flex items-center gap-3 px-2 pb-6 pt-2">
@@ -63,6 +66,13 @@ export default function Layout() {
       <div className="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest text-slate-500">Setup</div>
       <NavItem to="/projeto" onClick={close}>
         <FolderCog size={18} /> Projeto & ferramentas
+      </NavItem>
+      <NavItem to="/nuvem" onClick={close}>
+        <span className="text-lg w-5 text-center">☁️</span>
+        <span className="flex-1">Nuvem</span>
+        <span className={`text-[10px] ${nuvem.ligada && !nuvem.erro ? 'text-emerald-300' : nuvem.erro ? 'text-rose-300' : 'text-slate-500'}`}>
+          {nuvem.ligada === null ? '…' : !nuvem.ligada ? 'desligada' : nuvem.erro ? 'erro' : nuvem.enviando ? 'salvando…' : 'salvo ✓'}
+        </span>
       </NavItem>
     </nav>
   )
