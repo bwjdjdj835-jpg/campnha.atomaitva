@@ -758,7 +758,7 @@ export async function gerarZipFinal(preview, tema, conteudo = preview.dados.cont
     conteudo,
     modelo: tema === 'modelo' ? modelo : undefined,
     htmlProprio: estilo.htmlProprio || undefined, // site montado igual à imagem escolhida no Castor
-    gerador: 'Gato Negro — Central de Agentes',
+    gerador: estilo.gerador || 'Gato Negro — Central de Agentes',
     aprovadoEm: new Date().toISOString(),
     referencias: preview.referencias,
     cursos: preview.cursos,
