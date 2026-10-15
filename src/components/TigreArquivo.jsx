@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { estrategiaDoTigre, definirEstrategia, tigreVigiando, definirVigia, tigreVigiar } from '../services/tigreTrabalho.js'
+import { vigia } from '../services/tigreVigia.js'
 import { Link } from 'react-router-dom'
 import { Archive, Download, Eye, MessageCircle, Search, Layers } from 'lucide-react'
 import { usePipeline } from '../store/pipeline.js'
@@ -84,6 +86,8 @@ export default function TigreArquivo() {
           </p>
         </div>
       </div>
+
+      <ComoTrabalha />
 
       {/* Trabalho do Tigre: o que ele fez depois de cada Aprovar */}
       <div className="space-y-2 border-b border-white/5 px-5 py-4">
@@ -200,5 +204,68 @@ export default function TigreArquivo() {
         </div>
       </div>
     </section>
+  )
+}
+
+// Como o Tigre faz o 1º contato e se ele vigia o WhatsApp sozinho.
+function ComoTrabalha() {
+  const [estrategia, setEstrategia] = useState(estrategiaDoTigre)
+  const [vigiar, setVigiar] = useState(tigreVigiando)
+  const [rodando, setRodando] = useState(false)
+  const [fim, setFim] = useState(null)
+  async function agora() {
+    setRodando(true)
+    setFim(null)
+    try {
+      const r = await tigreVigiar(() => {})
+      setFim(`${r.novas} resposta(s) nova(s) · ${r.previas} prévia(s) mandada(s)`)
+    } catch (e) {
+      setFim(e.message)
+    } finally {
+      setRodando(false)
+    }
+  }
+  const opcao = (v, titulo, texto) => (
+    <label className={`flex cursor-pointer gap-3 rounded-xl border p-3 text-sm ${estrategia === v ? 'border-neon/50 bg-neon/5' : 'border-white/10'}`}>
+      <input
+        type="radio"
+        name="estrategia-tigre"
+        checked={estrategia === v}
+        onChange={() => {
+          setEstrategia(v)
+          definirEstrategia(v)
+        }}
+      />
+      <span>
+        <span className="font-medium text-white">{titulo}</span>
+        <span className="block text-xs text-slate-400">{texto}</span>
+      </span>
+    </label>
+  )
+  return (
+    <div className="space-y-3 border-b border-white/5 px-5 py-4">
+      <div className="text-sm font-medium text-white">🐯 Como o Tigre faz o 1º contato</div>
+      <div className="grid gap-2 md:grid-cols-2">
+        {opcao('pergunta', 'Pergunta primeiro (recomendado)', 'Só a mensagem perguntando se querem ver a prévia. Quando disserem "sim/pode mandar", o Tigre manda o vídeo sozinho e te avisa: 🔔 sua vez. Menos risco de bloqueio.')}
+        {opcao('junto', 'Vídeo junto', 'Manda o vídeo da prévia junto com a primeira mensagem.')}
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <label className="flex items-center gap-2 text-slate-300">
+          <input
+            type="checkbox"
+            checked={vigiar}
+            onChange={(e) => {
+              setVigiar(e.target.checked)
+              definirVigia(e.target.checked)
+            }}
+          />
+          Vigiar o WhatsApp sozinho a cada 5 min (só no notebook)
+        </label>
+        <button className="btn-ghost border border-white/10 !py-1 !px-3 text-xs" onClick={agora} disabled={rodando}>
+          {rodando ? 'Vigiando…' : 'Vigiar agora'}
+        </button>
+        <span className="text-xs text-slate-500">{fim || (vigia.ultima ? `última vez: ${new Date(vigia.ultima).toLocaleTimeString('pt-BR')}` : vigia.ligada ? '' : 'no Vercel o Tigre não vê o WhatsApp — rode pelo iniciar-windows.bat')}</span>
+      </div>
+    </div>
   )
 }

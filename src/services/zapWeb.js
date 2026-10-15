@@ -1,7 +1,4 @@
 // 📲 WhatsApp Web pelo notebook (servidor local). A Aranha só manda depois do seu clique em "Aprovar e enviar".
-import { lerPipeline } from '../store/pipeline.js'
-import { lerResposta, atualizarConversa } from './tigreConversa.js'
-import { negocioDoSite } from './agents.js'
 
 async function chamar(rota, corpo) {
   const res = await fetch(`/api/zap/${rota}`, corpo ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) } : undefined)
@@ -19,6 +16,7 @@ const emBase64 = (blob) =>
   })
 
 export const conectarZap = () => chamar('conectar', {})
+export const lerConversaNoZap = (telefone) => chamar('ler', { telefone })
 export const statusZap = () => chamar('status')
 
 export async function enviarPeloZap({ telefone, texto, video }) {
@@ -30,28 +28,8 @@ export async function enviarPeloZap({ telefone, texto, video }) {
   })
 }
 
-// Lê no WhatsApp Web as respostas novas de cada cliente que já recebeu mensagem e já deixa a próxima sugerida.
-export async function buscarRespostas(aoAvancar = () => {}) {
-  const { sites, leads, conversas } = lerPipeline()
-  const lista = sites.filter((s) => conversas[s.id]?.mensagens?.some((m) => m.de === 'nos') && conversas[s.id].status !== 'nao_contatar')
-  let novas = 0
-  for (const [i, site] of lista.entries()) {
-    const negocio = negocioDoSite(site, leads)
-    aoAvancar(`${i + 1}/${lista.length} · ${site.nome}`)
-    const tel = negocio.whatsapp || negocio.telefone
-    if (!tel) continue
-    let r
-    try {
-      r = await chamar('ler', { telefone: tel })
-    } catch {
-      continue
-    }
-    const conhecidas = new Set((lerPipeline().conversas[site.id]?.mensagens || []).filter((m) => m.de === 'cliente').map((m) => m.texto.trim()))
-    for (const m of r.mensagens.filter((x) => !conhecidas.has(x.texto.trim()))) {
-      const sugestao = await lerResposta(site.id, negocio, m.texto)
-      atualizarConversa(site.id, () => ({ sugestao }))
-      novas++
-    }
-  }
-  return { novas, conversas: lista.length }
+// Mantido para a Aranha: o Tigre vigia (lê as respostas, manda a prévia se pediram, marca "Sua vez").
+export async function buscarRespostas(aoAvancar) {
+  const { tigreVigiar } = await import('./tigreTrabalho.js')
+  return tigreVigiar(aoAvancar)
 }

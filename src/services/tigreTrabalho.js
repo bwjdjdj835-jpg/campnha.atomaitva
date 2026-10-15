@@ -9,11 +9,35 @@ import { lembrar } from '../lib/mentes.js'
 import { atualizarConversa } from './tigreConversa.js'
 import { videoDoSite, gravarVideoPrevia, lerPacoteLeao, negocioDoSite } from './agents.js'
 import { gravarNaNuvem } from './videoNuvem.js'
-import { enviarPeloZap } from './zapWeb.js'
+import { enviarPeloZap, lerConversaNoZap } from './zapWeb.js'
+import { lerResposta } from './tigreConversa.js'
 import { lerZip } from '../lib/zipStore.js'
 import { htmlDaPrevia, fotosEmDataUrl, CSS_GRAVACAO } from '../lib/previa.jsx'
 
 const MAX_DIARIO = 60
+
+// Como o Tigre faz o 1º contato: 'pergunta' (padrão, recomendado) = só texto perguntando se quer ver a prévia; o vídeo vai
+// quando o cliente pedir. 'junto' = vídeo + mensagem de uma vez.
+const CHAVE_ESTRATEGIA = 'central-agentes:tigre-estrategia'
+const CHAVE_VIGIA = 'central-agentes:tigre-vigiar'
+const lerLocal = (k, padrao) => {
+  try {
+    return localStorage.getItem(k) ?? padrao
+  } catch {
+    return padrao
+  }
+}
+const gravarLocal = (k, v) => {
+  try {
+    localStorage.setItem(k, v)
+  } catch {
+    /* sem storage */
+  }
+}
+export const estrategiaDoTigre = () => (lerLocal(CHAVE_ESTRATEGIA, 'pergunta') === 'junto' ? 'junto' : 'pergunta')
+export const definirEstrategia = (v) => gravarLocal(CHAVE_ESTRATEGIA, v === 'junto' ? 'junto' : 'pergunta')
+export const tigreVigiando = () => lerLocal(CHAVE_VIGIA, '1') === '1'
+export const definirVigia = (ligado) => gravarLocal(CHAVE_VIGIA, ligado ? '1' : '0')
 
 function anotar(siteId, nome, passo, ok = true) {
   setPipeline((s) => ({ tigreDiario: [{ siteId, nome, passo, ok, at: new Date().toISOString() }, ...(s.tigreDiario || [])].slice(0, MAX_DIARIO) }))
@@ -73,17 +97,21 @@ export async function tigreExecutar(siteId, { texto, keys, segundos = 20 }) {
   const fone = telefoneDe(negocio)
   if (!fone) throw new Error('Este comércio não tem telefone.')
   anotar(siteId, site.nome, '✅ aprovado por você na Aranha')
+  const junto = estrategiaDoTigre() === 'junto' || !keys?.videoServidor // sem WhatsApp Web não dá para mandar o vídeo depois sozinho
   let video = null
   try {
+    // Mesmo no "pergunta" o vídeo já fica pronto, para sair na hora em que o cliente pedir.
     video = await videoGarantido(site, keys, segundos)
   } catch (e) {
-    anotar(siteId, site.nome, `🎬 não consegui gravar o vídeo (${e.message}) — vai só a mensagem`, false)
+    anotar(siteId, site.nome, `🎬 não consegui gravar o vídeo (${e.message})${junto ? ' — vai só a mensagem' : ''}`, false)
   }
   if (keys?.videoServidor) {
-    anotar(siteId, site.nome, '📲 mandando pelo WhatsApp Web')
-    await enviarPeloZap({ telefone: fone, texto, video })
-    registrarPrimeiroEnvio(siteId, texto, Boolean(video), 'whatsapp-web')
-    anotar(siteId, site.nome, `📨 enviado${video ? ' (vídeo + mensagem)' : ''}`)
+    const comVideo = junto ? video : null
+    anotar(siteId, site.nome, `📲 mandando pelo WhatsApp Web${comVideo ? ' (vídeo + mensagem)' : ' (só a mensagem; a prévia vai quando pedirem)'}`)
+    await enviarPeloZap({ telefone: fone, texto, video: comVideo })
+    registrarPrimeiroEnvio(siteId, texto, Boolean(comVideo), 'whatsapp-web')
+    atualizarConversa(siteId, () => ({ previaPendente: !comVideo }))
+    anotar(siteId, site.nome, `📨 mensagem inicial enviada${comVideo ? ' com a prévia' : ''}`)
     lembrar('tigre', `Mandei para ${site.nome}${video ? ' o vídeo e a mensagem' : ' a mensagem'} pelo WhatsApp Web`)
     return { modo: 'enviado', video }
   }
@@ -98,4 +126,81 @@ export async function tigreResponder(siteId, texto) {
   const fone = telefoneDe(negocioDoSite(site, leads))
   await enviarPeloZap({ telefone: fone, texto })
   anotar(siteId, site.nome, '📨 resposta enviada pelo WhatsApp Web')
+}
+
+// O cliente pediu para ver? ("sim", "pode mandar", "quero ver"…) — e não é recusa nem pedido para parar.
+const PEDIU = /(\bsim\b|\bpode\b|manda|mande|envia|envie|quero ver|quero sim|gostaria|claro|\bok\b|beleza|bora|show|com certeza|pode ser|\bisso\b|aham|uhum|👍)/i
+export const pediuPrevia = (texto, intencao) => !['recusa', 'nao_contatar', 'bot'].includes(intencao) && (intencao === 'interesse' || PEDIU.test(texto))
+
+const avisarVoce = async (assunto, texto) => {
+  try {
+    const para = localStorage.getItem('central-agentes:aguia-email') || ''
+    await fetch('/api/aguia/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assunto, texto, para }) })
+  } catch {
+    /* sem e-mail configurado: o aviso fica na Aranha */
+  }
+}
+
+// 🐯 O Tigre vigia o WhatsApp (notebook): lê as respostas novas; se o cliente pediu a prévia e ela ainda não foi,
+// manda o vídeo sozinho; em qualquer resposta, marca "🔔 Sua vez" na Aranha (e avisa por e-mail se a Águia estiver ligada).
+let vigiando = false
+export async function tigreVigiar(aoAvancar = () => {}, keys = { videoServidor: true }) {
+  if (vigiando) return { novas: 0, previas: 0 }
+  vigiando = true
+  let novas = 0
+  let previas = 0
+  try {
+    const { sites, leads, conversas } = lerPipeline()
+    const lista = sites.filter((s) => conversas[s.id]?.mensagens?.some((m) => m.de === 'nos') && conversas[s.id].status !== 'nao_contatar')
+    for (const [i, site] of lista.entries()) {
+      const negocio = negocioDoSite(site, leads)
+      const fone = telefoneDe(negocio)
+      if (!fone) continue
+      aoAvancar(`${i + 1}/${lista.length} · ${site.nome}`)
+      let r
+      try {
+        r = await lerConversaNoZap(fone)
+      } catch {
+        continue
+      }
+      const conhecidas = new Set((lerPipeline().conversas[site.id]?.mensagens || []).filter((m) => m.de === 'cliente').map((m) => m.texto.trim()))
+      const novasDele = r.mensagens.filter((x) => !conhecidas.has(x.texto.trim()))
+      if (!novasDele.length) continue
+      let ultima = null
+      for (const m of novasDele) {
+        ultima = await lerResposta(site.id, negocio, m.texto)
+        novas++
+      }
+      const conversa = lerPipeline().conversas[site.id]
+      const textoTodo = novasDele.map((m) => m.texto).join(' ')
+      anotar(site.id, site.nome, `💬 respondeu: "${textoTodo.slice(0, 80)}"`)
+      if (conversa.previaPendente && pediuPrevia(textoTodo, ultima?.leitura?.intencao)) {
+        try {
+          const video = await videoGarantido(site, keys, 20)
+          if (!video) throw new Error('sem vídeo da prévia')
+          const texto = `Que bom! Olha a prévia do site da ${site.nome} 👇 Qualquer coisa que quiser mudar, é só me falar.`
+          await enviarPeloZap({ telefone: fone, texto, video })
+          const at = new Date().toISOString()
+          atualizarConversa(site.id, (c) => ({
+            mensagens: [...c.mensagens, { de: 'nos', texto, via: 'whatsapp-web', at }, { de: 'nos', texto: '🎬 Vídeo da prévia', via: 'whatsapp-web', at }],
+            previaPendente: false,
+            status: 'interessado',
+            sugestao: undefined,
+          }))
+          previas++
+          anotar(site.id, site.nome, '🎬 pediu a prévia — mandei o vídeo. Agora é com você!')
+          lembrar('tigre', `${site.nome} pediu a prévia e eu mandei o vídeo`)
+          avisarVoce(`🔔 ${site.nome} pediu a prévia — o Tigre já mandou`, `${site.nome} respondeu: "${textoTodo}".\nO Tigre mandou o vídeo da prévia. Agora é com você: https://campnha-atomaitva.vercel.app/admin`)
+        } catch (e) {
+          anotar(site.id, site.nome, `🎬 pediu a prévia, mas não consegui mandar (${e.message}) — mande você`, false)
+        }
+      } else {
+        avisarVoce(`🔔 ${site.nome} respondeu`, `${site.nome} respondeu: "${textoTodo}".\nA próxima mensagem já está sugerida na Aranha: https://campnha-atomaitva.vercel.app/admin`)
+      }
+      atualizarConversa(site.id, () => ({ suaVez: true }))
+    }
+  } finally {
+    vigiando = false
+  }
+  return { novas, previas }
 }

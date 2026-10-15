@@ -326,6 +326,15 @@ e "Leão Dourado" foi unificado como **Leão**.
   devolve `modo: 'manual'` e a Aranha abre a conversa (`mandarDireto`) para "Já enviei". Respostas: `ResponderTigre` →
   `tigreResponder`. Tudo vai para `pipeline.tigreDiario` (máx. 60), mostrado em "🐯 Trabalho do Tigre" no Arquivo do Tigre.
   As opções manuais antigas ficam em "Fazer eu mesmo" (`<details>`).
+- **🐯 Tigre pergunta primeiro e vigia o WhatsApp** (pedido do usuário: "lembrar que já mandou a inicial, ver nos WhatsApps se o
+  cliente pediu a prévia, aí eu entro em cena"): `estrategiaDoTigre()` (localStorage `central-agentes:tigre-estrategia`;
+  `'pergunta'` padrão = 1ª mensagem só texto + `conversas[id].previaPendente`; `'junto'` = vídeo junto; no Vercel sempre junto/manual).
+  `tigreVigiar()` (notebook): lê as respostas novas de cada conversa no WhatsApp Web, roda `lerResposta`; se `previaPendente` e
+  `pediuPrevia` (intenção interesse ou "sim/pode/manda/quero ver…"), manda o vídeo sozinho (mensagem pronta + vídeo), status
+  `interessado`; sempre marca `suaVez: true` ("🔔 Sua vez" na Aranha; `esperandoVoce` conta `suaVez`) e avisa por e-mail pela
+  Águia (se ligada). `src/services/tigreVigia.js` (`iniciarVigia` no `main.jsx`) roda a cada 5 min no notebook
+  (`central-agentes:tigre-vigiar`). Painel "Como o Tigre faz o 1º contato" no Arquivo do Tigre (opção + "Vigiar agora").
+  `registrarEnviada` limpa `suaVez`.
 - **☁️ Nuvem** (pedido do usuário: "o Tigre salva mas some quando entro de novo"): `server/nuvem.js` (Upstash Redis do Vercel
   Marketplace: `KV_REST_API_URL`/`KV_REST_API_TOKEN` ou `UPSTASH_REDIS_REST_*`; `keys.nuvem`), `GET/PUT /api/dados` pelo
   **código da conta** (chave no Redis = sha256 do código). Cliente `src/store/nuvem.js`: `iniciarNuvem()` no `main.jsx` puxa e
