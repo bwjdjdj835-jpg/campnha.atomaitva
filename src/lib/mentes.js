@@ -53,12 +53,6 @@ export const PERSONALIDADES = {
     personalidade: 'Vê tudo de cima. Acompanha o processo inteiro e te conta como está indo.',
     lema: '"Daqui de cima, nada me escapa."',
   },
-  escorpiao: {
-    emoji: '🦂',
-    nome: 'Escorpião',
-    personalidade: 'Especialista solo. Escolhe um nicho só, estuda os sites de referência que você manda e finaliza o site com interação de agência.',
-    lema: '"Um ramo só, feito com precisão."',
-  },
 }
 
 const MAX = 60
@@ -159,13 +153,6 @@ export function pensamentos(agente, estado = lerPipeline()) {
       const bots = comConversa.filter((s) => conversas[s.id].mensagens.some((m) => m.intencao === 'bot')).length
       if (bots) out.push(`${bots} tinham robô no WhatsApp — sempre peço para falar com uma pessoa.`)
     }
-  }
-  if (agente === 'escorpiao') {
-    const modelos = Object.values(estado.escorpiao || {})
-    const feitos = sites.filter((s) => s.escorpiao)
-    if (!modelos.length && !feitos.length) return ['Ainda não tenho especialidade. Me dá um nicho e 3 sites de referência de interatividade.']
-    if (modelos.length) out.push(`Sei ${modelos.length} especialidade(s): ${modelos.map((m) => m.especialidade).join(', ')}.`)
-    if (feitos.length) out.push(`Finalizei ${feitos.length} site(s) aprovado(s).`)
   }
   if (agente === 'aguia') {
     out.push(`Comércios: ${reais.length} · sites: ${sites.length} · conversas: ${comConversa.length} · vendas: ${comConversa.filter((s) => ['vendido', 'publicado'].includes(st(s))).length}.`)
