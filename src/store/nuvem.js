@@ -64,6 +64,8 @@ export function juntar(local = {}, nuvem = {}) {
     sites: porId(local.sites, nuvem.sites, (x, y) => (ORDEM_SITE.indexOf(x.status) > ORDEM_SITE.indexOf(y.status) ? { ...y, ...x } : { ...x, ...y })),
     conversas,
     contatos: { ...(local.contatos || {}), ...(nuvem.contatos || {}) },
+    // 📚 Biblioteca do Gato: fica a versão mudada por último (apagar = removido, para não voltar da nuvem).
+    biblioteca: porId(local.biblioteca, nuvem.biblioteca, (x, y) => (String(x.atualizado || '') > String(y.atualizado || '') ? x : y)),
     mentes,
     auto: { ...la, ...na, feitos: [...new Set([...(la.feitos || []), ...(na.feitos || [])])], listas: { ...(la.listas || {}), ...(na.listas || {}) } },
   }

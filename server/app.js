@@ -17,6 +17,7 @@ import { enviarRelatorio, temEmail } from './aguia.js'
 import { designsDoCastor, designDaImagem } from './castor.js'
 import { imagemDoCastor, temImagem } from './castorImagem.js'
 import { siteDaImagem, temSiteDaImagem } from './siteDaImagem.js'
+import { lerLink, licoesDe, licoesSeguras } from './biblioteca.js'
 import { temNuvem, codigoValido, lerDados, gravarDados } from './nuvem.js'
 import { conectarZap, statusZap, enviarZap, lerConversaZap } from './zapWeb.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
@@ -249,7 +250,7 @@ app.post('/castor/ler-imagem', async (c) => {
 // 🐈‍⬛ Gato monta o site igual à imagem escolhida no Castor (layout + estilo), com os dados e fotos reais.
 app.post('/gato/site-da-imagem', async (c) => {
   if (!temSiteDaImagem()) return c.json({ error: 'Configure GEMINI_API_KEY ou GROQ_API_KEY para o Gato montar o site pela imagem.', code: 'NO_KEY' }, 503)
-  const { imagem, negocio, conteudo, fotos, antesDepois, agendamento } = await c.req.json().catch(() => ({}))
+  const { imagem, negocio, conteudo, fotos, antesDepois, agendamento, licoes } = await c.req.json().catch(() => ({}))
   if (!/^data:image\/(png|jpe?g|webp);base64,/.test(String(imagem || ''))) return c.json({ error: 'Mande a imagem do modelo.' }, 400)
   try {
     const n = Math.max(0, Math.min(12, Number(fotos) || 0))
@@ -257,9 +258,29 @@ app.post('/gato/site-da-imagem', async (c) => {
       .map((p) => ({ antes: Number(p?.antes), depois: Number(p?.depois), legenda: String(p?.legenda || '').slice(0, 80) || undefined }))
       .filter((p) => p.antes >= 1 && p.antes <= n && p.depois >= 1 && p.depois <= n && p.antes !== p.depois)
       .slice(0, 4)
-    return c.json(await siteDaImagem({ imagem, negocio: negocio || {}, conteudo: conteudo || {}, fotos: n, antesDepois: pares, agendamento: Boolean(agendamento) }))
+    return c.json(await siteDaImagem({ imagem, negocio: negocio || {}, conteudo: conteudo || {}, fotos: n, antesDepois: pares, agendamento: Boolean(agendamento), licoes: licoesSeguras(licoes) }))
   } catch (e) {
     return c.json({ error: e.message }, 502)
+  }
+})
+
+// 📚 Biblioteca do Gato: ler um link (sem Firecrawl) e tirar lições de um material (link, PDF ou texto colado).
+app.post('/gato/biblioteca/ler-link', async (c) => {
+  const { url } = await c.req.json().catch(() => ({}))
+  try {
+    return c.json(await lerLink(String(url || '').trim()))
+  } catch (e) {
+    return c.json({ error: e.name === 'TimeoutError' ? 'O site demorou demais para responder.' : e.message }, 400)
+  }
+})
+
+app.post('/gato/biblioteca/licoes', async (c) => {
+  const b = await c.req.json().catch(() => ({}))
+  if (!String(b.texto || '').trim()) return c.json({ error: 'Material vazio.' }, 400)
+  try {
+    return c.json(await licoesDe({ titulo: String(b.titulo || '').slice(0, 150), tipo: b.tipo, texto: b.texto, tecnicas: (b.tecnicas || []).slice(0, 30), fontes: (b.fontes || []).slice(0, 6) }))
+  } catch (e) {
+    return c.json({ error: e.message, code: e.code }, e.code === 'NO_KEY' ? 503 : 502)
   }
 })
 
