@@ -309,6 +309,14 @@ e "Leão Dourado" foi unificado como **Leão**.
   inspiração interna; nunca vai para o cliente). Cliente: `designParaImagem`/`imagemDoModelo` em `src/lib/castor.js` (cache por
   visita — escolher não desenha de novo) e `CastorModelos` (desenha um por vez, "👁️ Ver a prévia real", "🍌 Desenhar de novo",
   erro no card). O automático não chama o Nano Banana.
+- **📤 Imagens do Gemini feitas por fora** (pedido do usuário: "gero a imagem no Gemini, boto no Castor, ele escolhe a melhor e o
+  Gato faz o site igual"): no `CastorModelos`, "📋 Copiar pedido para o Gemini" (`pedidoParaGemini`, sem nome/telefone/preço) e
+  "📤 Enviar minhas imagens" (até 6) → `lerImagemDeModelo` (reduz a 1024 px) → `POST /api/castor/ler-imagem` (`designDaImagem` em
+  `server/castor.js`: Groq com visão, `GROQ_VISION_MODEL` ou `qwen/qwen3.8-27b`, JSON com paleta/fonte/esquema/hero/galeria + `nota`
+  0–10, validado por `limpar`; `groq()` aceita `modelo` e conteúdo com imagem e tira `<think>`). Sem Groq, `paletaDaImagem` tira as
+  cores no navegador (cor mais comum = fundo; mais comum bem colorida = destaque). O Castor aplica sozinho a de maior nota
+  (selo "🏆 ESCOLHA DO CASTOR"); cada card mostra a sua imagem ou "👁️ Ver como fica no site real". O Gato copia cores, fonte e
+  clima — o layout continua o do `ClienteSite`.
 - **Time completo no menu e na tela inicial** (`src/data/equipe.js`, pedido do usuário): Pinguim → Leão → 🦫 Castor (abre o
   Gato) → Gato → Abelha → Tigre → 🕷️ Aranha (`/admin`) → 🦅 Águia (`/aguia`).
 - **🦅 Águia** (`src/pages/Aguia.jsx`, `src/lib/aguia.js`, `server/aguia.js`): números do processo (`numerosDaAguia`), o que
