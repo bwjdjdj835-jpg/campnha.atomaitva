@@ -67,6 +67,13 @@ export function juntar(local = {}, nuvem = {}) {
     // 📚 Biblioteca do Gato: fica a versão mudada por último (apagar = removido, para não voltar da nuvem).
     biblioteca: porId(local.biblioteca, nuvem.biblioteca, (x, y) => (String(x.atualizado || '') > String(y.atualizado || '') ? x : y)),
     mentes,
+    // 🦂 Modelos do Escorpião por especialidade: fica o mudado por último.
+    escorpiao: Object.fromEntries(
+      [...new Set([...Object.keys(local.escorpiao || {}), ...Object.keys(nuvem.escorpiao || {})])].map((k) => {
+        const [x, y] = [local.escorpiao?.[k], nuvem.escorpiao?.[k]]
+        return [k, !x ? y : !y ? x : String(x.atualizado || '') > String(y.atualizado || '') ? x : y]
+      }),
+    ),
     auto: { ...la, ...na, feitos: [...new Set([...(la.feitos || []), ...(na.feitos || [])])], listas: { ...(la.listas || {}), ...(na.listas || {}) } },
   }
 }
