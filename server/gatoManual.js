@@ -61,4 +61,15 @@ export const MANUAL_DO_GATO = `MANUAL DE AGÊNCIA DO GATO NEGRO — sites para c
   (dê à .ad-caixa uma proporção, ex. aspect-ratio:4/3, e cantos arredondados; o app cuida do arraste.)
 - Agendamento online (só quando informado): escreva exatamente <!--AGENDA--> no lugar da seção; o app coloca a agenda real.
   Estilize a classe .agenda-botao com a cor de destaque.
+
+10. TEXTO QUE VENDE (da Biblioteca do Gato — e-book "Criando um site para ganhar dinheiro", Carlos A. Leutz)
+- Chamada para ação no IMPERATIVO, curta e direta: "Agende seu horário", "Chame no WhatsApp", "Veja como chegar". Frase sutil não
+  gera resposta. O botão principal aparece logo na capa e de novo no fim.
+- Um foco por bloco: cada seção fala de uma coisa só (como as propagandas da Apple); nada de parágrafos longos.
+- Mostre o BENEFÍCIO, não só o serviço: "Saia com o visual renovado" > "Fazemos cortes". Ganhos: praticidade, conveniência,
+  resolver um problema, cuidado.
+- Gente gera conexão: entre as fotos reais, prefira na capa e nos destaques as que mostram pessoas ou o resultado (corte pronto,
+  carro brilhando, pet tosado) em vez de fachada vazia — sem inventar foto.
+- Contraste forte entre botão e fundo para o olho achar a ação.
+- Prova vem dos clientes: use a nota e as avaliações reais do Google perto da chamada principal.
 `

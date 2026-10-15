@@ -11,6 +11,7 @@ import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { SELO_CONTATO, contatoDoLead, rotuloContato } from '../lib/contato.js'
 const GatoPreview = lazy(() => import('../components/GatoPreview.jsx'))
 const PreviaLeao = lazy(() => import('../components/PreviaLeao.jsx'))
+const BibliotecaGato = lazy(() => import('../components/BibliotecaGato.jsx'))
 import TigrePainel from '../components/TigrePainel.jsx'
 import AbelhaPainel from '../components/AbelhaPainel.jsx'
 import FilaAprovacao from '../components/FilaAprovacao.jsx'
@@ -248,6 +249,12 @@ function AgentPage() {
           </div>
         </aside>
       </div>
+
+      {agent.id === 'gato' && (
+        <Suspense fallback={null}>
+          <BibliotecaGato />
+        </Suspense>
+      )}
 
       {agent.id === 'gato' && !preview && (
         <section className="glass flex items-center gap-3 border-amber-400/20 px-5 py-4 text-sm text-slate-300">

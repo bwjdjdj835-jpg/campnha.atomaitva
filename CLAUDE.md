@@ -341,6 +341,17 @@ e "Leão Dourado" foi unificado como **Leão**.
   renumeração das fotos) e o link de agenda — só dados reais do comércio. No site feito pela imagem, a IA usa as mesmas marcações e
   `<!--AGENDA-->`; `montarSiteProprio` (`src/lib/siteProprio.js`) troca as fotos, põe a agenda, o CSS e o script da biblioteca
   (prévia e ZIP); o pedido manda `antesDepois` (números das fotos) e `agendamento`.
+- **📚 Biblioteca do Gato** (pedido do usuário: "vou colar sites modelo, curso em PDF e sites interativos para o Gato estudar"):
+  painel recolhível no topo da página do Gato (`src/components/BibliotecaGato.jsx`, `src/lib/biblioteca.js`). Três entradas:
+  **link** → `POST /api/gato/biblioteca/ler-link` (`server/biblioteca.js` `lerLink`/`analisarHtml`: baixa a página sem Firecrawl,
+  bloqueia endereço interno — DNS + IP privado, redirecionamento conferido —, tira título, títulos, texto, fontes do Google e as
+  TÉCNICAS interativas do código: GSAP/ScrollTrigger, Lenis, Swiper, AOS, Three.js, clip-path, scroll-snap…); **PDF** lido no
+  navegador por `pdfjs-dist` (`textoDoPdf`, até 40 páginas; `textoLegivel` recusa PDF com texto embaralhado — comum no Canva, como o
+  e-book do Leutz — e pede para colar o texto); **texto colado**. `POST /api/gato/biblioteca/licoes` (`licoesDe`, Groq JSON, até 10
+  lições acionáveis para site de comércio local, sem dados do material, ignora afiliado/tráfego) + uma lição por técnica achada.
+  Fica em `pipeline.biblioteca` (`juntar` da nuvem: vence o `atualizado` mais novo; apagar = `removido`). Você marca/desmarca,
+  escreve lições suas e apaga; `licoesAtivas` (máx. 40) vai em `gerarSiteDaImagem` → `licoesSeguras` → seção "10b" do manual no
+  pedido ao Gemini/Groq. O manual ganhou a seção 10 "Texto que vende" (lições do e-book "Criando um site para ganhar dinheiro").
 - **Time completo no menu e na tela inicial** (`src/data/equipe.js`, pedido do usuário): Pinguim → Leão → 🦫 Castor (abre o
   Gato) → Gato → Abelha → Tigre → 🕷️ Aranha (`/admin`) → 🦅 Águia (`/aguia`).
 - **🦅 Águia** (`src/pages/Aguia.jsx`, `src/lib/aguia.js`, `server/aguia.js`): números do processo (`numerosDaAguia`), o que

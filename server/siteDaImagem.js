@@ -78,7 +78,7 @@ export function limparHtml(html) {
   return h
 }
 
-async function comGemini(imagem, texto) {
+async function comGemini(imagem, texto, manual) {
   const [, tipo, dados] = imagem.match(/^data:(image\/[a-z]+);base64,(.+)$/) || []
   let ultimoErro
   for (const modelo of MODELOS_GEMINI()) {
@@ -86,7 +86,7 @@ async function comGemini(imagem, texto) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: MANUAL_DO_GATO }] },
+        systemInstruction: { parts: [{ text: manual }] },
         contents: [{ parts: [{ inlineData: { mimeType: tipo, data: dados } }, { text: texto }] }],
         generationConfig: { temperature: 0.4, maxOutputTokens: 16000 },
       }),
@@ -104,10 +104,10 @@ async function comGemini(imagem, texto) {
   throw ultimoErro
 }
 
-async function comGroq(imagem, texto) {
+async function comGroq(imagem, texto, manual) {
   const saida = await groq({
     modelo: MODELO_VISAO_GROQ(),
-    system: `Você é o Gato Negro, front-end sênior de uma agência. Transforma mockups de site em HTML + CSS impecável.\n\n${MANUAL_DO_GATO}`,
+    system: `Você é o Gato Negro, front-end sênior de uma agência. Transforma mockups de site em HTML + CSS impecável.\n\n${manual}`,
     user: [
       { type: 'text', text: texto },
       { type: 'image_url', image_url: { url: imagem } },
@@ -118,18 +118,19 @@ async function comGroq(imagem, texto) {
   return { html: saida, ia: `Groq (${MODELO_VISAO_GROQ()})` }
 }
 
-export async function siteDaImagem({ imagem, negocio, conteudo, fotos, antesDepois, agendamento }) {
+export async function siteDaImagem({ imagem, negocio, conteudo, fotos, antesDepois, agendamento, licoes = [] }) {
   const texto = pedido({ negocio, conteudo, fotos, antesDepois, agendamento })
+  const manual = licoes.length ? `${MANUAL_DO_GATO}\n10b. LIÇÕES DA BIBLIOTECA DO GATO (aprovadas pelo dono — aplique quando couber):\n${licoes.map((l) => `- ${l}`).join('\n')}` : MANUAL_DO_GATO
   let r
   let erroGemini
   if (process.env.GEMINI_API_KEY) {
     try {
-      r = await comGemini(imagem, texto)
+      r = await comGemini(imagem, texto, manual)
     } catch (e) {
       erroGemini = e
     }
   }
-  if (!r && process.env.GROQ_API_KEY) r = await comGroq(imagem, texto)
+  if (!r && process.env.GROQ_API_KEY) r = await comGroq(imagem, texto, manual)
   if (!r) throw erroGemini || new Error('Sem IA para montar o site (configure GEMINI_API_KEY ou GROQ_API_KEY).')
   const html = limparHtml(r.html)
   if (!/<body[\s>]/i.test(html) || html.length < 800) throw new Error('A IA devolveu um site incompleto — tente de novo.')

@@ -3,6 +3,7 @@
 import animacoesCss from './clienteAnimacoes.css?raw'
 import efeitosSource from './clienteEfeitos.js?raw'
 import { linkDeAgenda } from './ClienteSite.jsx'
+import { licoesAtivas } from './biblioteca.js'
 
 const efeitosScript = efeitosSource.replace(/^export /gm, '').replace(/<\/script/gi, '<\\/script')
 const esc = (t) => String(t || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
@@ -54,6 +55,7 @@ export async function gerarSiteDaImagem(imagem, dados, conteudo) {
         .map((p) => ({ antes: idx(dados, p.antes), depois: idx(dados, p.depois), legenda: p.legenda }))
         .filter((p) => p.antes && p.depois),
       agendamento: Boolean(dados.agendamento),
+      licoes: licoesAtivas(), // 📚 o que o Gato estudou na biblioteca e você aprovou
     }),
   })
   const json = await res.json().catch(() => ({}))
