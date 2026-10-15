@@ -9,7 +9,7 @@ import { buscarFotos, tirarPrint, linkPermitidoParaPrint } from './leao.js'
 import { estudar, aprofundar } from './gato.js'
 import { hospedar, listarPastas, temPasta } from './pasta.js'
 import { enriquecer } from './abelha.js'
-import { gravarVideo, servidorGrava } from './video.js'
+import { gravarVideo, servidorGrava, salvarNaPasta, abrirPasta } from './video.js'
 import { creditosFirecrawl, erroDeCredito } from './firecrawlCreditos.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
@@ -106,7 +106,7 @@ app.get('/leao/pastas', async (c) => {
 })
 
 app.post('/gato/video', async (c) => {
-  const { html, segundos } = await c.req.json().catch(() => ({}))
+  const { html, segundos, salvarComo } = await c.req.json().catch(() => ({}))
   if (typeof html !== 'string' || !html.includes('<html')) return c.json({ error: 'Prévia inválida.' }, 400)
   if (html.length > 20_000_000) return c.json({ error: 'Prévia grande demais para gravar.' }, 413)
   // Sem navegador neste servidor (Vercel): quem chama aqui é uma versão antiga do app guardada no cache.
@@ -121,7 +121,18 @@ app.post('/gato/video', async (c) => {
     )
   }
   const { tipo, buffer } = await gravarVideo(html, { segundos: Math.min(40, Math.max(8, Number(segundos) || 20)) })
-  return new Response(buffer, { headers: { 'Content-Type': tipo, 'Content-Length': String(buffer.length) } })
+  // No notebook: guarda também em Vídeos\Central de Agentes\<nicho>\<comércio>.mp4 (pedido do usuário).
+  const salvoEm = salvarComo ? await salvarNaPasta(buffer, tipo, salvarComo).catch(() => null) : null
+  const extras = salvoEm ? { 'X-Salvo-Em': encodeURIComponent(salvoEm) } : {}
+  return new Response(buffer, { headers: { 'Content-Type': tipo, 'Content-Length': String(buffer.length), ...extras } })
+})
+
+// Abre no Explorador de Arquivos a pasta onde o vídeo foi salvo (só no notebook, só dentro da pasta dos vídeos).
+app.post('/gato/abrir-pasta', async (c) => {
+  const { arquivo } = await c.req.json().catch(() => ({}))
+  if (!(await servidorGrava())) return c.json({ error: 'Só funciona com o app rodando no seu computador.' }, 501)
+  const ok = await abrirPasta(arquivo)
+  return ok ? c.json({ ok: true }) : c.json({ error: 'Pasta não encontrada.' }, 404)
 })
 
 app.post('/gato/estudar', async (c) => {

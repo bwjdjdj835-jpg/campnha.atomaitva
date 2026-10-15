@@ -140,7 +140,7 @@ export default function Automatico() {
     }
     setRodando(true)
     try {
-      const ui = { log, etapa: setEtapa, parar: () => pararRef.current, gravar, videoManual: manual && modo === 'rodada' }
+      const ui = { log, etapa: setEtapa, parar: () => pararRef.current, gravar, videoManual: manual && modo === 'rodada' && !keys?.videoServidor }
       const r =
         modo === 'regravar'
           ? await regravarVideos(ui)

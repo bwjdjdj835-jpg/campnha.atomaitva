@@ -93,6 +93,10 @@ e "Leão Dourado" foi unificado como **Leão**.
     (`gravarPreviaNoNavegador` em `src/lib/previa.jsx`: `getDisplayMedia` com `preferCurrentTab`, recorte no iframe
     com Region Capture, `MediaRecorder` em MP4 quando o navegador grava MP4, senão WebM; a prévia recebe
     `postMessage({ tipo: 'passeio-previa' })` e passa um cursor na capa e rola a página). Chrome/Edge no computador.
+    **Pasta dos vídeos (pedido do usuário):** com `salvarComo: { pasta: nicho, nome }` o servidor local também salva em
+    `~/Videos/Central de Agentes/<nicho>/<comércio>.mp4` (`salvarNaPasta`, header `X-Salvo-Em` → `site.videoArquivo`);
+    `POST /api/gato/abrir-pasta` (`abrirPasta`, só arquivos dessa pasta) abre o Explorador. No notebook o automático grava
+    sozinho mesmo com `videoModo: 'manual'`; o cartão da Aranha tem "Gravar agora no notebook (nítido)" e "Abrir a pasta".
     `POST /api/tigre/video` envia pela Z-API (`send-video`, base64).
   - `POST /api/abelha/enriquecer` (`server/abelha.js`) — busca o negócio no Firecrawl e extrai sobre/horário/serviços
     (Claude com structured output; sem chave, só horário por regex). Todo campo volta com a URL da fonte; campo que
