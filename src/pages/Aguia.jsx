@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail, Copy, CheckCircle2, Loader2, Send } from 'lucide-react'
 import { usePipeline } from '../store/pipeline.js'
-import { numerosDaAguia, relatorioDaAguia, enviarRelatorioAguia } from '../lib/aguia.js'
+import { numerosDaAguia, relatorioDaAguia, enviarRelatorioAguia, emailDaAguia, guardarEmailDaAguia } from '../lib/aguia.js'
 import { equipe } from '../data/equipe.js'
 import { pensamentos } from '../lib/mentes.js'
 import MenteAgente from '../components/MenteAgente.jsx'
@@ -13,13 +13,19 @@ export default function Aguia() {
   const n = numerosDaAguia(estado)
   const relatorio = relatorioDaAguia(estado)
   const [temEmail, setTemEmail] = useState(null)
+  const [destinoServidor, setDestinoServidor] = useState(false)
+  const [email, setEmail] = useState(emailDaAguia)
+  const emailOk = destinoServidor || /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email.trim())
   const [enviando, setEnviando] = useState(false)
   const [aviso, setAviso] = useState(null)
   const [copiado, setCopiado] = useState(false)
   useEffect(() => {
     fetch('/api/status')
       .then((r) => r.json())
-      .then((d) => setTemEmail(Boolean(d.keys?.email)))
+      .then((d) => {
+        setTemEmail(Boolean(d.keys?.email))
+        setDestinoServidor(Boolean(d.keys?.emailDestino))
+      })
       .catch(() => setTemEmail(false))
   }, [])
 
@@ -96,13 +102,31 @@ export default function Aguia() {
           <Mail size={18} className="text-neon" />
           <span className="flex-1 font-display font-semibold text-white">Relatório por e-mail</span>
           <span className={`rounded-full px-2 py-0.5 text-xs ${temEmail ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/5 text-slate-400'}`}>
-            {temEmail === null ? '…' : temEmail ? 'E-mail automático ligado' : 'E-mail automático desligado'}
+            {temEmail === null ? '…' : temEmail && emailOk ? 'E-mail automático ligado' : temEmail ? 'Falta o seu e-mail' : 'E-mail automático desligado'}
           </span>
         </div>
+        {temEmail && !destinoServidor && (
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="min-w-[240px] flex-1">
+              <span className="label">Seu e-mail (a Águia manda o relatório para ele)</span>
+              <input
+                type="email"
+                className="input"
+                placeholder="voce@gmail.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  guardarEmailDaAguia(e.target.value)
+                }}
+              />
+            </label>
+            {emailOk && <span className="pb-2 text-xs text-emerald-300">✓ salvo neste navegador</span>}
+          </div>
+        )}
         <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-xl bg-black/30 p-4 text-xs text-slate-300">{relatorio.texto}</pre>
         <div className="flex flex-wrap gap-2">
           {temEmail && (
-            <button className="btn-primary !py-2 !px-4 text-sm" onClick={enviar} disabled={enviando}>
+            <button className="btn-primary !py-2 !px-4 text-sm" onClick={enviar} disabled={enviando || !emailOk}>
               {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Mandar agora para o meu e-mail
             </button>
           )}
@@ -119,8 +143,8 @@ export default function Aguia() {
         {aviso && <p className="text-sm text-slate-300">{aviso}</p>}
         {temEmail === false && (
           <p className="text-xs text-slate-500">
-            Para a Águia mandar sozinha: crie uma conta grátis em resend.com, copie a API key (começa com re_) e coloque no Vercel
-            <span className="font-mono"> RESEND_API_KEY</span> e o seu e-mail (o mesmo da conta do Resend) em <span className="font-mono">AGUIA_EMAIL</span>. Depois, Redeploy.
+            Para a Águia mandar sozinha: crie uma conta grátis em resend.com, copie a API key (começa com re_), coloque no Vercel
+            (<span className="font-mono">RESEND_API_KEY</span>) e faça Redeploy. Depois é só digitar o seu e-mail aqui.
           </p>
         )}
       </section>
