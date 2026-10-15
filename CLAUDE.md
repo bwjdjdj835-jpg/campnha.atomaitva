@@ -288,6 +288,12 @@ e "Leão Dourado" foi unificado como **Leão**.
   vira um `modelo` (`estilo.cores` com `fundoAlt`/`cartao`/`borda` → `--m-fundo-alt` etc.) e `modelo.design` guarda o JSON
   (`paleta_cores`, `fontes_google`, `estrutura_secoes`). É a 1ª proposta do Castor, o Gato começa nela (sem link colado) e o
   automático usa ela.
+- **Castor com Groq** (pedido do usuário): `server/castor.js` (`designsDoCastor`, `POST /api/castor/design`) pede à Groq
+  (`groq()` exportado de `server/tigre.js`, `maxTokens`/`temperatura`) 3 design systems em JSON (titulo, porque, esquema, fonte
+  de uma lista fechada, hero, galeria, paleta hex) seguindo a matriz do `prompts/06-castor.md`; valida hex/fonte e descarta o
+  inválido. Cliente: `designsDaGroq(dados)` + `modeloDoDesign` (`src/lib/castor.js`) → `CastorModelos` mostra os 3 como prévias
+  reais (selo "🤖 Designs criados pela Groq"; sem Groq, "📐 Matriz de design do Castor"); o automático usa o 1º da Groq. A Groq
+  não gera imagem — a "imagem" é a prévia real do site com aquele design. Página do Gato sem site mostra onde o Castor aparece.
 - **Time completo no menu e na tela inicial** (`src/data/equipe.js`, pedido do usuário): Pinguim → Leão → 🦫 Castor (abre o
   Gato) → Gato → Abelha → Tigre → 🕷️ Aranha (`/admin`) → 🦅 Águia (`/aguia`).
 - **🦅 Águia** (`src/pages/Aguia.jsx`, `src/lib/aguia.js`, `server/aguia.js`): números do processo (`numerosDaAguia`), o que

@@ -13,6 +13,7 @@ import { gravarVideo, servidorGrava, salvarNaPasta, abrirPasta } from './video.j
 import { creditosFirecrawl, erroDeCredito } from './firecrawlCreditos.js'
 import { gravarNaNuvem, temVideoNuvem } from './videoNuvem.js'
 import { enviarRelatorio, temEmail } from './aguia.js'
+import { designsDoCastor } from './castor.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
 // Aceita as chaves com outros nomes de variável (ex.: "google" ou "firecrawl" no Vercel):
@@ -154,6 +155,17 @@ app.get('/gato/video-nuvem/baixar', async (c) => {
   const res = await fetch(u)
   if (!res.ok) return c.json({ error: 'Não consegui baixar o vídeo.' }, 502)
   return new Response(res.body, { headers: { 'Content-Type': res.headers.get('content-type') || 'video/mp4' } })
+})
+
+// 🦫 Castor: 3 design systems criados pela Groq para o comércio (sem Groq: o app usa a matriz por nicho).
+app.post('/castor/design', async (c) => {
+  const b = await c.req.json().catch(() => ({}))
+  if (!process.env.GROQ_API_KEY) return c.json({ error: 'Sem GROQ_API_KEY — o Castor usa a matriz por nicho.', code: 'NO_KEY' }, 503)
+  try {
+    return c.json({ propostas: await designsDoCastor(b), fonte: 'groq' })
+  } catch (e) {
+    return c.json({ error: e.message }, 502)
+  }
 })
 
 // 🦅 Águia: relatório do processo por e-mail.
