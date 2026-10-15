@@ -78,7 +78,7 @@ e "Leão Dourado" foi unificado como **Leão**.
     `estiloDoEstudo` só usa leituras com `confianca` de cor ≥ `CONFIANCA_MINIMA` (0,5, vinda do `branding.confidence`)
     e cor principal ≠ fundo; esquema da maioria, cores do site mais confiável dele e a fonte mais usada. Estilo inicial do site: link colado pelo usuário
     (prioridade) → estilo do estudo → tema por segmento.
-  - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob", "groq" (`gsk_`),
+  - `server/app.js` aceita chaves com outro nome de variável (`apelido`): "google" (`AIza…`), "fire" (`fc-…`), "blob", "groq" (qualquer nome com valor `gsk_…`),
     "apify"/"apyfi" (`apify_api_`), "serp" (64 hex).
   - `POST /api/gato/video` (`server/video.js`, body `{ html, segundos }`, 8–40) — grava **20 s** (padrão) da prévia em 390×844 **quadro a quadro** (print em 2× a
     20 quadros/s, juntado pelo ffmpeg-static em MP4 H.264 High 780×1688 — nítido e nunca corrompe; sem ffmpeg, cai no
