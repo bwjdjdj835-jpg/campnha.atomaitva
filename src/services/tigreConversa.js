@@ -20,6 +20,7 @@ export function registrarEnviada(siteId, texto, tipo = null, via = 'whatsapp-man
   atualizarConversa(siteId, (c) => ({
     mensagens: [...c.mensagens, { de: 'nos', texto, via, at: new Date().toISOString(), ...(tipo ? { tipo } : {}) }],
     // "Só dá uma olhada" e despedida: continua "Não quer site ainda" (o selo que todos os agentes veem).
+    sugestao: undefined,
     status: ['olhada', 'despedida'].includes(tipo) ? 'recusou' : ['novo', 'recusou', 'duvida', 'bot'].includes(c.status) ? 'contatado' : c.status,
     rascunho: undefined,
   }))
