@@ -32,7 +32,7 @@ async function baixar(chave, nome) {
 const quando = (iso) => (iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '')
 
 export default function TigreArquivo() {
-  const { sites, leads, conversas = {}, comSite = [], auto = {} } = usePipeline()
+  const { sites, leads, conversas = {}, comSite = [], auto = {}, tigreDiario = [] } = usePipeline()
   const [aba, setAba] = useState('recusou')
 
   // Clientes por situação (só quem já recebeu mensagem).
@@ -83,6 +83,23 @@ export default function TigreArquivo() {
             guarda tudo: sites de quem disse "agora não", quem respondeu, comércios verificados e os nichos que faltam.
           </p>
         </div>
+      </div>
+
+      {/* Trabalho do Tigre: o que ele fez depois de cada Aprovar */}
+      <div className="space-y-2 border-b border-white/5 px-5 py-4">
+        <div className="text-sm font-medium text-white">🐯 Trabalho do Tigre (depois do seu Aprovar na Aranha)</div>
+        {tigreDiario.length === 0 ? (
+          <p className="text-sm text-slate-500">Nada ainda. Quando você aprovar um cliente na Aranha, o Tigre grava, manda e anota aqui.</p>
+        ) : (
+          <ul className="max-h-56 space-y-1 overflow-y-auto pr-1 text-xs">
+            {tigreDiario.slice(0, 30).map((d, i) => (
+              <li key={i} className={d.ok ? 'text-slate-300' : 'text-amber-200'}>
+                <span className="text-slate-500">{new Date(d.at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span> ·{' '}
+                <strong className="text-white">{d.nome}</strong>: {d.passo}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Clientes por situação */}

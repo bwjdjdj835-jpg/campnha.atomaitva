@@ -5,7 +5,8 @@ import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { videoDoSite, guardarVideo, negocioDoSite, rascunho, lerPacoteLeao, gravarVideoPrevia, abrirPastaDoVideo } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { gravarNaNuvem } from '../services/videoNuvem.js'
-import { conectarZap, enviarPeloZap, buscarRespostas } from '../services/zapWeb.js'
+import { conectarZap, buscarRespostas } from '../services/zapWeb.js'
+import { tigreExecutar, tigreResponder } from '../services/tigreTrabalho.js'
 import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp, CSS_GRAVACAO } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
 import { lerResposta, registrarEnviada, outraSugestao, esperandoVoce, marcarVenda } from '../services/tigreConversa.js'
@@ -338,7 +339,7 @@ function CartaoAprovar({ site, negocio, conversa, videoServidor, videoNuvem }) {
   const [direto, setDireto] = useState(false)
   function mandarDireto() {
     if (site.videoArquivo && videoServidor) abrirPasta()
-    else salvarVideo()
+    else if (video) salvarVideo()
     navigator.clipboard?.writeText(texto).catch(() => {})
     window.open(`https://wa.me/${fone}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
     setDireto(true)
@@ -398,6 +399,25 @@ function CartaoAprovar({ site, negocio, conversa, videoServidor, videoNuvem }) {
           <ArquivosDosAgentes site={site} temVideo={Boolean(video)} />
           <label className="label" htmlFor={`msg-${site.id}`}>🐯 Mensagem do Tigre (dá para editar)</label>
           <textarea id={`msg-${site.id}`} rows={4} className="input" value={texto} onChange={(e) => setTexto(e.target.value)} />
+          {/* 🕷️ Você aprova; o 🐯 Tigre faz o trabalho (grava o vídeo se faltar, manda e registra). */}
+          <AprovarTigre
+            site={site}
+            texto={texto}
+            keys={{ videoServidor, videoNuvem }}
+            aoVideo={(blob) =>
+              setVideo((v) => {
+                if (v?.url) URL.revokeObjectURL(v.url)
+                return { blob, url: URL.createObjectURL(blob) }
+              })
+            }
+            aoManual={() => {
+              mandarDireto()
+            }}
+          />
+
+          <details className="rounded-xl border border-white/10 px-4 py-2">
+            <summary className="cursor-pointer text-sm text-slate-300">Fazer eu mesmo (gravar, salvar, mandar à mão)</summary>
+            <div className="mt-3 space-y-3">
           {/* Sem vídeo: você grava a prévia no notebook e envia aqui. */}
           {!video && (
             <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 space-y-2">
@@ -503,7 +523,8 @@ function CartaoAprovar({ site, negocio, conversa, videoServidor, videoNuvem }) {
             <p className="text-xs text-slate-500">Abre a conversa do cliente com a mensagem já escrita — é só tocar em enviar.</p>
           </div>
 
-          {videoServidor && <ZapWeb fone={fone} texto={texto} video={video?.blob} aoEnviar={jaEnviei} />}
+            </div>
+          </details>
 
           {abriu && (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
@@ -666,7 +687,7 @@ function ConversaRapida({ site, negocio, conversa, videoServidor }) {
                         <button className="btn-ghost border border-white/10 text-sm" onClick={outra} disabled={ocupado}>
                           {ocupado ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Gerar outra
                         </button>
-                        {videoServidor && <ZapWeb fone={fone} texto={sugestao.texto} aoEnviar={jaEnviei} compacto />}
+                        {videoServidor && <ResponderTigre siteId={site.id} texto={sugestao.texto} aoEnviar={jaEnviei} />}
                         {abriu && (
                           <button className="btn-ghost border border-emerald-400/40 text-emerald-200 text-sm" onClick={jaEnviei}>
                             <CheckCircle2 size={16} /> Já enviei
@@ -788,49 +809,6 @@ function RelatorioRodada() {
   )
 }
 
-// 📲 WhatsApp Web pelo notebook: a Aranha abre a conversa, anexa o vídeo e escreve — e só envia no seu clique.
-function ZapWeb({ fone, texto, video, aoEnviar, compacto = false }) {
-  const [estado, setEstado] = useState(null) // null | 'conectando' | 'qr' | 'enviando' | 'enviado' | erro
-  async function conectar() {
-    setEstado('conectando')
-    try {
-      const s = await conectarZap()
-      setEstado(s.status === 'pronto' ? null : 'qr')
-    } catch (e) {
-      setEstado(e.message)
-    }
-  }
-  async function enviar() {
-    setEstado('enviando')
-    try {
-      await enviarPeloZap({ telefone: fone, texto, video })
-      setEstado('enviado')
-      aoEnviar()
-    } catch (e) {
-      setEstado(e.message)
-    }
-  }
-  const erro = estado && !['conectando', 'qr', 'enviando', 'enviado'].includes(estado) ? estado : null
-  return (
-    <div className={compacto ? 'flex flex-wrap items-center gap-2' : 'space-y-2 rounded-xl border border-green-400/30 bg-green-400/5 px-4 py-3'}>
-      {!compacto && <div className="text-sm font-medium text-white">📲 Pelo seu WhatsApp Web (notebook)</div>}
-      <div className="flex flex-wrap gap-2">
-        <button className="btn-primary !py-2 !px-4 text-sm" onClick={enviar} disabled={!fone || !texto?.trim() || estado === 'enviando'}>
-          {estado === 'enviando' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Aprovar e enviar pelo WhatsApp Web
-          {video ? ' (vídeo + mensagem)' : ''}
-        </button>
-        <button className="btn-ghost border border-white/10 text-sm" onClick={conectar} disabled={estado === 'conectando'}>
-          {estado === 'conectando' ? <Loader2 size={14} className="animate-spin" /> : null} Conectar WhatsApp
-        </button>
-      </div>
-      {estado === 'qr' && <p className="text-xs text-amber-200">Abriu uma janela do WhatsApp Web: no celular, vá em Aparelhos conectados → Conectar e escaneie o QR code. Só na 1ª vez.</p>}
-      {estado === 'enviado' && <p className="text-xs text-emerald-300">✅ Enviado pelo seu WhatsApp.</p>}
-      {erro && <p className="text-xs text-rose-300">{erro}</p>}
-      {!compacto && <p className="text-xs text-slate-500">Nada sai sem o seu clique. Use com moderação: muitas mensagens seguidas para quem não te conhece podem fazer o WhatsApp bloquear o número.</p>}
-    </div>
-  )
-}
-
 // Lê no WhatsApp Web o que cada cliente respondeu e deixa a próxima mensagem sugerida (você aprova cada envio).
 function BuscarRespostas() {
   const [rodando, setRodando] = useState(false)
@@ -852,9 +830,85 @@ function BuscarRespostas() {
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-white/5 px-5 py-3">
       <button className="btn-primary !py-2 !px-4 text-sm" onClick={buscar} disabled={rodando}>
-        {rodando ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Buscar respostas no WhatsApp
+        {rodando ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} 🐯 Tigre: buscar respostas no WhatsApp
       </button>
       <span className="text-xs text-slate-400">{rodando ? `Lendo ${passo}…` : fim || 'A Aranha abre cada conversa no seu WhatsApp Web e traz o que responderam.'}</span>
     </div>
+  )
+}
+
+// 🕷️ → 🐯 Aprovar: o Tigre confere que não é repetido, grava o vídeo se faltar e manda pelo WhatsApp Web (notebook).
+// No Vercel (sem WhatsApp Web), ele prepara e abre a conversa do cliente para você mandar e clicar "Já enviei".
+function AprovarTigre({ site, texto, keys, aoVideo, aoManual }) {
+  const [estado, setEstado] = useState(null) // null | 'trabalhando' | 'enviado' | 'manual' | erro
+  const [conectado, setConectado] = useState(null)
+  async function aprovar() {
+    setEstado('trabalhando')
+    try {
+      const r = await tigreExecutar(site.id, { texto, keys, segundos: Number(lerOpcoes().duracao) || 20 })
+      if (r.video) aoVideo(r.video)
+      if (r.modo === 'manual') {
+        aoManual()
+        setEstado('manual')
+      } else setEstado('enviado')
+    } catch (e) {
+      setEstado(e.message)
+    }
+  }
+  async function conectar() {
+    try {
+      const s = await conectarZap()
+      setConectado(s.status)
+    } catch (e) {
+      setEstado(e.message)
+    }
+  }
+  const erro = estado && !['trabalhando', 'enviado', 'manual'].includes(estado) ? estado : null
+  return (
+    <div className="space-y-2 rounded-xl border border-neon/40 bg-neon/5 px-4 py-3">
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-primary !py-2.5 !px-5 text-sm" onClick={aprovar} disabled={!texto.trim() || estado === 'trabalhando' || estado === 'enviado'}>
+          {estado === 'trabalhando' ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}{' '}
+          {estado === 'trabalhando' ? 'O Tigre está trabalhando…' : 'Aprovar — o 🐯 Tigre faz o resto'}
+        </button>
+        {keys.videoServidor && (
+          <button className="btn-ghost border border-white/10 text-sm" onClick={conectar}>
+            Conectar WhatsApp {conectado === 'pronto' ? '✓' : ''}
+          </button>
+        )}
+      </div>
+      <p className="text-xs text-slate-400">
+        {keys.videoServidor
+          ? 'O Tigre grava o vídeo (se faltar), manda vídeo + mensagem pelo seu WhatsApp Web e anota que este comércio já recebeu.'
+          : 'O Tigre grava o vídeo (se faltar) e abre a conversa do cliente com a mensagem pronta; anexe o vídeo pelo 📎 e clique "Já enviei".'}
+      </p>
+      {conectado === 'qr' && <p className="text-xs text-amber-200">Escaneie o QR code na janela do WhatsApp Web (Aparelhos conectados). Só na 1ª vez.</p>}
+      {estado === 'enviado' && <p className="text-xs text-emerald-300">✅ O Tigre mandou e anotou. Este comércio foi para a aba Conversas.</p>}
+      {estado === 'manual' && <p className="text-xs text-sky-200">A conversa do cliente abriu. Mande lá e clique em "Já enviei" aqui embaixo.</p>}
+      {erro && <p className="text-xs text-rose-300">{erro}</p>}
+    </div>
+  )
+}
+
+// Resposta aprovada: o Tigre manda pelo WhatsApp Web (notebook) e registra.
+function ResponderTigre({ siteId, texto, aoEnviar }) {
+  const [estado, setEstado] = useState(null)
+  async function enviar() {
+    setEstado('enviando')
+    try {
+      await tigreResponder(siteId, texto)
+      setEstado(null)
+      aoEnviar()
+    } catch (e) {
+      setEstado(e.message)
+    }
+  }
+  return (
+    <>
+      <button className="btn-primary !py-2 !px-4 text-sm" onClick={enviar} disabled={!texto?.trim() || estado === 'enviando'}>
+        {estado === 'enviando' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Aprovar — o Tigre envia
+      </button>
+      {estado && estado !== 'enviando' && <span className="text-xs text-rose-300">{estado}</span>}
+    </>
   )
 }

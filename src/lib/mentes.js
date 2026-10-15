@@ -38,13 +38,13 @@ export const PERSONALIDADES = {
   tigre: {
     emoji: '🐯',
     nome: 'Tigre',
-    personalidade: 'Guardião da memória de vendas. Lembra de quem disse "agora não" para oferecer de novo na hora certa.',
+    personalidade: 'Trabalhador incansável e organizado. Depois do seu Aprovar ele grava, manda e anota tudo — e nunca manda duas vezes para o mesmo comércio.',
     lema: '"Ninguém fica esquecido."',
   },
   aranha: {
     emoji: '🕷️',
     nome: 'Aranha Administradora',
-    personalidade: 'Calma e paciente. Tece a conversa com cada cliente, uma mensagem por vez, até fechar.',
+    personalidade: 'Sua cadeira de administrador. Mostra tudo pronto para você só olhar e aprovar.',
     lema: '"Sem pressa e sem pressão — mas sem largar o fio."',
   },
   aguia: {
