@@ -257,6 +257,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   "Gerar outra" (`outraSugestao`) → "Já enviei" → cola a próxima… até "💰 Fechou! Pagou" (`marcarVenda`). O `SISTEMA` do
   Tigre tem o objetivo de levar a conversa até fechar, lendo a conversa inteira. `olhada`/`despedida` mantêm o selo `recusou`. A lógica de ler a resposta e escolher a
   próxima mensagem fica em `src/services/tigreConversa.js` (usada pelo `TigrePainel` e pelo Admin). O Tigre também mostra a fila (`FilaAprovacao.jsx`).
+- **🐯 Arquivo do Tigre** (`src/components/TigreArquivo.jsx`, topo da página do Tigre; pedido do usuário — a conversa final é da
+  Aranha): clientes por situação (🙅 não querem agora = sites guardados com prévia/ZIP, responderam, aguardando, vendidos,
+  não contatar), tabela de nichos (✅ concluído `auto.feitos`, 🔄 em andamento `auto.listas` com quantos faltam, ⏸️ ainda não
+  vimos; `chaveNicho`) e números dos comércios verificados pelo Pinguim.
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência).
 

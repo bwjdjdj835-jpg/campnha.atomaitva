@@ -33,6 +33,7 @@ export const NICHOS_PADRAO = [
 ]
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
+export const chaveNicho = (s) => chave(s)
 const chave = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
 // Limite do plano grátis do Firecrawl (~10 pedidos/min): cada etapa "reserva" quantos pedidos vai usar.
