@@ -215,7 +215,7 @@ function AgentPage() {
                   ? `Conectado · Firecrawl ${keys.firecrawl ? '✓ (pesquisa sites profissionais)' : '✗ (sem pesquisa de referências — usa os padrões base)'} · pasta online ${keys.pasta ? '✓' : '✗'}`
                   : agent.id === 'leao'
                   ? `Conectado · fotos do Google ${keys.googlePlaces ? '✓' : '✗'} · prints ${keys.firecrawl ? '✓' : '✗ (precisa do Firecrawl)'} · pasta online ${keys.pasta ? '✓' : '✗ (conecte um Blob Store no Vercel)'}`
-                  : `Conectado · fonte: ${keys.apify ? 'Google Maps (via Apify)' : keys.serpapi ? 'Google Maps (via SerpApi)' : keys.firecrawl ? 'Google Maps (via Firecrawl)' : keys.googlePlaces ? 'Google Places' : 'OpenStreetMap (grátis)'} · confirmação de domínio ${keys.firecrawl ? '✓' : '✗'}`}
+                  : `Conectado · fonte: ${keys.apify ? 'Google Maps (via Apify)' : keys.serpapi ? 'Google Maps (via SerpApi)' : keys.firecrawl ? 'Google Maps (via Firecrawl)' : keys.googlePlaces ? 'Google Places' : 'OpenStreetMap (grátis)'} · confirmação de domínio ${keys.firecrawl ? '✓' : '✗'}${keys.creditos ? ` · Firecrawl: ${keys.creditos.restantes > 0 ? `${keys.creditos.restantes} créditos` : '❌ SEM CRÉDITOS'}` : ''}`}
           </p>
         </section>
 
@@ -324,7 +324,7 @@ function useApiStatus() {
   useEffect(() => {
     fetch('/api/status')
       .then((r) => r.json())
-      .then((d) => setKeys(d.keys))
+      .then((d) => setKeys({ ...d.keys, creditos: d.firecrawlCreditos }))
       .catch(() => setKeys(null))
   }, [])
   return keys

@@ -10,6 +10,7 @@ import { estudar, aprofundar } from './gato.js'
 import { hospedar, listarPastas, temPasta } from './pasta.js'
 import { enriquecer } from './abelha.js'
 import { gravarVideo, servidorGrava } from './video.js'
+import { creditosFirecrawl, erroDeCredito } from './firecrawlCreditos.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
 // Aceita as chaves com outros nomes de variável (ex.: "google" ou "firecrawl" no Vercel):
@@ -40,7 +41,10 @@ const keys = () => ({
 })
 
 // videoServidor: o servidor tem navegador para gravar (computador); senão o vídeo é gravado no navegador do usuário.
-app.get('/status', async (c) => c.json({ ok: true, keys: { ...keys(), videoServidor: await servidorGrava() } }))
+app.get('/status', async (c) => {
+  const [videoServidor, firecrawlCreditos] = await Promise.all([servidorGrava(), creditosFirecrawl()])
+  return c.json({ ok: true, keys: { ...keys(), videoServidor }, firecrawlCreditos })
+})
 
 app.post('/pinguim/buscar', async (c) => {
   const { categoria, cidade } = await c.req.json().catch(() => ({}))
@@ -59,6 +63,7 @@ app.post('/pinguim/conferir', async (c) => {
     return c.json(await conferirSite({ nome: nome.trim(), cidade, telefone }))
   } catch (e) {
     if (/limite de pedidos/.test(e.message)) return c.json({ error: e.message, code: 'LIMITE' }, 429)
+    if (erroDeCredito(e.message)) return c.json({ error: 'Acabaram os créditos do Firecrawl.', code: 'SEM_CREDITO' }, 402)
     throw e
   }
 })

@@ -25,7 +25,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   `live: true` marca os que já usam o backend).
 - **Backend** (Hono) em `server/`: `app.js` (rotas), `index.js` (servidor local, lê `server/.env`),
   `api/index.js` reaproveita a mesma app como função serverless no Vercel. Vite faz proxy de `/api` → `:8787`.
-  - `GET /api/status` — quais chaves estão configuradas.
+  - `GET /api/status` — quais chaves estão configuradas + `firecrawlCreditos` (`server/firecrawlCreditos.js`,
+    `GET /v2/team/credit-usage`, cache 60 s). Sem crédito, o Pinguim avisa (`avisoSemCredito`), pula as fontes do Firecrawl,
+    marca os leads como `sem_firecrawl` e devolve `semCreditoFirecrawl`; `/pinguim/conferir` responde 402 `SEM_CREDITO`.
+    O Automático e o Pinguim mostram "Firecrawl ✓ (N créditos)" ou "❌ SEM CRÉDITOS".
   - `POST /api/pinguim/buscar` — **real**: fonte em ordem — Google Maps via **Apify** (`server/apify.js`, ator
     `nwua9Gu5YrADL7ZDj` Google Maps Scraper, `APIFY_TOKEN`, run-sync-get-dataset-items, pt-BR, 20 lugares)
     → Google Maps via SerpApi (`server/serpapi.js`,

@@ -284,7 +284,7 @@ export default function Automatico() {
             {keys === null
               ? 'Backend não encontrado — o automático precisa do servidor.'
               : keys
-                ? `Fonte: ${keys.apify ? 'Apify' : keys.serpapi ? 'SerpApi' : keys.firecrawl ? 'Google Maps via Firecrawl' : keys.googlePlaces ? 'Google Places' : 'OpenStreetMap'} · Firecrawl ${keys.firecrawl ? '✓' : '✗'} · IA ${keys.groq ? 'Groq ✓' : keys.claude ? 'Claude ✓' : '✗ (textos prontos)'} · vídeo ${keys.videoServidor ? 'pelo servidor' : 'pelo navegador'}`
+                ? `Fonte: ${keys.apify ? 'Apify' : keys.serpapi ? 'SerpApi' : keys.firecrawl ? 'Google Maps via Firecrawl' : keys.googlePlaces ? 'Google Places' : 'OpenStreetMap'} · Firecrawl ${textoCreditos(keys)} · IA ${keys.groq ? 'Groq ✓' : keys.claude ? 'Claude ✓' : '✗ (textos prontos)'} · vídeo ${keys.videoServidor ? 'pelo servidor' : 'pelo navegador'}`
                 : 'Verificando backend…'}
           </p>
         </section>
@@ -349,12 +349,19 @@ export default function Automatico() {
   )
 }
 
+// Firecrawl ✓ (N créditos) — sem crédito o Pinguim não lê o Google Maps nem confere os sites.
+function textoCreditos(keys) {
+  if (!keys.firecrawl) return '✗'
+  if (!keys.creditos) return '✓'
+  return keys.creditos.restantes > 0 ? `✓ (${keys.creditos.restantes} créditos)` : '❌ SEM CRÉDITOS'
+}
+
 function useStatus() {
   const [keys, setKeys] = useState(undefined)
   useEffect(() => {
     fetch('/api/status')
       .then((r) => r.json())
-      .then((d) => setKeys(d.keys))
+      .then((d) => setKeys({ ...d.keys, creditos: d.firecrawlCreditos }))
       .catch(() => setKeys(null))
   }, [])
   return keys

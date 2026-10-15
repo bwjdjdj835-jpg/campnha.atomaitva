@@ -11,6 +11,7 @@ import { buscarMapsFirecrawl } from './maps.js'
 import { buscarSerpApi } from './serpapi.js'
 import { buscarApify } from './apify.js'
 import { buscarMapsPagina } from './mapsPagina.js'
+import { creditosFirecrawl, semCredito, erroDeCredito, avisoSemCredito } from './firecrawlCreditos.js'
 
 const MAX_VERIFICAR = 25 // leads mostrados por busca
 
@@ -185,6 +186,16 @@ export async function buscarNegocios({ categoria, cidade }) {
   //    (funciona em qualquer plano) → Google Places → OpenStreetMap.
   let candidatos = null
   let fonte = 'OpenStreetMap'
+  const creditos = await creditosFirecrawl()
+  let firecrawlOk = Boolean(process.env.FIRECRAWL_API_KEY) && !semCredito(creditos)
+  if (semCredito(creditos)) log('warn', avisoSemCredito(creditos))
+  else if (creditos) log('info', `Firecrawl: ${creditos.restantes} crédito(s) restantes`)
+  const falhouFirecrawl = (e) => {
+    if (!erroDeCredito(e.message)) return false
+    if (firecrawlOk) log('warn', avisoSemCredito(creditos))
+    firecrawlOk = false
+    return true
+  }
   if (process.env.APIFY_TOKEN) {
     log('info', `Google Maps (via Apify): "${query}" — pode levar 1 a 2 minutos`)
     try {
@@ -203,22 +214,22 @@ export async function buscarNegocios({ categoria, cidade }) {
       log('warn', `${e.message} — tentando outra fonte`)
     }
   }
-  if (!candidatos && process.env.FIRECRAWL_API_KEY) {
+  if (!candidatos && firecrawlOk) {
     log('info', `Google Maps (via Firecrawl): "${query}"`)
     try {
       candidatos = (await buscarMapsFirecrawl(query)).map((c) => ({ ...c, ...separarSite(c.siteMaps) }))
       fonte = 'Google Maps'
     } catch (e) {
-      log('warn', `${e.message} — tentando outra fonte`)
+      if (!falhouFirecrawl(e)) log('warn', `${e.message} — tentando outra fonte`)
     }
   }
-  if (!candidatos && process.env.FIRECRAWL_API_KEY) {
+  if (!candidatos && firecrawlOk) {
     log('info', `Google Maps (página, via Firecrawl): "${query}"`)
     try {
       candidatos = (await buscarMapsPagina(query, log)).map((c) => ({ ...c, ...separarSite(c.siteMaps) }))
       fonte = 'Google Maps'
     } catch (e) {
-      log('warn', `Google Maps (página): ${e.message} — tentando outra fonte`)
+      if (!falhouFirecrawl(e)) log('warn', `Google Maps (página): ${e.message} — tentando outra fonte`)
     }
   }
   if (!candidatos && process.env.GOOGLE_PLACES_API_KEY) {
@@ -264,8 +275,8 @@ export async function buscarNegocios({ categoria, cidade }) {
   log('info', `${comSite.length} já têm site no ${fonte} — ${semSite.length} sem site cadastrado`)
 
   // 3. A conferência no Firecrawl (domínio e telefone em outros sites) roda depois, na lista de leads.
-  const comFirecrawl = Boolean(process.env.FIRECRAWL_API_KEY)
-  if (!comFirecrawl) log('warn', 'FIRECRAWL_API_KEY ausente — não dá para conferir se têm site em outro lugar; confiança fica "Médio"')
+  const comFirecrawl = firecrawlOk
+  if (!process.env.FIRECRAWL_API_KEY) log('warn', 'FIRECRAWL_API_KEY ausente — não dá para conferir se têm site em outro lugar; confiança fica "Médio"')
   else if (semSite.length) log('info', 'Agora o Firecrawl confere cada um (domínio e telefone em outros sites) — acompanhe na lista abaixo')
 
   const leads = semSite.slice(0, MAX_VERIFICAR).map((c) => {
@@ -295,5 +306,5 @@ export async function buscarNegocios({ categoria, cidade }) {
 
   log('ok', `${leads.length} negócio(s) sem site no ${fonte}`)
   if (leads.length < 3) log('warn', 'Poucos resultados — tente variar a categoria ou buscar uma cidade vizinha')
-  return { logs, leads, comSite }
+  return { logs, leads, comSite, semCreditoFirecrawl: Boolean(process.env.FIRECRAWL_API_KEY) && !firecrawlOk }
 }
