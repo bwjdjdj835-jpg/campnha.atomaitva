@@ -47,6 +47,26 @@ export async function fotosEmDataUrl(fotos) {
   return Object.fromEntries(pares)
 }
 
+// Fotos menores (até 1000 px, JPEG) — para mandar a prévia para gravar na nuvem sem passar do limite do Vercel.
+export async function fotosMenores(fotos, max = 1000) {
+  const pares = await Promise.all(
+    fotos.map(async (f) => {
+      try {
+        const img = await createImageBitmap(f.blob)
+        const k = Math.min(1, max / Math.max(img.width, img.height))
+        const c = document.createElement('canvas')
+        c.width = Math.round(img.width * k)
+        c.height = Math.round(img.height * k)
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+        return [f.caminho, c.toDataURL('image/jpeg', 0.75)]
+      } catch {
+        return [f.caminho, await paraDataUrl(f.blob)]
+      }
+    }),
+  )
+  return Object.fromEntries(pares)
+}
+
 // Fonte do site modelo (Google Fonts), quando o tema "Do modelo" está ativo.
 export function linkDaFonte(dados) {
   const fonte = dados.tema === 'modelo' && dados.modelo?.estilo?.fonte

@@ -6,6 +6,7 @@ import { usePipeline } from '../store/pipeline.js'
 import { SELO_CONTATO } from '../lib/contato.js'
 import { NICHOS_PADRAO, rodarAutomatico, regravarVideos, nichosFeitos, recomecarNichos, pararEstudo, pegarFluxo } from '../services/automatico.js'
 import { gravarVideoPrevia } from '../services/agents.js'
+import { gravarNaNuvem } from '../services/videoNuvem.js'
 import { pedirGravacaoDaAba, gravarComFluxo, SANDBOX_PREVIA } from '../lib/previa.jsx'
 
 const CHAVE = 'central-agentes:automatico'
@@ -73,12 +74,21 @@ export default function Automatico() {
 
   // Grava a prévia: no computador com o servidor local, o servidor grava sozinho; no Vercel, grava esta aba
   // com a autorização dada no começo (o quadro fica fixo no canto da tela durante a gravação).
-  async function gravar(html, siteId) {
+  async function gravar(html, siteId, pacote) {
     if (keys?.videoServidor) {
       try {
         return await gravarVideoPrevia(html, siteId, Number(duracao))
       } catch (e) {
         log('warn', `🎬 Servidor não gravou (${e.message}) — tentando aqui no navegador`)
+      }
+    }
+    // Vercel com a chave da ScreenshotOne: grava na nuvem (sem compartilhar a aba).
+    if (keys?.videoNuvem && pacote) {
+      try {
+        log('info', '🎬 Gravando o vídeo na nuvem (ScreenshotOne)…')
+        return await gravarNaNuvem(pacote, siteId, Number(duracao))
+      } catch (e) {
+        log('warn', `🎬 Nuvem não gravou (${e.message})`)
       }
     }
     const f = fluxo.current
@@ -129,7 +139,7 @@ export default function Automatico() {
     pararRef.current = false
     // A autorização para gravar precisa vir logo depois do clique: pede uma vez, vale para a rodada inteira.
     // Vídeo é obrigatório (cliente só fica pronto com vídeo e mensagem): sem autorização para gravar, nem começa.
-    if (!keys?.videoServidor && !(manual && modo === 'rodada')) {
+    if (!keys?.videoServidor && !keys?.videoNuvem && !(manual && modo === 'rodada')) {
       let f = fluxoPronto
       if (f === undefined) f = await pedirGravacaoDaAba().catch(() => null)
       if (!f) {
@@ -140,7 +150,7 @@ export default function Automatico() {
     }
     setRodando(true)
     try {
-      const ui = { log, etapa: setEtapa, parar: () => pararRef.current, gravar, videoManual: manual && modo === 'rodada' && !keys?.videoServidor }
+      const ui = { log, etapa: setEtapa, parar: () => pararRef.current, gravar, videoManual: manual && modo === 'rodada' && !keys?.videoServidor && !keys?.videoNuvem }
       const r =
         modo === 'regravar'
           ? await regravarVideos(ui)

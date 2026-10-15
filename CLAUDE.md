@@ -97,6 +97,13 @@ e "Leão Dourado" foi unificado como **Leão**.
     `~/Videos/Central de Agentes/<nicho>/<comércio>.mp4` (`salvarNaPasta`, header `X-Salvo-Em` → `site.videoArquivo`);
     `POST /api/gato/abrir-pasta` (`abrirPasta`, só arquivos dessa pasta) abre o Explorador. No notebook o automático grava
     sozinho mesmo com `videoModo: 'manual'`; o cartão da Aranha tem "Gravar agora no notebook (nítido)" e "Abrir a pasta".
+    **Vídeo na nuvem (ScreenshotOne, pedido do usuário):** `server/videoNuvem.js` (`SCREENSHOTONE_ACCESS_KEY`, apelido "screenshot",
+    `keys.videoNuvem`) → `POST /api/gato/video-nuvem` manda o HTML da prévia para `POST https://api.screenshotone.com/animate`
+    (scroll, MP4, 390×844 em 2×, capa 3 s, `cache` + `response_type: json`) e devolve `{ url }` (cache_url — a função do
+    Vercel não devolve arquivo grande); o navegador baixa direto ou por `GET /api/gato/video-nuvem/baixar?u=` (só domínios
+    screenshotone). Cliente: `src/services/videoNuvem.js` (`gravarNaNuvem(pacote, siteId, segundos)`, fotos reduzidas por
+    `fotosMenores` para caber no limite de ~4,5 MB do pedido). Ordem no automático: notebook → nuvem → aba do navegador.
+    O cartão da Aranha tem "Gravar agora na nuvem".
     `POST /api/tigre/video` envia pela Z-API (`send-video`, base64).
   - `POST /api/abelha/enriquecer` (`server/abelha.js`) — busca o negócio no Firecrawl e extrai sobre/horário/serviços
     (Claude com structured output; sem chave, só horário por regex). Todo campo volta com a URL da fonte; campo que
