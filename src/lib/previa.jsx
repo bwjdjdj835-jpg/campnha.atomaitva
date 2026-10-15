@@ -1,6 +1,6 @@
 // Monta o HTML da prévia do site do cliente (mesmo componente que vai no ZIP), com o CSS compilado
 // e o efeito de água embutidos. Usado pelo Leão (conferir dados e fotos) e pelo Gato Negro (aprovação).
-import { trocarFotos } from './siteProprio.js'
+import { montarSiteProprio } from './siteProprio.js'
 import { renderToStaticMarkup } from 'react-dom/server'
 import Site, { fonteDoSite } from './ClienteSite.jsx'
 import clienteCss from './cliente.css?inline'
@@ -77,11 +77,10 @@ export function linkDaFonte(dados) {
 // cssExtra: miniaturas dos temas (capa mais baixa) ou gravação do vídeo (sem granulado).
 // agua: false na gravação — as ondas na foto parecem defeito no vídeo comprimido.
 function htmlDoSiteProprio(dados, fotosUrl, cssExtra) {
-  const html = trocarFotos(dados.htmlProprio, dados.imagens, (a) => fotosUrl[a] || '')
-  const cabeca = `<base target="_blank">${cssExtra ? `<style>${cssExtra}</style>` : ''}`
-  const comCabeca = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (h) => h + cabeca) : cabeca + html
-  const passeio = `<script>${passeioScript}</script>`
-  return /<\/body>/i.test(comCabeca) ? comCabeca.replace(/<\/body>/i, passeio + '</body>') : comCabeca + passeio
+  return montarSiteProprio(dados, (a) => fotosUrl[a] || '', {
+    cabeca: `<base target="_blank">${cssExtra ? `<style>${cssExtra}</style>` : ''}`,
+    fim: `<script>${passeioScript}</script>`,
+  })
 }
 
 export function htmlDaPrevia(dados, fotosUrl, cssExtra = '', { agua = true } = {}) {
@@ -91,6 +90,8 @@ export function htmlDaPrevia(dados, fotosUrl, cssExtra = '', { agua = true } = {
     imagens: (dados.imagens || [])
       .filter((img) => fotosUrl[img.arquivo])
       .map((img) => ({ ...img, arquivo: fotosUrl[img.arquivo] })),
+    // Pares de Antes e Depois apontam para as mesmas fotos (agora embutidas).
+    antesDepois: (dados.antesDepois || []).map((p) => ({ ...p, antes: fotosUrl[p.antes], depois: fotosUrl[p.depois] })),
   }
   const html = renderToStaticMarkup(<Site dados={comFotos} />)
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">

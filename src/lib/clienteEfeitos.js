@@ -9,6 +9,9 @@
 //   [data-progresso] barra de progresso da rolagem
 //   [data-contar]   números que contam de 0 até o valor quando aparecem (data-casas = casas decimais)
 //   [data-carrossel] depoimentos que passam sozinhos (botões [data-carrossel-ant] / [data-carrossel-prox])
+//   [data-antes-depois] comparação Antes e Depois: arraste a linha (mouse, dedo ou teclado ← →)
+//   [data-esqueleto] foto com brilho de "carregando" até chegar; depois aparece suave
+// Antes e Depois e esqueletos funcionam sempre (são parte do site, não enfeite).
 // Respeita "reduzir movimento".
 
 export function iniciarEfeitos(raiz, tentativas) {
@@ -16,7 +19,7 @@ export function iniciarEfeitos(raiz, tentativas) {
   tentativas = tentativas === undefined ? 30 : tentativas
   if (typeof window === 'undefined') return
   const alvos = raiz.querySelectorAll(
-    '[data-revelar],[data-brilho],[data-magnetico],[data-parallax],[data-parallax-hero],[data-progresso],[data-contar],[data-carrossel]',
+    '[data-revelar],[data-brilho],[data-magnetico],[data-parallax],[data-parallax-hero],[data-progresso],[data-contar],[data-carrossel],[data-antes-depois],[data-esqueleto]',
   )
   // No site em React a página pode ainda não estar na tela: tenta de novo por alguns instantes.
   if (!alvos.length && tentativas > 0) {
@@ -50,6 +53,72 @@ export function iniciarEfeitos(raiz, tentativas) {
     )
     revelar.forEach((el) => observador.observe(el))
   }
+  // Esqueletos: a foto mostra um brilho até carregar e aparece com fade (o site nunca parece travado).
+  raiz.querySelectorAll('[data-esqueleto]').forEach((el) => {
+    const img = el.tagName === 'IMG' ? el : el.querySelector('img,iframe')
+    const pronto = () => el.classList.add('esqueleto-pronto')
+    if (!img || (img.tagName === 'IMG' && img.complete && img.naturalWidth)) return pronto()
+    if (img.tagName === 'IFRAME') setTimeout(pronto, 8000) // agenda de fora: some o brilho mesmo se demorar
+    img.addEventListener('load', pronto, { once: true })
+    img.addEventListener('error', pronto, { once: true })
+  })
+
+  // Antes e Depois: Pointer Events (mouse, dedo e caneta com o mesmo código) + teclado; só a variável --pos muda.
+  raiz.querySelectorAll('[data-antes-depois]').forEach((fig) => {
+    const linha = fig.querySelector('[data-ad-linha]') || fig
+    let pos = 50
+    let pedido = 0
+    const pintar = () => {
+      pedido = 0
+      fig.style.setProperty('--pos', pos + '%')
+      linha.setAttribute('aria-valuenow', String(Math.round(pos)))
+    }
+    const ir = (v) => {
+      pos = Math.max(0, Math.min(100, v))
+      if (!pedido) pedido = requestAnimationFrame(pintar)
+    }
+    const doPonteiro = (e) => {
+      const r = fig.getBoundingClientRect()
+      ir(((e.clientX - r.left) / r.width) * 100)
+    }
+    let arrastando = false
+    fig.addEventListener('pointerdown', (e) => {
+      arrastando = true
+      fig.classList.add('ad-arrastando')
+      if (fig.setPointerCapture) fig.setPointerCapture(e.pointerId)
+      doPonteiro(e)
+    })
+    fig.addEventListener('pointermove', (e) => arrastando && doPonteiro(e))
+    const soltar = () => {
+      arrastando = false
+      fig.classList.remove('ad-arrastando')
+    }
+    fig.addEventListener('pointerup', soltar)
+    fig.addEventListener('pointercancel', soltar)
+    linha.addEventListener('keydown', (e) => {
+      const passo = { ArrowLeft: -5, ArrowRight: 5, Home: -100, End: 100 }[e.key]
+      if (passo === undefined) return
+      e.preventDefault()
+      ir(pos + passo)
+    })
+    pintar()
+    // Ao aparecer, um vai-e-vem rápido mostra que dá para arrastar (também aparece no vídeo da prévia).
+    if (!calmo && 'IntersectionObserver' in window) {
+      const obs = new IntersectionObserver((ents) => {
+        if (!ents[0].isIntersecting) return
+        obs.disconnect()
+        const inicio = performance.now()
+        const dica = (agora) => {
+          const t = Math.min(1, (agora - inicio) / 1800)
+          if (!arrastando) ir(50 + Math.sin(t * Math.PI * 2) * 22 * (1 - t))
+          if (t < 1) requestAnimationFrame(dica)
+        }
+        requestAnimationFrame(dica)
+      }, { threshold: 0.5 })
+      obs.observe(fig)
+    }
+  })
+
   if (calmo) return
 
   // Barra de progresso + parallax da capa (um só ouvinte de rolagem).

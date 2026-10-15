@@ -4,13 +4,14 @@
 // Ordem: Gemini (GEMINI_API_KEY, melhor para "imagem → site") → Groq com visão (GROQ_API_KEY).
 
 import { groq } from './tigre.js'
+import { MANUAL_DO_GATO } from './gatoManual.js'
 
 const MODELOS_GEMINI = () => [process.env.GEMINI_TEXT_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean)
 const MODELO_VISAO_GROQ = () => process.env.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b'
 
 export const temSiteDaImagem = () => Boolean(process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY)
 
-function pedido({ negocio = {}, conteudo = {}, fotos = 0 }) {
+function pedido({ negocio = {}, conteudo = {}, fotos = 0, antesDepois = [], agendamento = false }) {
   const lista = (v) => (Array.isArray(v) ? v.map((x) => (typeof x === 'string' ? x : [x.nome || x.titulo, x.descricao || x.texto].filter(Boolean).join(': '))).join('; ') : '')
   const dados = [
     `Nome: ${negocio.nome || '—'}`,
@@ -38,9 +39,18 @@ ${dados.join('\n')}
 FOTOS REAIS: ${fotos} foto(s). Use exatamente src="{{FOTO_1}}" … src="{{FOTO_${Math.max(1, fotos)}}}" (a 1ª é a capa; as outras na galeria e onde a imagem mostra fotos). ${
     fotos ? '' : 'Não há fotos: use fundos de cor/gradiente no lugar.'
   }
+${
+    antesDepois.length
+      ? `ANTES E DEPOIS (peça da biblioteca): crie a seção "Antes e depois" com ${antesDepois
+          .map((p) => `antes = {{FOTO_${p.antes}}}, depois = {{FOTO_${p.depois}}}${p.legenda ? ` (legenda: ${p.legenda})` : ''}`)
+          .join('; ')}. Essas fotos não entram na galeria.`
+      : 'Não há Antes e Depois.'
+  }
+${agendamento ? 'AGENDAMENTO ONLINE: coloque <!--AGENDA--> antes da seção de contato.' : 'Sem agenda online: o agendamento é pelo WhatsApp.'}
+Siga o MANUAL DO GATO (design de agência e peças da biblioteca) em tudo que a imagem não decidir.
 Se a imagem tem uma seção sem dado real (preços, depoimentos, equipe…), troque por uma seção com os dados reais acima ou tire.
 Inclua um botão flutuante do WhatsApp se houver link do WhatsApp.
-Regras técnicas: todo o CSS dentro de <style> no <head>; pode usar <link> do fonts.googleapis.com; SEM <script>, sem iframes,
+Regras técnicas: todo o CSS dentro de <style> no <head>; marque as seções com data-revelar e as fotos com data-esqueleto; pode usar <link> do fonts.googleapis.com; SEM <script>, sem iframes,
 sem imagens de outros sites. Textos em português do Brasil.
 Responda SÓ com o HTML, começando por <!doctype html>.`
 }
@@ -76,6 +86,7 @@ async function comGemini(imagem, texto) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
       body: JSON.stringify({
+        systemInstruction: { parts: [{ text: MANUAL_DO_GATO }] },
         contents: [{ parts: [{ inlineData: { mimeType: tipo, data: dados } }, { text: texto }] }],
         generationConfig: { temperature: 0.4, maxOutputTokens: 16000 },
       }),
@@ -96,7 +107,7 @@ async function comGemini(imagem, texto) {
 async function comGroq(imagem, texto) {
   const saida = await groq({
     modelo: MODELO_VISAO_GROQ(),
-    system: 'Você é o Gato Negro, front-end sênior de uma agência. Transforma mockups de site em HTML + CSS impecável.',
+    system: `Você é o Gato Negro, front-end sênior de uma agência. Transforma mockups de site em HTML + CSS impecável.\n\n${MANUAL_DO_GATO}`,
     user: [
       { type: 'text', text: texto },
       { type: 'image_url', image_url: { url: imagem } },
@@ -107,8 +118,8 @@ async function comGroq(imagem, texto) {
   return { html: saida, ia: `Groq (${MODELO_VISAO_GROQ()})` }
 }
 
-export async function siteDaImagem({ imagem, negocio, conteudo, fotos }) {
-  const texto = pedido({ negocio, conteudo, fotos })
+export async function siteDaImagem({ imagem, negocio, conteudo, fotos, antesDepois, agendamento }) {
+  const texto = pedido({ negocio, conteudo, fotos, antesDepois, agendamento })
   let r
   let erroGemini
   if (process.env.GEMINI_API_KEY) {

@@ -327,6 +327,20 @@ e "Leão Dourado" foi unificado como **Leão**.
   `<base>` + o script do passeio do vídeo), então prévia, vídeo, Aranha e ZIP final saem iguais; no ZIP o `index.html` é a
   própria página (fotos em `public/fotos`). Faixa acima da prévia: montando / pronto (qual IA) / erro, "Gerar de novo" e
   "Voltar ao modelo padrão"; trocar de tema também volta ao padrão. Textos editados depois só entram com "Gerar de novo".
+- **📘 Manual + 🧩 biblioteca do Gato** (pedido do usuário: "uma biblioteca para o MEU agente estudar e criar sites profissionais" —
+  quem cria é o Gato do app, não o Claude Code): `server/gatoManual.js` (`MANUAL_DO_GATO`: regras de agência para comércio local —
+  objetivo, fugir do visual genérico de IA, tipografia, cor, ritmo, micro-interações, fotos, verdade dos dados — e as marcações das
+  peças) vai como `systemInstruction` (Gemini) / system (Groq) em todo `/api/gato/site-da-imagem`. Peças (em `clienteEfeitos.js` +
+  `clienteAnimacoes.css`, funcionam sempre, mesmo com efeitos desligados): **Antes e Depois** `[data-antes-depois]` (Pointer Events +
+  `setPointerCapture`, `--pos` + `clip-path`, `touch-action: pan-y`, teclado ←/→/Home/End com `aria-valuenow`, vai-e-vem ao aparecer),
+  **esqueletos** `[data-esqueleto]` (brilho até a foto/iframe carregar, fade), **micro-interações** `.micro` (0.3s cubic-bezier, hover
+  sobe, active 0.97). No `ClienteSite`: seção "Antes e depois" com `dados.antesDepois` `[{antes, depois, legenda}]` (caminhos das fotos;
+  essas fotos saem da galeria; `htmlDaPrevia` troca os caminhos pelas fotos embutidas) e seção `#agendar` com `dados.agendamento`
+  `{url}` (`linkDeAgenda`: Calendly/Cal.com viram iframe embutido, outro link vira botão "📅 Agendar online"; sem link = WhatsApp).
+  No Gato, o painel "📸 Fotos e peças do site" (`FotosDoSite`) escolhe o par (Foto N antes → Foto M depois + legenda; os pares seguem a
+  renumeração das fotos) e o link de agenda — só dados reais do comércio. No site feito pela imagem, a IA usa as mesmas marcações e
+  `<!--AGENDA-->`; `montarSiteProprio` (`src/lib/siteProprio.js`) troca as fotos, põe a agenda, o CSS e o script da biblioteca
+  (prévia e ZIP); o pedido manda `antesDepois` (números das fotos) e `agendamento`.
 - **Time completo no menu e na tela inicial** (`src/data/equipe.js`, pedido do usuário): Pinguim → Leão → 🦫 Castor (abre o
   Gato) → Gato → Abelha → Tigre → 🕷️ Aranha (`/admin`) → 🦅 Águia (`/aguia`).
 - **🦅 Águia** (`src/pages/Aguia.jsx`, `src/lib/aguia.js`, `server/aguia.js`): números do processo (`numerosDaAguia`), o que
