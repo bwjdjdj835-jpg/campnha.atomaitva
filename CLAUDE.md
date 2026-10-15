@@ -292,7 +292,7 @@ e "Leão Dourado" foi unificado como **Leão**.
   Gato) → Gato → Abelha → Tigre → 🕷️ Aranha (`/admin`) → 🦅 Águia (`/aguia`).
 - **🦅 Águia** (`src/pages/Aguia.jsx`, `src/lib/aguia.js`, `server/aguia.js`): números do processo (`numerosDaAguia`), o que
   cada agente pensa e o relatório (`relatorioDaAguia`, só dados reais). E-mail pelo Resend (`POST /api/aguia/email`,
-  `RESEND_API_KEY` — apelido por valor `re_…` — e `AGUIA_EMAIL`; `keys.email`); sem chave, "Abrir no meu e-mail" (mailto) e
+  `RESEND_API_KEY` — apelido por valor `re_…` — e `AGUIA_EMAIL` — apelido: variável com "mail"/"aguia"/"resend" no nome e valor de e-mail; `keys.email`); sem chave, "Abrir no meu e-mail" (mailto) e
   "Copiar". O automático manda o relatório sozinho no fim de cada rodada (`enviarRelatorioAguia`).
 - **🧠 Mente dos agentes** (pedido do usuário): `src/lib/mentes.js` — `PERSONALIDADES` (pinguim, leao, castor, gato, abelha, tigre,
   aranha, aguia), `lembrar(agente, texto, dados)` → `pipeline.mentes[agente]` (máx. 60), `pensamentos(agente, estado)` (opiniões
