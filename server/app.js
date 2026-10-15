@@ -26,6 +26,7 @@ apelido('FIRECRAWL_API_KEY', /fire/i, /^fc-/)
 apelido('GROQ_API_KEY', /./, /^gsk_[A-Za-z0-9]{20,}$/) // qualquer nome ("groq", "grok", "ia"…): a chave da Groq começa com gsk_
 apelido('SCREENSHOTONE_ACCESS_KEY', /screenshot/i, /^[\w-]{8,}$/)
 apelido('RESEND_API_KEY', /./, /^re_[A-Za-z0-9_]{10,}$/)
+apelido('AGUIA_EMAIL', /mail|aguia|águia|resend/i, /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i) // e-mail da Águia com qualquer nome parecido
 apelido('APIFY_TOKEN', /ap[iy]f[iy]/i, /^apify_api_/) // "apify", "apyfi"…
 apelido('SERPAPI_KEY', /serp/i, /^[0-9a-f]{64}$/)
 apelido('BLOB_READ_WRITE_TOKEN', /blob/i, /^vercel_blob_rw_/)
