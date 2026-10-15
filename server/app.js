@@ -22,6 +22,8 @@ function apelido(nome, pedacoDoNome, formato) {
 apelido('GOOGLE_PLACES_API_KEY', /google/i, /^AIza/)
 apelido('FIRECRAWL_API_KEY', /fire/i, /^fc-/)
 apelido('GROQ_API_KEY', /groq/i, /^gsk_/)
+apelido('APIFY_TOKEN', /apify/i, /^apify_api_/)
+apelido('SERPAPI_KEY', /serp/i, /^[0-9a-f]{64}$/)
 apelido('BLOB_READ_WRITE_TOKEN', /blob/i, /^vercel_blob_rw_/)
 
 export const app = new Hono().basePath('/api')
