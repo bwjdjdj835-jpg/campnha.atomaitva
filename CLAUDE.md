@@ -420,6 +420,12 @@ e "Leão Dourado" foi unificado como **Leão**.
   Conteúdo = `conteudoSugerido(dados)`. O HTML vai em `dados.htmlProprio` → prévia (`htmlDaPrevia`), "Aprovar prévia" (site
   `status: 'aprovado'`, `escorpiao: <especialidade>`) e `gerarZipFinal(..., { htmlProprio, gerador })` (salva `${id}:final`, o Tigre
   publica esta versão). `keys.escorpiao` no `/api/status`.
+  **🐈‍⬛ → 🦂** (pedido do usuário: "o Gato tem que mandar os dados pro Escorpião finalizar"): botão "🦂 Mandar para o Escorpião
+  finalizar" no `GatoPreview` → `mandarParaEscorpiao` (dados com os textos editados + fotos + prints; na memória e, com site, no
+  IndexedDB `${siteId}:escorpiao`) → `/escorpiao?gato=1&site=<id>` abre direto (`entregaPendente`; `abrirPacoteDoSite` também
+  prefere `:escorpiao`). Antes e Depois e agenda do Gato vão no pedido (`antesDepois` por número de foto, `agendamento`).
+  **Referências:** colou vários links → lista com caixinhas, até 3 marcados; `escolhaInicial` marca só sites de verdade e
+  `ehVitrine` avisa "não é site" em busca/página inicial e editores (CodePen dá 403, CodeSandbox, JSFiddle, StackBlitz, GitHub, Google).
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.

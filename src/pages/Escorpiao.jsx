@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Loader2, Monitor, Smartphone, CheckCircle2, Download, RefreshCw, Search, Sparkles, AlertTriangle } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 import MenteAgente from '../components/MenteAgente.jsx'
@@ -10,6 +10,9 @@ import {
   MAX_REFERENCIAS,
   abrirPacoteDoSite,
   conteudoParaEscorpiao,
+  ehVitrine,
+  entregaPendente,
+  escolhaInicial,
   gerarSiteEscorpiao,
   lerReferencias,
   linksColados,
@@ -35,6 +38,8 @@ export default function Escorpiao() {
   const [abrindo, setAbrindo] = useState(false)
   const [especialidade, setEspecialidade] = useState('')
   const [links, setLinks] = useState('')
+  const [marcados, setMarcados] = useState([]) // os até 3 links que você marcou para eu ler
+  const [params] = useSearchParams()
   const [referencias, setReferencias] = useState(null)
   const [lendo, setLendo] = useState(false)
   const [gerado, setGerado] = useState(null) // { html, ia }
@@ -60,11 +65,28 @@ export default function Escorpiao() {
     const m = modeloDaEspecialidade(nome)
     if (m) {
       setLinks(m.links.join('\n'))
+      setMarcados(m.links.slice(0, MAX_REFERENCIAS))
       setReferencias(m.referencias)
     }
   }
 
-  async function escolherSite(id) {
+  function colarLinks(texto) {
+    setLinks(texto)
+    setMarcados(escolhaInicial(linksColados(texto)))
+  }
+  function marcar(link) {
+    setMarcados((m) => (m.includes(link) ? m.filter((x) => x !== link) : m.length < MAX_REFERENCIAS ? [...m, link] : m))
+  }
+
+  // 🐈‍⬛ → 🦂 Veio do botão do Gato (?gato=1&site=…): abre direto o que o Gato mandou.
+  useEffect(() => {
+    if (!params.get('gato') && !params.get('site')) return
+    const id = params.get('site') || ''
+    escolherSite(id, params.get('gato') ? () => entregaPendente(id || null) : null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function escolherSite(id, doGato = null) {
     setSiteId(id)
     setPacote(null)
     setGerado(null)
@@ -72,10 +94,12 @@ export default function Escorpiao() {
     setEntregue(null)
     setErro(null)
     setFotosUrl(null)
-    if (!id) return
+    if (!id && !doGato) return
     setAbrindo(true)
     try {
-      const p = await abrirPacoteDoSite(sites.find((s) => s.id === id))
+      const site = sites.find((s) => s.id === id)
+      const p = (doGato && (await doGato())) || (site ? await abrirPacoteDoSite(site) : null)
+      if (!p) throw new Error('Não achei o que o Gato mandou — escolha o site na lista.')
       setPacote(p)
       setFotosUrl(await fotosEmDataUrl(p.fotos))
       if (!especialidade) usarEspecialidade(p.dados.negocio?.categoria || '')
@@ -87,7 +111,7 @@ export default function Escorpiao() {
   }
 
   async function lerRefs() {
-    const lista = linksColados(links).slice(0, MAX_REFERENCIAS)
+    const lista = marcados.filter((l) => linksColados(links).includes(l)).slice(0, MAX_REFERENCIAS)
     setLendo(true)
     setErro(null)
     try {
@@ -144,6 +168,7 @@ export default function Escorpiao() {
   }
 
   const nLinks = linksColados(links).length
+  const nMarcados = marcados.filter((l) => linksColados(links).includes(l)).length
   const refsOk = (referencias || []).filter((r) => !r.erro)
 
   return (
@@ -218,16 +243,34 @@ export default function Escorpiao() {
           <input className="input" placeholder="ex: barbearia" value={especialidade} onChange={(e) => usarEspecialidade(e.target.value)} />
         </label>
         <label className="block">
-          <span className="label">Até 3 sites de referência de interatividade (um por linha)</span>
+          <span className="label">Sites de referência de interatividade (um por linha — eu leio até 3)</span>
           <textarea
             className="input min-h-[96px]"
             placeholder={'https://site-interativo-1.com\nhttps://site-interativo-2.com\nhttps://site-interativo-3.com'}
             value={links}
-            onChange={(e) => setLinks(e.target.value)}
+            onChange={(e) => colarLinks(e.target.value)}
           />
         </label>
-        {nLinks > MAX_REFERENCIAS && <p className="text-xs text-amber-300">Você colou {nLinks} links — eu leio os {MAX_REFERENCIAS} primeiros.</p>}
-        <button className="btn-ghost border border-white/10 text-sm" onClick={lerRefs} disabled={lendo || !nLinks}>
+        {nLinks > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs text-slate-400">
+              Marque até {MAX_REFERENCIAS} para eu ler ({nMarcados} de {MAX_REFERENCIAS}). Busca e página inicial do CodePen, CodeSandbox e JSFiddle
+              não são sites (bloqueiam a leitura ou não têm o site dentro) — prefira sites reais do ramo ou de agência.
+            </p>
+            <ul className="max-h-56 space-y-1 overflow-auto rounded-xl bg-black/20 p-2">
+              {linksColados(links).map((l) => (
+                <li key={l}>
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+                    <input type="checkbox" checked={marcados.includes(l)} onChange={() => marcar(l)} disabled={!marcados.includes(l) && nMarcados >= MAX_REFERENCIAS} />
+                    <span className="truncate">{l}</span>
+                    {ehVitrine(l) && <span className="shrink-0 rounded-full bg-amber-400/10 px-2 text-[10px] text-amber-300">não é site</span>}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <button className="btn-ghost border border-white/10 text-sm" onClick={lerRefs} disabled={lendo || !nMarcados}>
           {lendo ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Estudar as referências
         </button>
         {referencias && (

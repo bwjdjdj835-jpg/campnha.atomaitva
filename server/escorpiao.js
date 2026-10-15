@@ -46,7 +46,7 @@ const PECAS = `PEÇAS INTERATIVAS DO ESCORPIÃO (use as marcações exatamente a
 - Foto com carregamento: <div data-esqueleto><img src="{{FOTO_n}}" alt="…"></div>.
 - Vidro fosco (backdrop-filter), scroll-snap, sticky, clip-path, mix-blend-mode e @keyframes podem ser feitos em CSS puro.`
 
-function pedido({ especialidade, negocio = {}, conteudo = {}, fotos = 0, referencias = [] }) {
+function pedido({ especialidade, negocio = {}, conteudo = {}, fotos = 0, antesDepois = [], agendamento = false, referencias = [] }) {
   const lista = (v) => (Array.isArray(v) ? v.map((x) => (typeof x === 'string' ? x : [x.nome || x.titulo, x.descricao || x.texto].filter(Boolean).join(': '))).join('; ') : '')
   const horario = conteudo.horarios || conteudo.horario
   const dados = [
@@ -85,6 +85,14 @@ DADOS REAIS do comércio (use só isto; nunca invente preço, depoimento, prêmi
 ${dados.join('\n')}
 
 FOTOS REAIS: ${fotos} foto(s). Use exatamente src="{{FOTO_1}}" … src="{{FOTO_${Math.max(1, fotos)}}}" (a 1ª é a capa). ${fotos ? '' : 'Não há fotos: use fundos de cor/gradiente.'}
+${
+    antesDepois.length
+      ? `ANTES E DEPOIS (escolhido no Gato — use a peça do manual): ${antesDepois
+          .map((p) => `antes = {{FOTO_${p.antes}}}, depois = {{FOTO_${p.depois}}}${p.legenda ? ` (legenda: ${p.legenda})` : ''}`)
+          .join('; ')}. Essas fotos não entram na galeria.`
+      : 'Não há Antes e Depois.'
+  }
+${agendamento ? 'AGENDAMENTO ONLINE: coloque <!--AGENDA--> antes da seção de contato.' : 'Sem agenda online: o agendamento é pelo WhatsApp.'}
 
 ${PECAS}
 
@@ -130,8 +138,8 @@ async function comGroq(texto, manual) {
   return { html: saida, ia: 'Groq' }
 }
 
-export async function siteDoEscorpiao({ especialidade, negocio, conteudo, fotos, referencias = [], licoes = [] }) {
-  const texto = pedido({ especialidade: especialidade || negocio?.categoria || 'comércio local', negocio, conteudo, fotos, referencias })
+export async function siteDoEscorpiao({ especialidade, negocio, conteudo, fotos, antesDepois = [], agendamento = false, referencias = [], licoes = [] }) {
+  const texto = pedido({ especialidade: especialidade || negocio?.categoria || 'comércio local', negocio, conteudo, fotos, antesDepois, agendamento, referencias })
   const manual = licoes.length ? `${MANUAL_DO_GATO}\n10b. LIÇÕES DA BIBLIOTECA DO GATO (aprovadas pelo dono — aplique quando couber):\n${licoes.map((l) => `- ${l}`).join('\n')}` : MANUAL_DO_GATO
   // Groq primeiro (decisão do usuário: "pode ser a API da Groq, não tenho Gemini"); Gemini só se a Groq faltar ou falhar.
   let r

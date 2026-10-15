@@ -300,13 +300,19 @@ app.post('/escorpiao/site', async (c) => {
   if (!temEscorpiao()) return c.json({ error: 'Configure GROQ_API_KEY para o Escorpião gerar o site.', code: 'NO_KEY' }, 503)
   const b = await c.req.json().catch(() => ({}))
   if (!b.negocio?.nome) return c.json({ error: 'Escolha um site montado pelos agentes.' }, 400)
+  const n = Math.max(0, Math.min(12, Number(b.fotos) || 0))
   try {
     return c.json(
       await siteDoEscorpiao({
         especialidade: String(b.especialidade || '').replace(/\s+/g, ' ').trim().slice(0, 60),
         negocio: b.negocio,
         conteudo: b.conteudo || {},
-        fotos: Math.max(0, Math.min(12, Number(b.fotos) || 0)),
+        fotos: n,
+        antesDepois: (Array.isArray(b.antesDepois) ? b.antesDepois : [])
+          .map((p) => ({ antes: Number(p?.antes), depois: Number(p?.depois), legenda: String(p?.legenda || '').slice(0, 80) || undefined }))
+          .filter((p) => p.antes >= 1 && p.antes <= n && p.depois >= 1 && p.depois <= n && p.antes !== p.depois)
+          .slice(0, 4),
+        agendamento: Boolean(b.agendamento),
         referencias: referenciasSeguras(b.referencias),
         licoes: licoesSeguras(b.licoes),
       }),

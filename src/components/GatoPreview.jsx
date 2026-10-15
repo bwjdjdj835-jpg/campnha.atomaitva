@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { mandarParaEscorpiao } from '../lib/escorpiao.js'
 import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video, X, Plus, GraduationCap, LayoutList, PenLine, Palette } from 'lucide-react'
 import { TEMAS } from '../lib/ClienteSite.jsx'
 import CastorModelos from './CastorModelos.jsx'
@@ -41,6 +43,20 @@ export default function GatoPreview({ preview, onMudar }) {
   const videoUrl = useRef(null)
   const quadro = useRef(null)
   const gravarAqui = useRef(false) // o servidor já falhou: grava direto no navegador
+  const navegar = useNavigate()
+  const [mandando, setMandando] = useState(false)
+
+  // 🐈‍⬛ → 🦂 O Gato entrega o que está na tela (textos editados, fotos, Antes e Depois) para o Escorpião finalizar.
+  async function paraEscorpiao() {
+    setMandando(true)
+    try {
+      await mandarParaEscorpiao({ dados: { ...preview.dados, conteudo }, fotos: preview.fotos, prints: preview.prints, siteId: preview.siteId })
+      lembrar('gato', `Mandei ${preview.dados.negocio?.nome || 'o site'} para o 🦂 Escorpião finalizar`)
+      navegar(`/escorpiao?gato=1${preview.siteId ? `&site=${encodeURIComponent(preview.siteId)}` : ''}`)
+    } finally {
+      setMandando(false)
+    }
+  }
   useEffect(() => () => videoUrl.current && URL.revokeObjectURL(videoUrl.current), [])
 
   useEffect(() => {
@@ -483,6 +499,12 @@ export default function GatoPreview({ preview, onMudar }) {
             </button>
           </>
         )}
+      </div>
+      <div className="flex flex-wrap items-center gap-3 px-5 pb-5 -mt-2">
+        <button onClick={paraEscorpiao} disabled={mandando} className="btn-ghost border border-red-500/30 text-sm">
+          {mandando ? <Loader2 size={16} className="animate-spin" /> : <span aria-hidden="true">🦂</span>} Mandar para o Escorpião finalizar
+        </button>
+        <span className="text-xs text-slate-500">Ele recebe estes dados e fotos e cria o site interativo da especialidade.</span>
       </div>
       {entregue && (
         <p className="px-5 pb-5 -mt-2 text-xs text-slate-400">

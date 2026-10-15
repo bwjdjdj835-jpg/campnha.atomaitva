@@ -5,7 +5,8 @@
 // (vence o mudado por último).
 
 import { lerPipeline, setPipeline } from '../store/pipeline.js'
-import { lerZip } from './zipStore.js'
+import JSZip from 'jszip'
+import { lerZip, salvarZip } from './zipStore.js'
 import { lerPacoteLeao, lerPasta } from '../services/agents.js'
 import { conteudoSugerido } from './conteudoSugerido.js'
 import { licoesAtivas } from './biblioteca.js'
@@ -31,6 +32,20 @@ export function salvarModelo(especialidade, links, referencias) {
   }))
 }
 
+// Páginas que não são um site para estudar: busca, página inicial e editores de código (CodePen, CodeSandbox, JSFiddle…),
+// que bloqueiam a leitura (403) ou não têm o site de verdade dentro.
+const VITRINES = /(^|\.)(codepen\.io|codesandbox\.io|jsfiddle\.net|stackblitz\.com|replit\.com|github\.com|google\.[a-z.]+)$/i
+export function ehVitrine(link) {
+  try {
+    const u = new URL(link)
+    return VITRINES.test(u.hostname) || /\/search\b|[?&]q=/i.test(u.pathname + u.search)
+  } catch {
+    return true
+  }
+}
+// Os 3 que eu marco sozinho: os primeiros que são site de verdade (vitrine só se você marcar).
+export const escolhaInicial = (links) => links.filter((l) => !ehVitrine(l)).slice(0, MAX_REFERENCIAS)
+
 export const linksColados = (texto) => [...new Set(String(texto || '').split(/[\s,]+/).filter((x) => /^https?:\/\//i.test(x)))]
 
 async function postar(caminho, corpo) {
@@ -46,12 +61,34 @@ export async function lerReferencias(links) {
   return referencias
 }
 
-// Abre o pacote de um site já montado pelos agentes: o ZIP final do Gato/Abelha (conteúdo mais completo) → ZIP do Leão →
-// pasta online.
+// 🐈‍⬛ → 🦂 (pedido do usuário: "o Gato tem que mandar os dados pro Escorpião finalizar"): o Gato entrega o que tem na tela
+// (dados com os textos editados, fotos, Antes e Depois). Fica na memória para a troca de página e, com site, no IndexedDB
+// (`${siteId}:escorpiao`) para valer depois de recarregar.
+let entregaDoGato = null
+export async function mandarParaEscorpiao(pacote) {
+  entregaDoGato = { ...pacote, origem: 'Gato Negro' }
+  if (!pacote.siteId) return
+  const zip = new JSZip()
+  zip.file('dados.json', JSON.stringify(pacote.dados))
+  for (const f of [...(pacote.fotos || []), ...(pacote.prints || [])]) zip.file(`public${f.caminho}`, f.blob)
+  await salvarZip(`${pacote.siteId}:escorpiao`, await zip.generateAsync({ type: 'blob' }))
+}
+// Pega a entrega do Gato (uma vez): a da memória, ou a guardada do site.
+export async function entregaPendente(siteId) {
+  const e = entregaDoGato
+  entregaDoGato = null
+  if (e && (!siteId || e.siteId === siteId)) return e
+  const blob = siteId ? await lerZip(`${siteId}:escorpiao`).catch(() => null) : null
+  return blob ? { ...(await lerPacoteLeao(blob)), siteId, origem: 'Gato Negro' } : null
+}
+
+// Abre o pacote de um site já montado pelos agentes: o que o Gato mandou → ZIP final do Gato/Abelha (conteúdo mais completo)
+// → ZIP do Leão → pasta online.
 export async function abrirPacoteDoSite(site) {
-  for (const id of [`${site.id}:final`, site.id]) {
-    const blob = await lerZip(id).catch(() => null)
-    if (blob) return { ...(await lerPacoteLeao(blob)), origem: id.endsWith(':final') ? 'ZIP final do Gato' : 'ZIP do Leão' }
+  const ORIGEM = { escorpiao: 'Gato Negro (enviado para o Escorpião)', final: 'ZIP final do Gato' }
+  for (const sufixo of ['escorpiao', 'final', '']) {
+    const blob = await lerZip(sufixo ? `${site.id}:${sufixo}` : site.id).catch(() => null)
+    if (blob) return { ...(await lerPacoteLeao(blob)), origem: ORIGEM[sufixo] || 'ZIP do Leão' }
   }
   if (site.pasta) return { ...(await lerPasta(site.pasta)), origem: 'pasta online do Leão' }
   throw new Error('O pacote deste site não está neste navegador nem na pasta online — abra-o no Leão ou no Gato primeiro.')
@@ -68,7 +105,12 @@ export async function gerarSiteEscorpiao(dados, conteudo, especialidade, referen
     negocio: { nome: n.nome, categoria: n.categoria, endereco: n.endereco, telefone: n.telefone, whatsapp: n.whatsapp, maps: n.maps, rating: n.rating, avaliacoes: n.avaliacoes },
     conteudo: { ...conteudo, sugerido: undefined },
     fotos: (dados.imagens || []).length,
+    // Peças da biblioteca que o Gato escolheu: pares de Antes e Depois (números das fotos) e se há agenda online.
+    antesDepois: (dados.antesDepois || []).map((p) => ({ antes: idx(dados, p.antes), depois: idx(dados, p.depois), legenda: p.legenda })).filter((p) => p.antes && p.depois),
+    agendamento: Boolean(dados.agendamento),
     referencias,
     licoes: licoesAtivas(), // 📚 as lições da Biblioteca do Gato que você aprovou valem para o Escorpião também
   }) // { html, ia }
 }
+
+const idx = (dados, arquivo) => (dados.imagens || []).findIndex((i) => i.arquivo === arquivo) + 1
