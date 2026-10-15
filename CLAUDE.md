@@ -335,6 +335,12 @@ e "Leão Dourado" foi unificado como **Leão**.
   Águia (se ligada). `src/services/tigreVigia.js` (`iniciarVigia` no `main.jsx`) roda a cada 5 min no notebook
   (`central-agentes:tigre-vigiar`). Painel "Como o Tigre faz o 1º contato" no Arquivo do Tigre (opção + "Vigiar agora").
   `registrarEnviada` limpa `suaVez`.
+- **📋 Lista para envio em massa** (pedido do usuário: mandar pelo Premium Sender; `src/components/ListaEnvioMassa.jsx`, no
+  Arquivo do Tigre): por nicho, leads reais sem site (fora `tem`/`provavel`), com WhatsApp, sem selo de contato (`contatoDoLead`
+  nulo ou `site_feito`), sem número repetido; mensagem com `{nome}`, `{empresa}` (padrão "Carmesin"), `{nicho}`, `{cidade}`
+  (localStorage `central-agentes:massa-modelo`/`massa-empresa`); "Baixar planilha (CSV)" (BOM, colunas numero/nome/mensagem,
+  número com 55), "Copiar só os números", "Copiar números + mensagens" e **"Já mandei para esta lista"** → `contatos[chave] =
+  { status: 'contatado', via: 'envio-em-massa' }` (selo em todos os agentes; automático e `jaRecebeuMensagem` pulam).
 - **☁️ Nuvem** (pedido do usuário: "o Tigre salva mas some quando entro de novo"): `server/nuvem.js` (Upstash Redis do Vercel
   Marketplace: `KV_REST_API_URL`/`KV_REST_API_TOKEN` ou `UPSTASH_REDIS_REST_*`; `keys.nuvem`), `GET/PUT /api/dados` pelo
   **código da conta** (chave no Redis = sha256 do código). Cliente `src/store/nuvem.js`: `iniciarNuvem()` no `main.jsx` puxa e

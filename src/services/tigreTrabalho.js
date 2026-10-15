@@ -45,10 +45,11 @@ function anotar(siteId, nome, passo, ok = true) {
 
 // Outro site do MESMO comércio (mesmo telefone/nome) que já recebeu mensagem → não manda de novo.
 export function jaRecebeuMensagem(siteId) {
-  const { sites, leads, conversas = {} } = lerPipeline()
+  const { sites, leads, conversas = {}, contatos = {} } = lerPipeline()
   const site = sites.find((s) => s.id === siteId)
   if (!site) return false
   const chave = chaveContato(negocioDoSite(site, leads))
+  if (contatos[chave]) return true // marcado à mão ou no envio em massa
   return sites.some((s) => {
     if (!conversas[s.id]?.mensagens?.some((m) => m.de === 'nos')) return false
     return s.id === siteId || chaveContato(negocioDoSite(s, leads)) === chave
