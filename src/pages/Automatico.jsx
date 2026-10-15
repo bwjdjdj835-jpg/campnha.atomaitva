@@ -7,6 +7,7 @@ import { SELO_CONTATO } from '../lib/contato.js'
 import { NICHOS_PADRAO, rodarAutomatico, regravarVideos, nichosFeitos, recomecarNichos, pararEstudo, pegarFluxo } from '../services/automatico.js'
 import { gravarVideoPrevia } from '../services/agents.js'
 import { gravarNaNuvem } from '../services/videoNuvem.js'
+import { enviarRelatorioAguia } from '../lib/aguia.js'
 import { pedirGravacaoDaAba, gravarComFluxo, SANDBOX_PREVIA } from '../lib/previa.jsx'
 
 const CHAVE = 'central-agentes:automatico'
@@ -164,6 +165,10 @@ export default function Automatico() {
         return
       }
       setResumo(r)
+      // 🦅 Águia: manda o relatório por e-mail no fim de cada rodada (se o e-mail estiver configurado).
+      enviarRelatorioAguia()
+        .then((ok) => ok && log('ok', '🦅 Águia mandou o relatório para o seu e-mail'))
+        .catch((e) => log('warn', `🦅 Águia: ${e.message}`))
       log(pararRef.current ? 'warn' : 'ok', `${pararRef.current ? 'Parado' : 'Rodada concluída'}: ${r.prontos} cliente(s) pronto(s) para aprovar · ${r.pulados} pulado(s) · ${r.erros} com erro`)
       // Terminou o nicho: vai para a Aranha Administradora. O próximo nicho só começa quando você aprovar lá.
       if (!pararRef.current && r.nicho) {

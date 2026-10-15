@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { LayoutGrid, FolderCog, Menu, X, Bot, ShieldCheck } from 'lucide-react'
-import { agents } from '../data/agents.js'
+import { equipe } from '../data/equipe.js'
 import { usePipeline } from '../store/pipeline.js'
 
 function NavItem({ to, children, onClick }) {
@@ -49,11 +49,15 @@ export default function Layout() {
         {paraAprovar > 0 && <span className="rounded-full bg-neon/20 px-2 text-[11px] text-neon">{paraAprovar}</span>}
       </NavItem>
       <div className="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest text-slate-500">Agentes</div>
-      {agents.map((a) => (
-        <NavItem key={a.id} to={`/agente/${a.id}`} onClick={close}>
+      {equipe.map((a) => (
+        <NavItem key={a.id} to={a.link} onClick={close}>
           <span className="text-lg w-5 text-center">{a.emoji}</span>
           <span className="flex-1">{a.name}</span>
-          <span className="text-[10px] font-mono text-slate-500">0{a.order}</span>
+          {a.id === 'aranha' && paraAprovar > 0 ? (
+            <span className="rounded-full bg-neon/20 px-2 text-[11px] text-neon">{paraAprovar}</span>
+          ) : (
+            <span className="text-[10px] font-mono text-slate-500">0{a.ordem}</span>
+          )}
         </NavItem>
       ))}
       <div className="px-3 pt-5 pb-2 text-[11px] uppercase tracking-widest text-slate-500">Setup</div>

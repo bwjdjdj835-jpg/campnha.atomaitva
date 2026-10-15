@@ -288,6 +288,12 @@ e "Leão Dourado" foi unificado como **Leão**.
   vira um `modelo` (`estilo.cores` com `fundoAlt`/`cartao`/`borda` → `--m-fundo-alt` etc.) e `modelo.design` guarda o JSON
   (`paleta_cores`, `fontes_google`, `estrutura_secoes`). É a 1ª proposta do Castor, o Gato começa nela (sem link colado) e o
   automático usa ela.
+- **Time completo no menu e na tela inicial** (`src/data/equipe.js`, pedido do usuário): Pinguim → Leão → 🦫 Castor (abre o
+  Gato) → Gato → Abelha → Tigre → 🕷️ Aranha (`/admin`) → 🦅 Águia (`/aguia`).
+- **🦅 Águia** (`src/pages/Aguia.jsx`, `src/lib/aguia.js`, `server/aguia.js`): números do processo (`numerosDaAguia`), o que
+  cada agente pensa e o relatório (`relatorioDaAguia`, só dados reais). E-mail pelo Resend (`POST /api/aguia/email`,
+  `RESEND_API_KEY` — apelido por valor `re_…` — e `AGUIA_EMAIL`; `keys.email`); sem chave, "Abrir no meu e-mail" (mailto) e
+  "Copiar". O automático manda o relatório sozinho no fim de cada rodada (`enviarRelatorioAguia`).
 - **🧠 Mente dos agentes** (pedido do usuário): `src/lib/mentes.js` — `PERSONALIDADES` (pinguim, leao, castor, gato, abelha, tigre,
   aranha, aguia), `lembrar(agente, texto, dados)` → `pipeline.mentes[agente]` (máx. 60), `pensamentos(agente, estado)` (opiniões
   calculadas dos dados reais, nunca inventadas). `MenteAgente.jsx` em cada página de agente, na Aranha e no Castor. Memórias
