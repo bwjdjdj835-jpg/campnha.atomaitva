@@ -33,7 +33,12 @@ e "Leão Dourado" foi unificado como **Leão**.
     Alexandria `firecrawl-maps/businesses/search`, 5 créditos, só precisa da FIRECRAWL_API_KEY)
     → **página do Maps lida pelo Firecrawl** (`server/mapsPagina.js`: scrape comum da busca `maps/search/...?hl=pt-BR`
     com `location` BR + até 12 fichas para telefone/site; funciona em qualquer plano, 1 crédito por página)
-    → Places Text Search → OpenStreetMap (Nominatim + Overpass em `server/osm.js`). Depois (`server/pinguim.js`): site do Maps que é
+    → Places Text Search → OpenStreetMap (Nominatim + Overpass em `server/osm.js`: cidade por **busca estruturada**
+    `city`/`state`/`country=Brasil` + `countrycodes=br` — texto livre "Cacoal - RO, Brasil" voltava vazio;
+    `partesDaCidade` entende "Cacoal - RO", "Cacoal, Rondônia, Brasil", "Cacoal-RO", "Ji-Paraná - RO" (UF → estado);
+    User-Agent identificado `CentralDeAgentes/1.0 (+https://campnha-atomaitva.vercel.app)` e ≤1 pedido/s; sem relação de
+    limite, usa `around:8000` do centro. Comércios: Overpass por tags; se falhar ou vier vazio, `poisNominatim` por TIPO
+    (`amenity=fast_food` estruturado + `q=[tipo]` com `viewbox` da cidade e `bounded=1`) — nunca o nome do nicho na query). Depois (`server/pinguim.js`): site do Maps que é
     Instagram/WhatsApp/agregador não conta como site; quem tem site no Maps (ou é outra unidade com o mesmo telefone)
     volta em `comSite` (lista "Já têm site"); os outros voltam como leads com `conferencia: { status: 'pendente' }`.
   - `POST /api/pinguim/conferir` (`conferirSite`) — um negócio por vez: busca `"nome" cidade` (domínio com o nome =

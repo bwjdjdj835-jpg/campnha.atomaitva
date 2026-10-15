@@ -2,7 +2,9 @@
 // Cobertura menor que o Google Maps, mas serve quando a Places API não está disponível.
 // Regras de uso: https://operations.osmfoundation.org/policies/nominatim/ (User-Agent e ≤1 req/s).
 
-const UA = 'central-agentes/0.1 (busca de comercios locais)'
+// O Nominatim bloqueia pedidos sem User-Agent identificado (nome do app + contato).
+const UA = 'CentralDeAgentes/1.0 (+https://campnha-atomaitva.vercel.app; busca de comercios locais)'
+const CABECALHOS = { 'User-Agent': UA, 'Accept-Language': 'pt-BR', Referer: 'https://campnha-atomaitva.vercel.app' }
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search'
 const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
@@ -54,17 +56,72 @@ export function tagsDaCategoria(categoria) {
   return [...new Set(CATEGORIAS.filter(([re]) => re.test(c)).flatMap(([, tags]) => tags))]
 }
 
-async function areaDaCidade(cidade) {
-  const url = `${NOMINATIM}?${new URLSearchParams({ q: `${cidade}, Brasil`, format: 'json', limit: '5', addressdetails: '0' })}`
-  const res = await fetch(url, {
-    headers: { 'User-Agent': UA, 'Accept-Language': 'pt-BR' },
-    signal: AbortSignal.timeout(ESPERA_MS),
-  })
+// "Cacoal - RO", "Cacoal, Rondônia, Brasil", "Cacoal RO" → { cidade: 'Cacoal', estado: 'Rondônia' }.
+const UFS = {
+  AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas', BA: 'Bahia', CE: 'Ceará', DF: 'Distrito Federal',
+  ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão', MT: 'Mato Grosso', MS: 'Mato Grosso do Sul', MG: 'Minas Gerais',
+  PA: 'Pará', PB: 'Paraíba', PR: 'Paraná', PE: 'Pernambuco', PI: 'Piauí', RJ: 'Rio de Janeiro',
+  RN: 'Rio Grande do Norte', RS: 'Rio Grande do Sul', RO: 'Rondônia', RR: 'Roraima', SC: 'Santa Catarina',
+  SP: 'São Paulo', SE: 'Sergipe', TO: 'Tocantins',
+}
+export function partesDaCidade(texto) {
+  const partes = String(texto || '')
+    .split(/\s*,\s*|\s+[-–]\s+|\s*\/\s*/) // " - " com espaços: "Ji-Paraná" continua inteiro
+    .map((p) => p.trim())
+    .filter((p) => p && !/^(brasil|brazil|br)$/i.test(p))
+  let cidade = partes[0] || ''
+  let estado = null
+  for (const p of partes.slice(1)) {
+    const uf = UFS[p.toUpperCase()]
+    const nome = Object.values(UFS).find((n) => norm(n) === norm(p))
+    if (uf || nome) estado = uf || nome
+  }
+  // "Cacoal RO" / "Cacoal-RO": a UF no fim.
+  const m = !estado && cidade.match(/^(.*[^\s-])[\s-]+([A-Za-z]{2})$/)
+  if (m && UFS[m[2].toUpperCase()]) {
+    cidade = m[1]
+    estado = UFS[m[2].toUpperCase()]
+  }
+  return { cidade, estado }
+}
+
+// Nominatim: no máximo 1 pedido por segundo (regra de uso).
+let ultimoPedido = 0
+async function nominatim(params) {
+  const espera = ultimoPedido + 1100 - Date.now()
+  if (espera > 0) await new Promise((r) => setTimeout(r, espera))
+  ultimoPedido = Date.now()
+  const url = `${NOMINATIM}?${new URLSearchParams({ format: 'jsonv2', ...params })}`
+  const res = await fetch(url, { headers: CABECALHOS, signal: AbortSignal.timeout(ESPERA_MS) })
   if (!res.ok) throw new Error(`OpenStreetMap (Nominatim): ${res.status}`)
-  const lugares = await res.json()
-  const rel = lugares.find((l) => l.osm_type === 'relation')
-  if (!rel) throw new Error(`Cidade "${cidade}" não encontrada no OpenStreetMap`)
-  return { areaId: 3600000000 + Number(rel.osm_id), nome: rel.display_name }
+  return res.json()
+}
+
+// Cidade por busca ESTRUTURADA (city/state/country) — texto livre como "Cacoal - RO, Brasil" volta vazio.
+async function areaDaCidade(texto) {
+  const { cidade, estado } = partesDaCidade(texto)
+  if (!cidade) throw new Error('Informe a cidade (ex.: Cacoal - RO)')
+  const tentativas = [
+    estado && { city: cidade, state: estado, country: 'Brasil', countrycodes: 'br' },
+    { city: cidade, country: 'Brasil', countrycodes: 'br' },
+    { q: cidade, countrycodes: 'br' },
+  ].filter(Boolean)
+  for (const t of tentativas) {
+    const lugares = await nominatim({ ...t, limit: '5' })
+    const rel = lugares.find((l) => l.osm_type === 'relation' && l.category === 'boundary') || lugares.find((l) => l.osm_type === 'relation')
+    const lugar = rel || lugares[0]
+    if (!lugar) continue
+    const bb = (lugar.boundingbox || []).map(Number) // [sul, norte, oeste, leste]
+    return {
+      areaId: rel ? 3600000000 + Number(rel.osm_id) : null,
+      centro: { lat: Number(lugar.lat), lon: Number(lugar.lon) },
+      caixa: bb.length === 4 ? { sul: bb[0], norte: bb[1], oeste: bb[2], leste: bb[3] } : null,
+      nome: lugar.display_name,
+      cidade,
+      estado,
+    }
+  }
+  throw new Error(`Cidade "${texto}" não encontrada no OpenStreetMap`)
 }
 
 // "açougue" → "[aáàâã][cç]..." para casar nomes com ou sem acento no Overpass.
@@ -75,22 +132,27 @@ function regexSemAcento(texto) {
     .replace(/[aeiouc]/g, (ch) => ACENTOS[ch])
 }
 
-export function montarQuery(areaId, categoria) {
+// Filtro de área do Overpass: a cidade (relação) ou, se não tiver, 8 km em volta do centro.
+const filtroArea = (lugar) => (lugar.areaId ? '(area.a)' : `(around:8000,${lugar.centro.lat},${lugar.centro.lon})`)
+
+export function montarQuery(lugarOuAreaId, categoria) {
+  const lugar = typeof lugarOuAreaId === 'object' ? lugarOuAreaId : { areaId: lugarOuAreaId }
+  const area = filtroArea(lugar)
   const tags = tagsDaCategoria(categoria)
   const nomeRe = regexSemAcento(categoria)
   const linhas = tags.map((t) => {
     const [k, v] = t.split('=')
-    return `  nwr["${k}"="${v}"](area.a);`
+    return `  nwr["${k}"="${v}"]${area};`
   })
   // Procurar pelo nome (regex) numa cidade inteira é pesado e derruba o Overpass com 504;
   // só usa quando a categoria não tem tag conhecida.
   if (!tags.length) {
-    linhas.push(`  nwr["name"~"${nomeRe}",i]["shop"](area.a);`)
-    linhas.push(`  nwr["name"~"${nomeRe}",i]["amenity"](area.a);`)
-    linhas.push(`  nwr["name"~"${nomeRe}",i]["craft"](area.a);`)
+    linhas.push(`  nwr["name"~"${nomeRe}",i]["shop"]${area};`)
+    linhas.push(`  nwr["name"~"${nomeRe}",i]["amenity"]${area};`)
+    linhas.push(`  nwr["name"~"${nomeRe}",i]["craft"]${area};`)
   }
   return `[out:json][timeout:25];
-area(id:${areaId})->.a;
+${lugar.areaId ? `area(id:${lugar.areaId})->.a;` : ''}
 (
 ${linhas.join('\n')}
 );
@@ -103,7 +165,7 @@ async function overpass(query) {
     try {
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { ...CABECALHOS, 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ data: query }),
         signal: AbortSignal.timeout(ESPERA_MS),
       })
@@ -159,13 +221,62 @@ export function candidatoDoOsm(el, cidade) {
   }
 }
 
+// Reserva do Overpass: Nominatim por TIPO de comércio (nunca o nome do nicho na query, que volta vazio):
+//   amenity=… estruturado (city/state/country) + "[tipo]" dentro da caixa da cidade (bounded).
+async function poisNominatim(lugar, tags) {
+  const achados = []
+  for (const t of tags) {
+    const [k, v] = t.split('=')
+    const pedidos = []
+    if (k === 'amenity') pedidos.push({ amenity: v, city: lugar.cidade, ...(lugar.estado ? { state: lugar.estado } : {}), country: 'Brasil' })
+    if (lugar.caixa) {
+      const { oeste, sul, leste, norte } = lugar.caixa
+      pedidos.push({ q: `[${v}]`, viewbox: `${oeste},${sul},${leste},${norte}`, bounded: '1' })
+    }
+    for (const p of pedidos) {
+      try {
+        achados.push(...(await nominatim({ ...p, extratags: '1', addressdetails: '1', limit: '50' })))
+      } catch {
+        /* segue com o que tiver */
+      }
+    }
+  }
+  return achados
+    .filter((r) => r.category === tags.find((t) => t.endsWith(`=${r.type}`))?.split('=')[0] && r.name)
+    .map((r) => ({
+      type: r.osm_type,
+      id: r.osm_id,
+      lat: Number(r.lat),
+      lon: Number(r.lon),
+      tags: {
+        name: r.name,
+        ...(r.extratags || {}),
+        'addr:street': r.address?.road,
+        'addr:housenumber': r.address?.house_number,
+        'addr:suburb': r.address?.suburb,
+        'addr:city': r.address?.city || r.address?.town || lugar.cidade,
+        'addr:state': r.address?.state,
+      },
+    }))
+}
+
 export async function buscarOsm({ categoria, cidade }, log) {
-  log('info', `OpenStreetMap: localizando "${cidade}"`)
-  const { areaId, nome } = await areaDaCidade(cidade)
-  log('info', `Área: ${nome}`)
+  log('info', `OpenStreetMap: localizando "${cidade}" (busca estruturada)`)
+  const lugar = await areaDaCidade(cidade)
+  log('info', `Área: ${lugar.nome}`)
   const tags = tagsDaCategoria(categoria)
   log('info', `Overpass: ${tags.length ? tags.join(', ') : `nome contendo "${categoria}"`}`)
-  const elementos = await overpass(montarQuery(areaId, categoria))
+  let elementos = []
+  try {
+    elementos = await overpass(montarQuery(lugar, categoria))
+  } catch (e) {
+    if (!tags.length) throw e
+    log('warn', `${e.message} — tentando o Nominatim por tipo de comércio`)
+  }
+  if (!elementos.length && tags.length) {
+    elementos = await poisNominatim(lugar, tags)
+    log('info', `Nominatim (por tipo: ${tags.join(', ')}): ${elementos.length} resultado(s)`)
+  }
   const vistos = new Set()
   return elementos
     .filter((el) => el.tags?.name || el.tags?.brand)
