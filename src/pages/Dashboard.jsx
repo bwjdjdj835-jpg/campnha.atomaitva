@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowRight, Play, Bot, Loader2 } from 'lucide-react'
 import { prepararInicio, videoManualNasOpcoes } from '../services/automatico.js'
 import { agents } from '../data/agents.js'
+import { equipe } from '../data/equipe.js'
 import OrchestraHub from '../components/OrchestraHub.jsx'
 import AgentBadge from '../components/AgentBadge.jsx'
 import { usePipeline } from '../store/pipeline.js'
@@ -98,7 +99,7 @@ export default function Dashboard() {
         <h2 className="font-display text-2xl font-semibold text-white mb-1">O fluxo da orquestra</h2>
         <p className="text-slate-400 mb-6">Cada agente entrega para o próximo.</p>
         <ol className="grid grid-cols-1 gap-4">
-          {agents.map((a, i) => (
+          {equipe.map((a, i) => (
             <motion.li
               key={a.id}
               initial={{ opacity: 0, x: -12 }}
@@ -107,10 +108,10 @@ export default function Dashboard() {
               transition={{ delay: i * 0.05 }}
             >
               <Link
-                to={`/agente/${a.id}`}
+                to={a.link}
                 className="group glass flex items-center gap-5 p-5 hover:border-neon/40 hover:shadow-glow transition"
               >
-                <span className="hidden sm:block font-mono text-sm text-slate-500 w-6">0{a.order}</span>
+                <span className="hidden sm:block font-mono text-sm text-slate-500 w-6">0{a.ordem}</span>
                 <AgentBadge agent={a} size={56} />
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-baseline gap-x-3">

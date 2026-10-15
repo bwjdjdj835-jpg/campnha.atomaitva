@@ -12,6 +12,7 @@ import { enriquecer } from './abelha.js'
 import { gravarVideo, servidorGrava, salvarNaPasta, abrirPasta } from './video.js'
 import { creditosFirecrawl, erroDeCredito } from './firecrawlCreditos.js'
 import { gravarNaNuvem, temVideoNuvem } from './videoNuvem.js'
+import { enviarRelatorio, temEmail } from './aguia.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
 // Aceita as chaves com outros nomes de variável (ex.: "google" ou "firecrawl" no Vercel):
@@ -24,6 +25,7 @@ apelido('GOOGLE_PLACES_API_KEY', /google/i, /^AIza/)
 apelido('FIRECRAWL_API_KEY', /fire/i, /^fc-/)
 apelido('GROQ_API_KEY', /./, /^gsk_[A-Za-z0-9]{20,}$/) // qualquer nome ("groq", "grok", "ia"…): a chave da Groq começa com gsk_
 apelido('SCREENSHOTONE_ACCESS_KEY', /screenshot/i, /^[\w-]{8,}$/)
+apelido('RESEND_API_KEY', /./, /^re_[A-Za-z0-9_]{10,}$/)
 apelido('APIFY_TOKEN', /ap[iy]f[iy]/i, /^apify_api_/) // "apify", "apyfi"…
 apelido('SERPAPI_KEY', /serp/i, /^[0-9a-f]{64}$/)
 apelido('BLOB_READ_WRITE_TOKEN', /blob/i, /^vercel_blob_rw_/)
@@ -42,6 +44,7 @@ const keys = () => ({
   whatsappTemplate: Boolean(process.env.WHATSAPP_TEMPLATE),
   vercel: Boolean(process.env.VERCEL_TOKEN),
   pasta: temPasta(),
+  email: temEmail(), // 🦅 Águia manda relatório (Resend)
   videoNuvem: temVideoNuvem(), // ScreenshotOne grava o vídeo da prévia (funciona no Vercel)
 })
 
@@ -149,6 +152,17 @@ app.get('/gato/video-nuvem/baixar', async (c) => {
   const res = await fetch(u)
   if (!res.ok) return c.json({ error: 'Não consegui baixar o vídeo.' }, 502)
   return new Response(res.body, { headers: { 'Content-Type': res.headers.get('content-type') || 'video/mp4' } })
+})
+
+// 🦅 Águia: relatório do processo por e-mail.
+app.post('/aguia/email', async (c) => {
+  const { assunto, texto } = await c.req.json().catch(() => ({}))
+  if (!temEmail()) return c.json({ error: 'Falta RESEND_API_KEY e AGUIA_EMAIL no servidor.', code: 'NO_KEY' }, 503)
+  try {
+    return c.json(await enviarRelatorio({ assunto, texto }))
+  } catch (e) {
+    return c.json({ error: e.message }, 502)
+  }
 })
 
 // Abre no Explorador de Arquivos a pasta onde o vídeo foi salvo (só no notebook, só dentro da pasta dos vídeos).

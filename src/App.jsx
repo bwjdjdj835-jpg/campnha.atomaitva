@@ -5,6 +5,7 @@ import AgentPage from './pages/AgentPage.jsx'
 import Projeto from './pages/Projeto.jsx'
 import Automatico from './pages/Automatico.jsx'
 import Admin from './pages/Admin.jsx'
+import Aguia from './pages/Aguia.jsx'
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="projeto" element={<Projeto />} />
         <Route path="automatico" element={<Automatico />} />
         <Route path="admin" element={<Admin />} />
+        <Route path="aguia" element={<Aguia />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
