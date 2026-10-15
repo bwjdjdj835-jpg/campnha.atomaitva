@@ -15,6 +15,7 @@ import TigrePainel from '../components/TigrePainel.jsx'
 import AbelhaPainel from '../components/AbelhaPainel.jsx'
 import FilaAprovacao from '../components/FilaAprovacao.jsx'
 import TigreArquivo from '../components/TigreArquivo.jsx'
+import MenteAgente from '../components/MenteAgente.jsx'
 
 // Cada agente começa com a página zerada (sem logs nem prévias do agente anterior).
 export default function AgentPageRota() {
@@ -247,6 +248,8 @@ function AgentPage() {
           </div>
         </aside>
       </div>
+
+      <MenteAgente agente={agent.id} />
 
       <LogConsole logs={logs} running={running} />
 

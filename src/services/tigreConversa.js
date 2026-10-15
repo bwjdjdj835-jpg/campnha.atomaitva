@@ -4,6 +4,7 @@
 
 import { classificar, rascunho } from './agents.js'
 import { lerPipeline, setPipeline } from '../store/pipeline.js'
+import { lembrar } from '../lib/mentes.js'
 
 export const STATUS_DA_INTENCAO = { interesse: 'interessado', duvida: 'duvida', recusa: 'recusou', bot: 'bot', nao_contatar: 'nao_contatar', outro: 'contatado' }
 
@@ -29,6 +30,9 @@ export async function lerResposta(siteId, negocio, textoCliente, { temVideo = fa
   const conversa = lerPipeline().conversas?.[siteId] || { status: 'novo', mensagens: [] }
   const r = await classificar(textoCliente)
   const novoStatus = STATUS_DA_INTENCAO[r.intencao] || 'contatado'
+  const nomeSite = lerPipeline().sites?.find((x) => x.id === siteId)?.nome || 'cliente'
+  lembrar('aranha', `${nomeSite} respondeu (${r.intencao}): "${String(textoCliente).slice(0, 80)}"`, { intencao: r.intencao })
+  if (r.intencao === 'recusa') lembrar('tigre', `${nomeSite} disse "agora não" — guardei o site para oferecer depois`)
   atualizarConversa(siteId, (c) => ({
     mensagens: [...c.mensagens, { de: 'cliente', texto: textoCliente, at: new Date().toISOString(), intencao: r.intencao }],
     status: ['vendido', 'publicado'].includes(c.status) ? c.status : novoStatus,
@@ -84,5 +88,6 @@ export async function outraSugestao(siteId, negocio, tipo) {
 export const esperandoVoce = (c) => c?.status !== 'nao_contatar' && c?.mensagens?.at(-1)?.de === 'cliente'
 
 export function marcarVenda(siteId) {
+  lembrar('aranha', `💰 Venda fechada: ${lerPipeline().sites?.find((x) => x.id === siteId)?.nome || 'cliente'}`)
   atualizarConversa(siteId, () => ({ status: 'vendido', vendidoEm: new Date().toISOString() }))
 }
