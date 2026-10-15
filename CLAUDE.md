@@ -265,6 +265,16 @@ e "Leão Dourado" foi unificado como **Leão**.
   Aranha): clientes por situação (🙅 não querem agora = sites guardados com prévia/ZIP, responderam, aguardando, vendidos,
   não contatar), tabela de nichos (✅ concluído `auto.feitos`, 🔄 em andamento `auto.listas` com quantos faltam, ⏸️ ainda não
   vimos; `chaveNicho`) e números dos comércios verificados pelo Pinguim.
+- **🦫 Castor** (pedido do usuário; fica antes do Gato finalizar): `src/lib/castor.js` (`propostasDoCastor(dados, modelo, estado)`
+  → 3 modelos bem diferentes: "Do estudo" (tema `modelo`, se houver) → "Seu preferido" (`estiloPreferido`, ≥2 escolhas) →
+  "Clássico do ramo" (`temaSugerido`) → extras Editorial/Premium escuro/Moderno/Alegre, sem repetir tema) e
+  `src/components/CastorModelos.jsx` no topo do `GatoPreview` (prévias reais lado a lado; "Usar este modelo" aplica tema + capa +
+  galeria e `lembrar('castor', …, { tema, hero, galeria })`). No automático o Castor usa a 1ª proposta.
+- **🧠 Mente dos agentes** (pedido do usuário): `src/lib/mentes.js` — `PERSONALIDADES` (pinguim, leao, castor, gato, abelha, tigre,
+  aranha, aguia), `lembrar(agente, texto, dados)` → `pipeline.mentes[agente]` (máx. 60), `pensamentos(agente, estado)` (opiniões
+  calculadas dos dados reais, nunca inventadas). `MenteAgente.jsx` em cada página de agente, na Aranha e no Castor. Memórias
+  gravadas: Pinguim (buscas), Leão (sites), Castor (escolhas), Gato (aprovações), Abelha (notas), Aranha/Tigre (respostas, vendas,
+  "agora não").
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência).
 

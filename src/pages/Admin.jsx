@@ -9,6 +9,8 @@ import { SELO_CONTATO } from '../lib/contato.js'
 import { lerResposta, registrarEnviada, outraSugestao, esperandoVoce, marcarVenda } from '../services/tigreConversa.js'
 import { NICHOS_PADRAO, proximoNicho, prepararInicio, conferirProntos, nichoEmAndamento, videoManualNasOpcoes } from '../services/automatico.js'
 import { lerOpcoes } from './Automatico.jsx'
+import MenteAgente from '../components/MenteAgente.jsx'
+import { lembrar } from '../lib/mentes.js'
 
 // 🛡️ Aranha Administradora: tudo o que a IA fez no modo automático passa por aqui.
 // Você confere o vídeo da prévia e a mensagem de cada cliente, aprova e manda pelo seu WhatsApp. Nada sai sozinho.
@@ -90,6 +92,8 @@ export default function Admin() {
           </Link>
         </div>
       </section>
+
+      <MenteAgente agente="aranha" />
 
       <section className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {numeros.map(([rotulo, n, cor]) => (

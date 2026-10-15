@@ -21,6 +21,7 @@ import { temaSugerido } from '../lib/ClienteSite.jsx'
 import { conteudoSugerido } from '../lib/conteudoSugerido.js'
 import { salvarZip, lerZip } from '../lib/zipStore.js'
 import { lerPipeline, setPipeline } from '../store/pipeline.js'
+import { lembrar } from '../lib/mentes.js'
 import { MODELOS, classificarPorPalavras, opcaoDeAtendente, respostaPorPalavras } from '../lib/tigreTextos.js'
 import { auditar } from '../lib/auditoria.js'
 import { tipoDoLink, acharLeadPorLink, nomeDoTitulo, recortarCapaDoMaps, linkBuscaMaps } from '../lib/links.js'
@@ -103,6 +104,7 @@ async function pinguim(inputs, log) {
       await wait(120)
       log(l.level, l.msg)
     }
+    lembrar('pinguim', `Busquei ${inputs.categoria} em ${inputs.cidade}: ${res.leads.length} sem site no Maps, ${(res.comSite || []).length} já com site`)
     return { leads: res.leads, comSite: res.comSite || [] }
   } catch (e) {
     if (e.code !== 'NO_KEY' && e.code !== 'OFFLINE') throw e
@@ -286,6 +288,7 @@ async function leao(inputs, log, { leads }) {
   const guardado = await salvarZip(siteId, blob)
 
   log('ok', `ZIP pronto: ${nomeZip} (${(blob.size / 1024).toFixed(0)} KB)${lead.demo ? ' — DEMO' : ''}`)
+  if (!lead.demo) lembrar('leao', `Montei o site de ${lead.nome}`)
   if (SEM_DOWNLOAD) log('info', 'Nesta versão online o download é bloqueado — o ZIP ficou guardado aqui e o Gato Negro já abre')
   else if (guardado) log('info', 'Pacote guardado no navegador — o Gato Negro já consegue abrir')
   return {
@@ -885,6 +888,7 @@ export async function gerarColmeia(resultado, aceitos, { baixarZip = true } = {}
   const blob = await zip.generateAsync({ type: 'blob' })
   if (baixarZip) baixar(blob, nomeZip)
   if (resultado.siteId) await salvarZip(`${resultado.siteId}:final`, blob) // o Tigre publica a versão enriquecida
+  lembrar('abelha', `Auditei ${dados.negocio?.nome || 'o site'}: nota ${resultado.auditoria?.nota ?? '?'} → ${depois.nota}`, { nota: depois.nota })
   return { nomeZip, tamanho: blob.size, nota: depois.nota }
 }
 

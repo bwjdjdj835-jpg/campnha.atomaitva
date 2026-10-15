@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video, X, Plus, GraduationCap, LayoutList, PenLine, Palette } from 'lucide-react'
 import { TEMAS } from '../lib/ClienteSite.jsx'
+import CastorModelos from './CastorModelos.jsx'
+import { lembrar } from '../lib/mentes.js'
 import { gerarZipFinal, gravarVideoPrevia, guardarVideo, SEM_DOWNLOAD } from '../services/agents.js'
 import { setPipeline } from '../store/pipeline.js'
 import { fotosEmDataUrl, htmlDaPrevia, gravarPreviaNoNavegador, SANDBOX_PREVIA, CSS_MINIATURA, CSS_GRAVACAO } from '../lib/previa.jsx'
@@ -105,6 +107,7 @@ export default function GatoPreview({ preview }) {
   function aprovar() {
     setAprovado(true)
     marcarSite(preview.siteId, { status: 'aprovado', tema, aprovadoEm: new Date().toISOString() })
+    lembrar('gato', `Prévia aprovada: ${preview.dados.negocio?.nome || 'site'} (tema ${TEMAS[tema]?.nome || tema}, capa ${hero}, galeria ${galeria})`)
   }
 
   async function baixarFinal() {
@@ -181,6 +184,21 @@ export default function GatoPreview({ preview }) {
           </button>
         </div>
       </div>
+
+      {/* 🦫 Castor: 3 modelos completos (tema + capa + galeria) antes do Gato finalizar */}
+      <CastorModelos
+        dados={preview.dados}
+        fotosUrl={fotosUrl}
+        modelo={modelo}
+        conteudo={conteudoPrevia}
+        escolhido={{ tema, hero, galeria }}
+        onEscolher={(p) => {
+          setTema(p.tema)
+          setHero(p.hero)
+          setGaleria(p.galeria)
+          desaprovar()
+        }}
+      />
 
       {/* Os temas lado a lado com a prévia real do cliente */}
       <div className="px-5 pt-4">

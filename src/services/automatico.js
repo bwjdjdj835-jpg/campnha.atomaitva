@@ -4,6 +4,7 @@
 // no Tigre (você confere o vídeo e a mensagem e manda pelo seu WhatsApp).
 // Pula quem já tem site, quem é "possível site", quem não tem telefone e quem você já procurou (selo de contato).
 
+import { propostasDoCastor } from '../lib/castor.js'
 import { runAgent, conferirSite, gerarZipFinal, gerarColmeia, lerPacoteLeao, guardarVideo, videoDoSite, rascunho, negocioDoSite, encerrarEstudo } from './agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { lerPipeline, setPipeline } from '../store/pipeline.js'
@@ -324,8 +325,12 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
   estudados.add(nichoGato)
   aplicar(rg)
   const pv = rg.preview
-  await gerarZipFinal(pv, pv.dados.tema, pv.dados.conteudo, pv.modeloInicial || undefined, true, { hero: 'agua', galeria: 'uniforme' }, { baixarZip: false })
-  marcarSite(siteId, { status: 'preparando', tema: pv.dados.tema, auto: true })
+  // 🦫 Castor: no automático usa o modelo recomendado (o 1º dos 3: estudo do Gato → seu preferido → clássico do ramo).
+  const castor = propostasDoCastor(pv.dados, pv.modeloInicial, lerPipeline())[0]
+  const tema = castor?.tema === 'modelo' && !pv.modeloInicial ? pv.dados.tema : castor?.tema || pv.dados.tema
+  log('info', `🦫 Castor escolheu o modelo "${castor?.titulo || tema}" para ${nome}`)
+  await gerarZipFinal(pv, tema, pv.dados.conteudo, pv.modeloInicial || undefined, true, { hero: castor?.hero || 'agua', galeria: castor?.galeria || 'uniforme' }, { baixarZip: false })
+  marcarSite(siteId, { status: 'preparando', tema, auto: true })
 
   if (abelha && !parar()) {
     passo('🐝 Abelha completando com dados que têm fonte')
