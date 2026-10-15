@@ -5,6 +5,7 @@ import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { videoDoSite, guardarVideo, negocioDoSite, rascunho, lerPacoteLeao, gravarVideoPrevia, abrirPastaDoVideo } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { gravarNaNuvem } from '../services/videoNuvem.js'
+import { conectarZap, enviarPeloZap, buscarRespostas } from '../services/zapWeb.js'
 import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp, CSS_GRAVACAO } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
 import { lerResposta, registrarEnviada, outraSugestao, esperandoVoce, marcarVenda } from '../services/tigreConversa.js'
@@ -184,6 +185,7 @@ export default function Admin() {
 
       {aba === 'enviados' && (
         <section className="glass overflow-hidden">
+          {enviados.length > 0 && videoServidor && <BuscarRespostas />}
           {enviados.length > 0 && (
             <p className="border-b border-white/5 px-5 py-3 text-xs text-slate-400">
               Quando o cliente responder no WhatsApp, abra a conversa dele aqui e cole a resposta: a Aranha lê, sugere a próxima mensagem e
@@ -196,7 +198,7 @@ export default function Admin() {
           ) : (
             <ul>
               {enviados.map((s) => (
-                <ConversaRapida key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} />
+                <ConversaRapida key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} videoServidor={videoServidor} />
               ))}
             </ul>
           )}
@@ -501,6 +503,8 @@ function CartaoAprovar({ site, negocio, conversa, videoServidor, videoNuvem }) {
             <p className="text-xs text-slate-500">Abre a conversa do cliente com a mensagem já escrita — é só tocar em enviar.</p>
           </div>
 
+          {videoServidor && <ZapWeb fone={fone} texto={texto} video={video?.blob} aoEnviar={jaEnviei} />}
+
           {abriu && (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
               <span className="flex-1">
@@ -539,11 +543,14 @@ function CartaoAprovar({ site, negocio, conversa, videoServidor, videoNuvem }) {
 const FONTE_IA = { groq: '🤖 Groq', claude: '🤖 Claude', modelo: '📝 texto pronto (sem IA)' }
 
 // Conversa com um cliente, do primeiro contato até fechar: histórico + cola a resposta → a Aranha sugere a próxima.
-function ConversaRapida({ site, negocio, conversa }) {
+function ConversaRapida({ site, negocio, conversa, videoServidor }) {
   const precisa = esperandoVoce(conversa)
   const [aberta, setAberta] = useState(precisa)
   const [resposta, setResposta] = useState('')
-  const [sugestao, setSugestao] = useState(null) // { texto, tipo, aviso, fonte }
+  const [sugestao, setSugestao] = useState(conversa.sugestao || null) // { texto, tipo, aviso, fonte } — a busca no WhatsApp Web já deixa pronta
+  useEffect(() => {
+    if (conversa.sugestao) setSugestao(conversa.sugestao)
+  }, [conversa.sugestao])
   const [ocupado, setOcupado] = useState(false)
   const [abriu, setAbriu] = useState(false)
   const [erro, setErro] = useState(null)
@@ -659,6 +666,7 @@ function ConversaRapida({ site, negocio, conversa }) {
                         <button className="btn-ghost border border-white/10 text-sm" onClick={outra} disabled={ocupado}>
                           {ocupado ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Gerar outra
                         </button>
+                        {videoServidor && <ZapWeb fone={fone} texto={sugestao.texto} aoEnviar={jaEnviei} compacto />}
                         {abriu && (
                           <button className="btn-ghost border border-emerald-400/40 text-emerald-200 text-sm" onClick={jaEnviei}>
                             <CheckCircle2 size={16} /> Já enviei
@@ -777,5 +785,76 @@ function RelatorioRodada() {
         </ul>
       )}
     </section>
+  )
+}
+
+// 📲 WhatsApp Web pelo notebook: a Aranha abre a conversa, anexa o vídeo e escreve — e só envia no seu clique.
+function ZapWeb({ fone, texto, video, aoEnviar, compacto = false }) {
+  const [estado, setEstado] = useState(null) // null | 'conectando' | 'qr' | 'enviando' | 'enviado' | erro
+  async function conectar() {
+    setEstado('conectando')
+    try {
+      const s = await conectarZap()
+      setEstado(s.status === 'pronto' ? null : 'qr')
+    } catch (e) {
+      setEstado(e.message)
+    }
+  }
+  async function enviar() {
+    setEstado('enviando')
+    try {
+      await enviarPeloZap({ telefone: fone, texto, video })
+      setEstado('enviado')
+      aoEnviar()
+    } catch (e) {
+      setEstado(e.message)
+    }
+  }
+  const erro = estado && !['conectando', 'qr', 'enviando', 'enviado'].includes(estado) ? estado : null
+  return (
+    <div className={compacto ? 'flex flex-wrap items-center gap-2' : 'space-y-2 rounded-xl border border-green-400/30 bg-green-400/5 px-4 py-3'}>
+      {!compacto && <div className="text-sm font-medium text-white">📲 Pelo seu WhatsApp Web (notebook)</div>}
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-primary !py-2 !px-4 text-sm" onClick={enviar} disabled={!fone || !texto?.trim() || estado === 'enviando'}>
+          {estado === 'enviando' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Aprovar e enviar pelo WhatsApp Web
+          {video ? ' (vídeo + mensagem)' : ''}
+        </button>
+        <button className="btn-ghost border border-white/10 text-sm" onClick={conectar} disabled={estado === 'conectando'}>
+          {estado === 'conectando' ? <Loader2 size={14} className="animate-spin" /> : null} Conectar WhatsApp
+        </button>
+      </div>
+      {estado === 'qr' && <p className="text-xs text-amber-200">Abriu uma janela do WhatsApp Web: no celular, vá em Aparelhos conectados → Conectar e escaneie o QR code. Só na 1ª vez.</p>}
+      {estado === 'enviado' && <p className="text-xs text-emerald-300">✅ Enviado pelo seu WhatsApp.</p>}
+      {erro && <p className="text-xs text-rose-300">{erro}</p>}
+      {!compacto && <p className="text-xs text-slate-500">Nada sai sem o seu clique. Use com moderação: muitas mensagens seguidas para quem não te conhece podem fazer o WhatsApp bloquear o número.</p>}
+    </div>
+  )
+}
+
+// Lê no WhatsApp Web o que cada cliente respondeu e deixa a próxima mensagem sugerida (você aprova cada envio).
+function BuscarRespostas() {
+  const [rodando, setRodando] = useState(false)
+  const [passo, setPasso] = useState('')
+  const [fim, setFim] = useState(null)
+  async function buscar() {
+    setRodando(true)
+    setFim(null)
+    try {
+      const r = await buscarRespostas(setPasso)
+      setFim(r.novas ? `✅ ${r.novas} resposta(s) nova(s) — a próxima mensagem já está sugerida em cada conversa.` : 'Nenhuma resposta nova.')
+    } catch (e) {
+      setFim(`❌ ${e.message}`)
+    } finally {
+      setRodando(false)
+      setPasso('')
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-b border-white/5 px-5 py-3">
+      <button className="btn-primary !py-2 !px-4 text-sm" onClick={buscar} disabled={rodando}>
+        {rodando ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Buscar respostas no WhatsApp
+      </button>
+      <span className="text-xs text-slate-400">{rodando ? `Lendo ${passo}…` : fim || 'A Aranha abre cada conversa no seu WhatsApp Web e traz o que responderam.'}</span>
+    </div>
   )
 }

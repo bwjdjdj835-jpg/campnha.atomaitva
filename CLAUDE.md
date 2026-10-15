@@ -309,6 +309,16 @@ e "Leão Dourado" foi unificado como **Leão**.
   "agora não").
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência); `assinar(fn)`; `erroLocal` quando o navegador recusa.
+- **📲 WhatsApp Web pelo notebook** (pedido do usuário: "a Aranha clica no meu WhatsApp, manda e responde"; escolha: "ela digita,
+  eu aprovo cada uma"): `server/zapWeb.js` — Playwright `launchPersistentContext` com o Chrome/Edge instalado (`acharNavegador`
+  exportado de `video.js`), perfil logado em `~/.central-agentes/whatsapp`, janela visível. `POST /api/zap/conectar` (QR na 1ª
+  vez), `GET /api/zap/status`, `POST /api/zap/enviar` (exige `aprovado: true`; abre `web.whatsapp.com/send?phone=55…`, anexa o
+  vídeo pelo input de arquivo com a mensagem na legenda, ou só digita e Enter), `POST /api/zap/ler` (últimas 15
+  `div.message-in`). Só no servidor local (`soNoNotebook` → 501 `SO_LOCAL`). `ZAP_BASE`/`ZAP_HEADLESS`/`ZAP_PERFIL` só para
+  teste (página falsa). Cliente `src/services/zapWeb.js`: `enviarPeloZap` (blob → base64), `buscarRespostas` (abre cada conversa
+  enviada, pega as mensagens do cliente que ainda não estão na conversa, roda `lerResposta` e guarda `conversas[id].sugestao`).
+  Aranha: `ZapWeb` no cartão "Para aprovar" e em cada conversa ("Aprovar e enviar pelo WhatsApp Web" → registra "Já enviei") e
+  `BuscarRespostas` na aba Conversas. Automação não oficial: risco de bloqueio avisado na tela.
 - **☁️ Nuvem** (pedido do usuário: "o Tigre salva mas some quando entro de novo"): `server/nuvem.js` (Upstash Redis do Vercel
   Marketplace: `KV_REST_API_URL`/`KV_REST_API_TOKEN` ou `UPSTASH_REDIS_REST_*`; `keys.nuvem`), `GET/PUT /api/dados` pelo
   **código da conta** (chave no Redis = sha256 do código). Cliente `src/store/nuvem.js`: `iniciarNuvem()` no `main.jsx` puxa e

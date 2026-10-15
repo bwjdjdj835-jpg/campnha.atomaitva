@@ -15,6 +15,7 @@ import { gravarNaNuvem, temVideoNuvem } from './videoNuvem.js'
 import { enviarRelatorio, temEmail } from './aguia.js'
 import { designsDoCastor } from './castor.js'
 import { temNuvem, codigoValido, lerDados, gravarDados } from './nuvem.js'
+import { conectarZap, statusZap, enviarZap, lerConversaZap } from './zapWeb.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
 // Aceita as chaves com outros nomes de variável (ex.: "google" ou "firecrawl" no Vercel):
@@ -157,6 +158,34 @@ app.get('/gato/video-nuvem/baixar', async (c) => {
   const res = await fetch(u)
   if (!res.ok) return c.json({ error: 'Não consegui baixar o vídeo.' }, 502)
   return new Response(res.body, { headers: { 'Content-Type': res.headers.get('content-type') || 'video/mp4' } })
+})
+
+// 📲 WhatsApp Web pelo notebook (só no servidor local, que tem navegador). Enviar só depois do clique "Aprovar e enviar".
+const soNoNotebook = async (c) =>
+  (await servidorGrava()) ? null : c.json({ error: 'Só funciona com o app rodando no seu notebook (iniciar-windows.bat).', code: 'SO_LOCAL' }, 501)
+app.post('/zap/conectar', async (c) => (await soNoNotebook(c)) || c.json(await conectarZap()))
+app.get('/zap/status', async (c) => (await soNoNotebook(c)) || c.json(await statusZap()))
+app.post('/zap/enviar', async (c) => {
+  const nega = await soNoNotebook(c)
+  if (nega) return nega
+  const { telefone, texto, video, tipoVideo, aprovado } = await c.req.json().catch(() => ({}))
+  if (aprovado !== true) return c.json({ error: 'Envio só com a sua aprovação.' }, 403)
+  if (!telefone || (!texto && !video)) return c.json({ error: 'Faltou o telefone ou a mensagem.' }, 400)
+  try {
+    return c.json(await enviarZap({ telefone, texto, video, tipoVideo }))
+  } catch (e) {
+    return c.json({ error: e.message }, 502)
+  }
+})
+app.post('/zap/ler', async (c) => {
+  const nega = await soNoNotebook(c)
+  if (nega) return nega
+  const { telefone } = await c.req.json().catch(() => ({}))
+  try {
+    return c.json(await lerConversaZap(telefone))
+  } catch (e) {
+    return c.json({ error: e.message }, 502)
+  }
 })
 
 // ☁️ Dados do app na nuvem, pelo código da conta (o mesmo em todos os aparelhos).

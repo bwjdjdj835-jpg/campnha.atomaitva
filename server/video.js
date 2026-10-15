@@ -19,7 +19,7 @@ const LARGURA = 390
 const ALTURA = 844
 
 // Navegador para gravar: CHROMIUM_PATH → Chromium do Playwright → Chrome/Edge instalados no computador.
-async function acharNavegador() {
+export async function acharNavegador() {
   const { existsSync } = await import('node:fs')
   const candidatos = [process.env.CHROMIUM_PATH]
   try {
