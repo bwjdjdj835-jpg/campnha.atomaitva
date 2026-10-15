@@ -18,7 +18,6 @@ import { designsDoCastor, designDaImagem } from './castor.js'
 import { imagemDoCastor, temImagem } from './castorImagem.js'
 import { siteDaImagem, temSiteDaImagem } from './siteDaImagem.js'
 import { lerLink, licoesDe, licoesSeguras } from './biblioteca.js'
-import { lerReferencias, siteDoEscorpiao, temEscorpiao, referenciasSeguras } from './escorpiao.js'
 import { temNuvem, codigoValido, lerDados, gravarDados } from './nuvem.js'
 import { conectarZap, statusZap, enviarZap, lerConversaZap } from './zapWeb.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
@@ -58,7 +57,6 @@ const keys = () => ({
   email: temEmail(), // 🦅 Águia manda relatório (Resend)
   emailDestino: Boolean(process.env.AGUIA_EMAIL),
   imagem: temImagem(),
-  escorpiao: temEscorpiao(), // 🦂 Escorpião (agente solo) gera o site interativo da especialidade
   siteDaImagem: temSiteDaImagem(), // 🐈‍⬛ Gato monta o site igual à imagem do Castor // 🍌 Castor desenha os 3 modelos com o Nano Banana (Gemini)
   videoNuvem: temVideoNuvem(), // ScreenshotOne grava o vídeo da prévia (funciona no Vercel)
 })
@@ -283,36 +281,6 @@ app.post('/gato/biblioteca/licoes', async (c) => {
     return c.json(await licoesDe({ titulo: String(b.titulo || '').slice(0, 150), tipo: b.tipo, texto: b.texto, tecnicas: (b.tecnicas || []).slice(0, 30), fontes: (b.fontes || []).slice(0, 6) }))
   } catch (e) {
     return c.json({ error: e.message, code: e.code }, e.code === 'NO_KEY' ? 503 : 502)
-  }
-})
-
-// 🦂 Escorpião (agente solo): lê até 3 sites de referência de interatividade e gera o site da especialidade.
-app.post('/escorpiao/referencias', async (c) => {
-  const { links } = await c.req.json().catch(() => ({}))
-  try {
-    return c.json({ referencias: await lerReferencias(links) })
-  } catch (e) {
-    return c.json({ error: e.message }, 400)
-  }
-})
-
-app.post('/escorpiao/site', async (c) => {
-  if (!temEscorpiao()) return c.json({ error: 'Configure GROQ_API_KEY para o Escorpião gerar o site.', code: 'NO_KEY' }, 503)
-  const b = await c.req.json().catch(() => ({}))
-  if (!b.negocio?.nome) return c.json({ error: 'Escolha um site montado pelos agentes.' }, 400)
-  try {
-    return c.json(
-      await siteDoEscorpiao({
-        especialidade: String(b.especialidade || '').replace(/\s+/g, ' ').trim().slice(0, 60),
-        negocio: b.negocio,
-        conteudo: b.conteudo || {},
-        fotos: Math.max(0, Math.min(12, Number(b.fotos) || 0)),
-        referencias: referenciasSeguras(b.referencias),
-        licoes: licoesSeguras(b.licoes),
-      }),
-    )
-  } catch (e) {
-    return c.json({ error: e.message }, 502)
   }
 })
 

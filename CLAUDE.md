@@ -14,7 +14,6 @@ construir um site para eles e fechar a venda:
 | 4 | 🐯 Tigre | Contato via WhatsApp e publicação | `prompts/04-tigre.md` |
 | 5 | 🐝 Abelha Central | Auditoria e enriquecimento final | `prompts/05-abelha-central.md` |
 | — | 🦫 Castor | Diretor de arte: design system por nicho + 3 modelos antes do Gato | `prompts/06-castor.md` |
-| — | 🦂 Escorpião | Agente solo: site interativo por especialidade a partir de 3 sites de referência | `server/escorpiao.js` |
 
 Os prompts originais vieram de um PDF do usuário; nas cópias aqui "Firecrow" foi corrigido para **Firecrawl**
 e "Leão Dourado" foi unificado como **Leão**.
@@ -406,20 +405,6 @@ e "Leão Dourado" foi unificado como **Leão**.
   `juntar(local, nuvem)` (listas por id, conversa com mais mensagens, site com status mais adiantado, memórias e nichos somados),
   salva 2 s depois de cada mudança, puxa de novo ao voltar para a aba e a cada 60 s. Página `/nuvem` (código, copiar, usar o
   código de outro aparelho, passo a passo para ligar) e status no menu. Vídeos e ZIPs (IndexedDB) ficam no aparelho.
-
-- **🦂 Escorpião — agente SOLO** (pedido do usuário: "o agente solo escorpião, o finalizador especial dele vai ser criar sites";
-  "um site pra uma especialidade só melhora muito"): página `/escorpiao` (`src/pages/Escorpiao.jsx`, último no `equipe.js`, fora do
-  automático — o Gato continua igual). Escolhe um site de `pipeline.sites` (`abrirPacoteDoSite` em `src/lib/escorpiao.js`: ZIP final
-  `${id}:final` → ZIP do Leão → pasta online), a **especialidade** e até 3 **sites de referência de interatividade** →
-  `POST /api/escorpiao/referencias` (`lerReferencias` em `server/escorpiao.js`, reaproveita `lerLink` da Biblioteca do Gato: técnicas,
-  fontes e ordem das seções H1–H3). O modelo fica por especialidade em `pipeline.escorpiao[chave]` (`{ especialidade, links,
-  referencias, atualizado }`, `juntar` da nuvem: vence o mais novo) e volta sozinho no próximo site do nicho.
-  `POST /api/escorpiao/site` (`siteDoEscorpiao`: **Groq primeiro** (decisão do usuário: não tem Gemini) → Gemini texto de reserva; `MANUAL_DO_GATO` + lições ativas da biblioteca + `PECAS` =
-  marcações que `clienteEfeitos.js` já anima: data-progresso, data-parallax-hero, anim-palavra, data-revelar/cascata, data-brilho,
-  data-magnetico, data-parallax, data-contar, faixa-correr, data-carrossel, data-esqueleto; sem `<script>`, passa por `limparHtml`).
-  Conteúdo = `conteudoSugerido(dados)`. O HTML vai em `dados.htmlProprio` → prévia (`htmlDaPrevia`), "Aprovar prévia" (site
-  `status: 'aprovado'`, `escorpiao: <especialidade>`) e `gerarZipFinal(..., { htmlProprio, gerador })` (salva `${id}:final`, o Tigre
-  publica esta versão). `keys.escorpiao` no `/api/status`.
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.
