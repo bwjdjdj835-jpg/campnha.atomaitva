@@ -21,6 +21,7 @@ export function registrarEnviada(siteId, texto, tipo = null, via = 'whatsapp-man
     mensagens: [...c.mensagens, { de: 'nos', texto, via, at: new Date().toISOString(), ...(tipo ? { tipo } : {}) }],
     // "Só dá uma olhada" e despedida: continua "Não quer site ainda" (o selo que todos os agentes veem).
     sugestao: undefined,
+    suaVez: false,
     status: ['olhada', 'despedida'].includes(tipo) ? 'recusou' : ['novo', 'recusou', 'duvida', 'bot'].includes(c.status) ? 'contatado' : c.status,
     rascunho: undefined,
   }))
@@ -86,7 +87,7 @@ export async function outraSugestao(siteId, negocio, tipo) {
 }
 
 // Quem respondeu por último foi o cliente (ou o robô dele) → está esperando você.
-export const esperandoVoce = (c) => c?.status !== 'nao_contatar' && c?.mensagens?.at(-1)?.de === 'cliente'
+export const esperandoVoce = (c) => c?.status !== 'nao_contatar' && (Boolean(c?.suaVez) || c?.mensagens?.at(-1)?.de === 'cliente')
 
 export function marcarVenda(siteId) {
   lembrar('aranha', `💰 Venda fechada: ${lerPipeline().sites?.find((x) => x.id === siteId)?.nome || 'cliente'}`)

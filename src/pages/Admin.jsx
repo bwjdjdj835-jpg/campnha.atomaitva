@@ -6,7 +6,7 @@ import { videoDoSite, guardarVideo, negocioDoSite, rascunho, lerPacoteLeao, grav
 import { lerZip } from '../lib/zipStore.js'
 import { gravarNaNuvem } from '../services/videoNuvem.js'
 import { conectarZap, buscarRespostas } from '../services/zapWeb.js'
-import { tigreExecutar, tigreResponder } from '../services/tigreTrabalho.js'
+import { tigreExecutar, tigreResponder, estrategiaDoTigre } from '../services/tigreTrabalho.js'
 import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp, CSS_GRAVACAO } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
 import { lerResposta, registrarEnviada, outraSugestao, esperandoVoce, marcarVenda } from '../services/tigreConversa.js'
@@ -114,7 +114,7 @@ export default function Admin() {
       <div className="flex gap-2">
         {[
           ['aprovar', `Para aprovar (${paraAprovar.length})`],
-          ['enviados', `Conversas (${enviados.length})${esperando ? ` · 💬 ${esperando} esperando você` : ''}`],
+          ['enviados', `Conversas (${enviados.length})${esperando ? ` · 🔔 ${esperando} sua vez` : ''}`],
         ].map(([id, rotulo]) => (
           <button
             key={id}
@@ -620,7 +620,8 @@ function ConversaRapida({ site, negocio, conversa, videoServidor }) {
       <div className="flex flex-wrap items-center gap-3">
         <span className="font-medium text-white">{site.nome}</span>
         <span className={`text-xs px-2 py-0.5 rounded-full ${selo.cor}`}>{selo.texto}</span>
-        {precisa && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-200">💬 Esperando você</span>}
+        {precisa && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-200">🔔 Sua vez</span>}
+        {conversa.previaPendente && <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-slate-400">prévia vai quando pedirem</span>}
         <span className="min-w-0 flex-1 truncate text-slate-400">
           {ultima ? `${ultima.de === 'cliente' ? 'Cliente' : 'Você'}: “${ultima.texto}”` : ''}
         </span>
@@ -879,7 +880,9 @@ function AprovarTigre({ site, texto, keys, aoVideo, aoManual }) {
       </div>
       <p className="text-xs text-slate-400">
         {keys.videoServidor
-          ? 'O Tigre grava o vídeo (se faltar), manda vídeo + mensagem pelo seu WhatsApp Web e anota que este comércio já recebeu.'
+          ? estrategiaDoTigre() === 'pergunta'
+            ? 'O Tigre manda esta mensagem pelo seu WhatsApp Web, deixa o vídeo pronto e vigia a resposta: se pedirem a prévia, ele manda o vídeo sozinho e te avisa (🔔 Sua vez).'
+            : 'O Tigre grava o vídeo (se faltar), manda vídeo + mensagem pelo seu WhatsApp Web e anota que este comércio já recebeu.'
           : 'O Tigre grava o vídeo (se faltar) e abre a conversa do cliente com a mensagem pronta; anexe o vídeo pelo 📎 e clique "Já enviei".'}
       </p>
       {conectado === 'qr' && <p className="text-xs text-amber-200">Escaneie o QR code na janela do WhatsApp Web (Aparelhos conectados). Só na 1ª vez.</p>}
