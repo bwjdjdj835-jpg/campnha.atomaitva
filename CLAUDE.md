@@ -13,6 +13,7 @@ construir um site para eles e fechar a venda:
 | 3 | 🐈‍⬛ Gato Negro | Refina o design, prévia ao vivo, aprovação | `prompts/03-gato-negro.md` |
 | 4 | 🐯 Tigre | Contato via WhatsApp e publicação | `prompts/04-tigre.md` |
 | 5 | 🐝 Abelha Central | Auditoria e enriquecimento final | `prompts/05-abelha-central.md` |
+| — | 🦫 Castor | Diretor de arte: design system por nicho + 3 modelos antes do Gato | `prompts/06-castor.md` |
 
 Os prompts originais vieram de um PDF do usuário; nas cópias aqui "Firecrow" foi corrigido para **Firecrawl**
 e "Leão Dourado" foi unificado como **Leão**.
@@ -277,6 +278,16 @@ e "Leão Dourado" foi unificado como **Leão**.
   "Clássico do ramo" (`temaSugerido`) → extras Editorial/Premium escuro/Moderno/Alegre, sem repetir tema) e
   `src/components/CastorModelos.jsx` no topo do `GatoPreview` (prévias reais lado a lado; "Usar este modelo" aplica tema + capa +
   galeria e `lembrar('castor', …, { tema, hero, galeria })`). No automático o Castor usa a 1ª proposta.
+- **Padrão de agência no site do cliente** (pedido do usuário): `fonteDoSite` (Google Fonts em todos os temas: noite/studio
+  Outfit, claro/vibrante Plus Jakarta Sans, modelo/Castor a do design; `linkDaFonte` e `siteTemplate` carregam), overlay
+  `bg-black/30` extra na capa, cards de vidro `rounded-2xl` (`cartaoVidro`), seções alternadas de ponta a ponta
+  (`faixaAlternada` com `before:` + `t.alternada`) em Diferenciais e Avaliações, Serviços em **grid de cards**, prova social
+  só com dado real (sem depoimento escrito → nota + "Ver avaliações no Google"), botão "📍 Como chegar (Google Maps)"
+  (`linkMaps`). Castor: `designDoCastor(dados)` (matriz por nicho: rústico escuro `#121212` + dourado/laranja queimado/
+  verde musgo, Outfit; acolhedor `#faf9f5` + rosé/verde/marrom, Plus Jakarta Sans; pet shop = claro, decisão do usuário)
+  vira um `modelo` (`estilo.cores` com `fundoAlt`/`cartao`/`borda` → `--m-fundo-alt` etc.) e `modelo.design` guarda o JSON
+  (`paleta_cores`, `fontes_google`, `estrutura_secoes`). É a 1ª proposta do Castor, o Gato começa nela (sem link colado) e o
+  automático usa ela.
 - **🧠 Mente dos agentes** (pedido do usuário): `src/lib/mentes.js` — `PERSONALIDADES` (pinguim, leao, castor, gato, abelha, tigre,
   aranha, aguia), `lembrar(agente, texto, dados)` → `pipeline.mentes[agente]` (máx. 60), `pensamentos(agente, estado)` (opiniões
   calculadas dos dados reais, nunca inventadas). `MenteAgente.jsx` em cada página de agente, na Aranha e no Castor. Memórias

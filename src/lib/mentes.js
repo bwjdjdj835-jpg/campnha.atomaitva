@@ -92,7 +92,7 @@ export function estiloPreferido(estado = lerPipeline()) {
   }
 }
 
-const NOME_TEMA = { noite: 'Noite', claro: 'Claro', studio: 'Studio', vibrante: 'Vibrante', modelo: 'do modelo' }
+const NOME_TEMA = { noite: 'Noite', claro: 'Claro', studio: 'Studio', vibrante: 'Vibrante', modelo: 'do modelo', castor: 'Direção de arte do Castor' }
 
 // O que o agente "pensa", tirado dos dados do app.
 export function pensamentos(agente, estado = lerPipeline()) {

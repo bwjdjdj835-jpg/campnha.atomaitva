@@ -6,25 +6,29 @@
 export const TEMAS = {
   noite: {
     nome: 'Noite (escuro + dourado)',
+    fonte: 'Outfit',
+    alternada: 'before:bg-white/[0.03]',
     pagina: 'bg-neutral-950 text-neutral-100',
     sobreposicao: 'bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent',
     capaVazia: 'bg-gradient-to-br from-neutral-900 to-neutral-800',
     rotulo: 'text-amber-400',
     titulo: 'text-white',
     botao: 'bg-amber-400 text-neutral-950 hover:bg-amber-300',
-    secao: 'border-neutral-800',
-    cartao: 'bg-neutral-900 border-neutral-800',
+    secao: 'border-white/10',
+    cartao: 'bg-white/[0.04] border-white/10 backdrop-blur',
     texto: 'text-neutral-300',
     link: 'text-amber-400 hover:text-amber-300',
     rodape: 'border-neutral-800 text-neutral-500',
     acento: 'text-amber-400',
     faixa: 'bg-amber-400 text-neutral-950',
-    destaque: 'bg-neutral-900/80 border-neutral-800',
+    destaque: 'bg-white/[0.05] border-white/10 backdrop-blur-md',
     nav: 'bg-neutral-950/60 text-white border-white/10',
     barra: 'bg-amber-400',
   },
   claro: {
     nome: 'Claro (minimalista)',
+    fonte: 'Plus Jakarta Sans',
+    alternada: 'before:bg-[#f4f2ec]',
     pagina: 'bg-white text-neutral-900',
     sobreposicao: 'bg-gradient-to-t from-black/70 via-black/30 to-transparent',
     capaVazia: 'bg-gradient-to-br from-emerald-700 to-emerald-900',
@@ -44,6 +48,8 @@ export const TEMAS = {
   },
   studio: {
     nome: 'Studio (interativo)',
+    fonte: 'Outfit',
+    alternada: 'before:bg-white/[0.03]',
     pagina: 'bg-zinc-950 text-zinc-100',
     sobreposicao: 'bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-zinc-950/10',
     capaVazia: 'bg-gradient-to-br from-fuchsia-700 via-violet-800 to-cyan-700 anim-brilho',
@@ -64,6 +70,8 @@ export const TEMAS = {
   // Cores e fonte de um site modelo lido pelo Gato (dados.modelo.estilo), aplicadas por variáveis CSS.
   modelo: {
     nome: 'Do modelo (cores e fonte do site escolhido)',
+    fonte: '',
+    alternada: 'before:bg-[var(--m-fundo-alt)]',
     pagina: 'bg-[var(--m-fundo)] text-[var(--m-texto)]',
     sobreposicao: 'bg-gradient-to-t from-[var(--m-fundo)] via-black/35 to-black/10',
     capaVazia: 'bg-[var(--m-primaria)]',
@@ -83,6 +91,8 @@ export const TEMAS = {
   },
   vibrante: {
     nome: 'Vibrante (quente)',
+    fonte: 'Plus Jakarta Sans',
+    alternada: 'before:bg-white',
     pagina: 'bg-orange-50 text-stone-900',
     sobreposicao: 'bg-gradient-to-t from-orange-950/80 via-orange-900/30 to-transparent',
     capaVazia: 'bg-gradient-to-br from-orange-500 to-red-600',
@@ -120,10 +130,17 @@ function estiloDoModelo(modelo) {
     '--m-texto-suave': escuro ? 'rgba(255,255,255,0.72)' : 'rgba(0,0,0,0.65)',
     '--m-primaria': primaria,
     '--m-sobre-primaria': textoSobre(primaria),
-    '--m-cartao': escuro ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.035)',
-    '--m-borda': escuro ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
-    fontFamily: e.fonte ? "'" + e.fonte + "', ui-sans-serif, system-ui, sans-serif" : undefined,
+    '--m-cartao': c.cartao || (escuro ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.035)'),
+    '--m-borda': c.borda || (escuro ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'),
+    '--m-fundo-alt': c.fundoAlt || (escuro ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'),
   }
+}
+
+// Fonte do Google Fonts do site (nunca a fonte genérica do sistema): a do modelo/Castor ou a do tema.
+export function fonteDoSite(dados) {
+  const doModelo = dados.tema === 'modelo' && dados.modelo && dados.modelo.estilo && dados.modelo.estilo.fonte
+  const fonte = doModelo || (TEMAS[dados.tema] && TEMAS[dados.tema].fonte) || 'Plus Jakarta Sans'
+  return /^[\w -]{2,40}$/.test(fonte) ? fonte : 'Plus Jakarta Sans'
 }
 
 export default function Site({ dados }) {
@@ -154,14 +171,23 @@ export default function Site({ dados }) {
   const links = [
     servicos.length && ['#servicos', 'Serviços'],
     galeria.length && ['#fotos', 'Fotos'],
-    depoimentos.length && ['#avaliacoes', 'Avaliações'],
+    (depoimentos.length || nota) && ['#avaliacoes', 'Avaliações'],
     ['#contato', 'Contato'],
   ].filter(Boolean)
   const rotulo = 'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento
+  // Seção alternada (fundo de contraste suave de ponta a ponta) para dar ritmo à página.
+  const faixaAlternada =
+    'relative isolate py-16 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:content-[""] ' + t.alternada
+  const linkMaps =
+    negocio.maps || (negocio.endereco ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(negocio.nome + ', ' + negocio.endereco) : null)
+  const cartaoVidro = 'rounded-2xl border shadow-[0_10px_40px_-20px_rgba(0,0,0,0.5)] '
   const estrelas = (n) => '★★★★★'.slice(0, Math.max(0, Math.min(5, Math.round(n || 5))))
 
   return (
-    <div className={'min-h-screen font-sans antialiased ' + t.pagina} style={doModelo ? estiloDoModelo(dados.modelo) : undefined}>
+    <div
+      className={'min-h-screen font-sans antialiased ' + t.pagina}
+      style={Object.assign({}, doModelo ? estiloDoModelo(dados.modelo) : {}, { fontFamily: "'" + fonteDoSite(dados) + "', ui-sans-serif, system-ui, sans-serif" })}
+    >
       {/* Barra de progresso de rolagem */}
       {efeitos && <div data-progresso className={'fixed left-0 top-0 z-50 h-1 w-full origin-left scale-x-0 ' + t.barra} />}
 
@@ -199,6 +225,7 @@ export default function Site({ dados }) {
         ) : (
           <div data-agua="cor" className={'absolute inset-0 overflow-hidden ' + t.capaVazia} />
         )}
+        <div className="pointer-events-none absolute inset-0 bg-black/30" />
         <div className={'pointer-events-none absolute inset-0 ' + t.sobreposicao} />
         {efeitos && <div className="granulado pointer-events-none absolute inset-0" />}
         <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-6 pb-16">
@@ -312,12 +339,12 @@ export default function Site({ dados }) {
         )}
 
         {diferenciais.length > 0 && (
-          <section {...fx({ 'data-revelar': '' })}>
+          <section {...fx({ 'data-revelar': '' })} className={faixaAlternada}>
             <p className={rotulo}>Por que escolher</p>
             <h2 className="mt-3 mb-10 text-4xl font-bold tracking-tight sm:text-5xl">Nossos diferenciais</h2>
             <ul className="grid gap-4 sm:grid-cols-3">
               {diferenciais.map((d) => (
-                <li key={nomeDe(d)} {...fx({ 'data-brilho': '', 'data-cascata': '' })} className={'rounded-3xl border p-7 transition duration-300 hover:-translate-y-1 ' + t.destaque}>
+                <li key={nomeDe(d)} {...fx({ 'data-brilho': '', 'data-cascata': '' })} className={cartaoVidro + 'p-7 transition duration-300 hover:-translate-y-1 ' + t.destaque}>
                   <span className={'text-2xl ' + t.acento}>✦</span>
                   <p className="mt-4 text-xl font-semibold leading-snug">{nomeDe(d)}</p>
                   {typeof d === 'object' && d.texto && <p className={'mt-2 text-sm leading-relaxed ' + t.texto}>{d.texto}</p>}
@@ -327,26 +354,26 @@ export default function Site({ dados }) {
           </section>
         )}
 
-        {/* Lista de serviços grande com hover */}
+        {/* Serviços em grade de cards (padrão de agência: organizado, clicável, leva ao WhatsApp) */}
         {servicos.length > 0 && (
           <section id="servicos" {...fx({ 'data-revelar': '' })}>
             <p className={rotulo}>O que fazemos</p>
-            <h2 className="mt-3 mb-8 text-4xl font-bold tracking-tight sm:text-5xl">Serviços</h2>
-            <ul className={'border-t ' + t.secao}>
+            <h2 className="mt-3 mb-10 text-4xl font-bold tracking-tight sm:text-5xl">Serviços</h2>
+            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {servicos.map((x, i) => (
-                <li key={nomeDe(x)} {...fx({ 'data-cascata': '' })} className={'group border-b ' + t.secao}>
+                <li key={nomeDe(x)} {...fx({ 'data-cascata': '', 'data-brilho': '' })}>
                   <a
                     href={negocio.whatsapp || '#contato'}
                     target={negocio.whatsapp ? '_blank' : '_self'}
-                    className="flex items-baseline gap-5 py-6 transition duration-300 group-hover:translate-x-2 sm:py-8"
+                    className={'group flex h-full flex-col p-6 transition duration-300 hover:-translate-y-1 ' + cartaoVidro + t.cartao}
                   >
-                    <span className={'w-10 shrink-0 font-mono text-sm ' + t.acento}>{String(i + 1).padStart(2, '0')}</span>
-                    <span className="flex-1">
-                      <span className="block text-3xl font-semibold tracking-tight sm:text-5xl">{nomeDe(x)}</span>
-                      {typeof x === 'object' && x.descricao && <span className={'mt-2 block text-base ' + t.texto}>{x.descricao}</span>}
+                    <span className={'font-mono text-sm ' + t.acento}>{String(i + 1).padStart(2, '0')}</span>
+                    <span className="mt-4 text-2xl font-semibold tracking-tight">{nomeDe(x)}</span>
+                    {typeof x === 'object' && x.descricao && <span className={'mt-2 text-sm leading-relaxed ' + t.texto}>{x.descricao}</span>}
+                    <span className="mt-auto flex items-center justify-between pt-6 text-sm font-semibold">
+                      {typeof x === 'object' && x.preco ? <span>{x.preco}</span> : <span className={t.texto}>{negocio.whatsapp ? 'Agendar' : 'Saiba mais'}</span>}
+                      <span className={'transition duration-300 group-hover:translate-x-1 ' + t.acento}>→</span>
                     </span>
-                    {typeof x === 'object' && x.preco && <span className="shrink-0 text-lg font-semibold">{x.preco}</span>}
-                    <span className={'shrink-0 text-2xl opacity-0 transition duration-300 group-hover:opacity-100 ' + t.acento}>→</span>
                   </a>
                 </li>
               ))}
@@ -402,7 +429,7 @@ export default function Site({ dados }) {
             <h2 className="mt-3 mb-10 text-4xl font-bold tracking-tight sm:text-5xl">Como funciona</h2>
             <ol className="grid gap-4 sm:grid-cols-3">
               {passos.map((p, i) => (
-                <li key={p} {...fx({ 'data-brilho': '', 'data-cascata': '' })} className={'relative rounded-3xl border p-7 ' + t.cartao}>
+                <li key={p} {...fx({ 'data-brilho': '', 'data-cascata': '' })} className={'relative p-7 ' + cartaoVidro + t.cartao}>
                   <span className={'text-6xl font-extrabold opacity-30 ' + t.acento}>{i + 1}</span>
                   <p className="mt-3 text-lg font-semibold">{p}</p>
                 </li>
@@ -411,9 +438,25 @@ export default function Site({ dados }) {
           </section>
         )}
 
+        {/* Prova social sem depoimento escrito: só a nota e o número de avaliações reais do Google (nunca inventa depoimento) */}
+        {depoimentos.length === 0 && nota && (
+          <section id="avaliacoes" {...fx({ 'data-revelar': '' })} className={faixaAlternada}>
+            <div className={'mx-auto flex max-w-3xl flex-col items-center gap-4 p-10 text-center ' + cartaoVidro + t.destaque}>
+              <p className={'text-3xl ' + t.acento}>{estrelas(nota)}</p>
+              <p className="text-5xl font-extrabold tracking-tight sm:text-6xl">{String(nota).replace('.', ',')} no Google</p>
+              <p className={t.texto}>{avaliacoes > 0 ? avaliacoes + ' avaliações de clientes reais' : 'Avaliado por clientes reais'}</p>
+              {linkMaps && (
+                <a href={linkMaps} className={'mt-2 rounded-full px-6 py-3 text-sm font-semibold ' + t.botao}>
+                  Ver avaliações no Google
+                </a>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Depoimentos em carrossel (avaliações reais do Google) */}
         {depoimentos.length > 0 && (
-          <section id="avaliacoes" {...fx({ 'data-revelar': '' })}>
+          <section id="avaliacoes" {...fx({ 'data-revelar': '' })} className={faixaAlternada}>
             <div className="mb-10 flex items-end justify-between gap-4">
               <div>
                 <p className={rotulo}>Quem já veio</p>
@@ -428,7 +471,7 @@ export default function Site({ dados }) {
             </div>
             <div {...fx({ 'data-carrossel': '' })} className="carrossel -mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-4">
               {depoimentos.map((d, i) => (
-                <figure key={i} className={'w-[85%] shrink-0 snap-start rounded-3xl border p-7 sm:w-[48%] lg:w-[32%] ' + t.destaque}>
+                <figure key={i} className={'w-[85%] shrink-0 snap-start p-7 sm:w-[48%] lg:w-[32%] ' + cartaoVidro + t.destaque}>
                   <p className={'text-lg ' + t.acento}>{estrelas(d.nota)}</p>
                   <blockquote className="mt-4 text-lg leading-relaxed">“{d.texto}”</blockquote>
                   <figcaption className={'mt-6 text-sm ' + t.texto}>
@@ -446,7 +489,7 @@ export default function Site({ dados }) {
             <h2 className="mt-3 mb-10 text-center text-4xl font-bold tracking-tight sm:text-5xl">Perguntas frequentes</h2>
             <div className="space-y-3">
               {faq.map((f) => (
-                <details key={f.p} {...fx({ 'data-cascata': '' })} className={'group rounded-2xl border px-6 py-5 ' + t.cartao}>
+                <details key={f.p} {...fx({ 'data-cascata': '' })} className={'group px-6 py-5 ' + cartaoVidro + t.cartao}>
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold">
                     {f.p}
                     <span className={'text-2xl transition group-open:rotate-45 ' + t.acento}>+</span>
@@ -482,9 +525,9 @@ export default function Site({ dados }) {
                     Instagram
                   </a>
                 )}
-                {negocio.maps && (
-                  <a className={'font-semibold underline-offset-4 hover:underline ' + t.link} href={negocio.maps}>
-                    Abrir no Google Maps
+                {linkMaps && (
+                  <a className={'inline-flex items-center gap-2 rounded-full px-6 py-3 text-base font-semibold ' + t.botao} href={linkMaps}>
+                    📍 Como chegar (Google Maps)
                   </a>
                 )}
               </li>
@@ -494,7 +537,7 @@ export default function Site({ dados }) {
                 title="Mapa"
                 loading="lazy"
                 src={mapa}
-                className={'h-80 w-full rounded-3xl border grayscale transition duration-700 hover:grayscale-0 ' + t.cartao}
+                className={'h-80 w-full grayscale transition duration-700 hover:grayscale-0 ' + cartaoVidro + t.cartao}
               />
             )}
           </div>
@@ -523,7 +566,7 @@ export default function Site({ dados }) {
 // Escolhe um tema inicial pelo segmento do negócio (o usuário pode trocar na prévia).
 export function temaSugerido(categoria) {
   const c = String(categoria || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-  if (/barbe|bar\b|tatu|pub|choper|academia|oficina|mecanic/.test(c)) return 'noite'
-  if (/restaur|lanch|pizza|hamburg|acai|sorvet|pet|confeit|doce|padaria/.test(c)) return 'vibrante'
-  return 'claro'
+  if (/barbe|bar\b|tatu|pub|choper|academia|oficina|mecanic|hamburg|burger/.test(c)) return 'noite'
+  if (/restaur|lanch|pizza|acai|sorvet|confeit|doce|padaria/.test(c)) return 'vibrante'
+  return 'claro' // saúde, estética, salões, pet shops: claro e acolhedor
 }

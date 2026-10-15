@@ -7,6 +7,54 @@ import { estiloPreferido } from './mentes.js'
 
 const TODOS = ['noite', 'claro', 'studio', 'vibrante']
 
+const norm = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+// Matriz de identidade visual por nicho (prompts/06-castor.md). Escuro e imponente para nichos masculinos/rústicos;
+// claro e acolhedor para saúde, estética, salões e pet shops (decisão do usuário: pet shop = claro).
+const MATRIZ = [
+  { teste: /barbe/, grupo: 'rustico', destaque: '#C9A227', nomeDestaque: 'dourado envelhecido' },
+  { teste: /hamburg|burger|lanch|churras|espeto/, grupo: 'rustico', destaque: '#D9631E', nomeDestaque: 'laranja queimado' },
+  { teste: /oficina|mecanic|auto ?pec|borrach|academia|tatu|pub|bar\b|choper/, grupo: 'rustico', destaque: '#7A8B3C', nomeDestaque: 'verde musgo' },
+  { teste: /salao|cabele|manicure|unha|estetic|beleza|sobrancel|cilio|depila|spa/, grupo: 'acolhedor', destaque: '#B9767E', nomeDestaque: 'rosé' },
+  { teste: /pet|veterin|banho e tosa/, grupo: 'acolhedor', destaque: '#5F7F6B', nomeDestaque: 'verde sutil' },
+  { teste: /clinic|odont|dent|fisio|saude|psico|nutri|medic|farma/, grupo: 'acolhedor', destaque: '#5F7F6B', nomeDestaque: 'verde sutil' },
+  { teste: /padaria|confeit|doce|cafe|acai|sorvet|pizza|restaur/, grupo: 'acolhedor', destaque: '#8B6B4E', nomeDestaque: 'marrom elegante' },
+]
+
+// 🦫 Design system direcionador do Castor (Diretor de Arte): o Gato só traduz em Tailwind.
+export function designDoCastor(dados) {
+  const categoria = norm(dados?.negocio?.categoria || dados?.categoria)
+  const regra = MATRIZ.find((m) => m.teste.test(categoria)) || { grupo: 'rustico', destaque: '#C9A227', nomeDestaque: 'dourado' }
+  const escuro = regra.grupo === 'rustico'
+  const paleta_cores = escuro
+    ? { fundo: '#121212', fundo_alternado: '#1A1A1A', texto: '#F5F5F4', texto_suave: 'rgba(255,255,255,0.72)', destaque: regra.destaque, borda: 'rgba(255,255,255,0.10)', cartao: 'rgba(255,255,255,0.04)' }
+    : { fundo: '#FAF9F5', fundo_alternado: '#F1EEE6', texto: '#1F2937', texto_suave: 'rgba(31,41,55,0.70)', destaque: regra.destaque, borda: 'rgba(31,41,55,0.10)', cartao: 'rgba(255,255,255,0.75)' }
+  const fonte = escuro ? 'Outfit' : 'Plus Jakarta Sans'
+  const fotoCapa = dados?.imagens?.[0]?.arquivo || null
+  const estrutura_secoes = [
+    { secao: 'hero', estilo: `Tela cheia com a foto real ${fotoCapa ? `(${fotoCapa})` : '(sem foto: fundo na cor de destaque)'} e overlay gradiente escuro por cima; headline enorme em negrito com tracking-tight; frase curta de valor; CTA grande "Agendar pelo WhatsApp".` },
+    { secao: 'numeros', estilo: 'Nota e número de avaliações reais do Google, cidade e horário — contadores grandes.' },
+    { secao: 'sobre', estilo: 'Texto editorial grande ao lado de uma foto vertical arredondada.' },
+    { secao: 'diferenciais', estilo: 'Faixa de fundo alternado; cards flutuantes de vidro (rounded-2xl, border-white/10, backdrop-blur).' },
+    { secao: 'servicos', estilo: 'Grid moderno de cards (2 colunas no celular grande, 3 no computador), cada card leva ao WhatsApp.' },
+    { secao: 'galeria', estilo: 'Fotos reais em grade uniforme ou mosaico (bento), cantos arredondados.' },
+    { secao: 'prova_social', estilo: 'Faixa alternada com as avaliações reais do Google (carrossel) ou a nota + botão "Ver avaliações no Google". Nunca inventar depoimento.' },
+    { secao: 'contato', estilo: 'Chamada final gigante, endereço claro, mapa e botão "Como chegar (Google Maps)".' },
+    { secao: 'whatsapp_flutuante', estilo: 'Botão fixo verde no canto inferior direito.' },
+  ]
+  const modelo = {
+    fonte: 'Castor (direção de arte)',
+    url: null,
+    estilo: {
+      esquema: escuro ? 'escuro' : 'claro',
+      fonte,
+      cores: { fundo: paleta_cores.fundo, texto: paleta_cores.texto, primaria: paleta_cores.destaque, fundoAlt: paleta_cores.fundo_alternado, cartao: paleta_cores.cartao, borda: paleta_cores.borda },
+    },
+    design: { paleta_cores, fontes_google: [fonte, 'Inter'], estrutura_secoes, identidade: `${escuro ? 'Escuro e imponente' : 'Claro e acolhedor'}, destaque ${regra.nomeDestaque}` },
+  }
+  return modelo
+}
+
 // → [{ id, titulo, porque, tema, hero, galeria }] (3 propostas, a 1ª é a recomendada)
 export function propostasDoCastor(dados, modelo, estado) {
   const doRamo = temaSugerido(dados?.negocio?.categoria || dados?.categoria)
@@ -16,10 +64,13 @@ export function propostasDoCastor(dados, modelo, estado) {
   const add = (p) => {
     if (usado.has(p.tema) || lista.length >= 3) return
     usado.add(p.tema)
-    lista.push({ id: `${p.tema}-${p.hero}-${p.galeria}`, ...p })
+    lista.push({ id: `${p.titulo}-${p.tema}-${p.hero}-${p.galeria}`, ...p })
   }
-  if (modelo) add({ titulo: 'Do estudo', porque: `Cores e fonte de ${modelo.fonte || 'um site real do ramo'} que o Gato estudou.`, tema: 'modelo', hero: 'agua', galeria: 'uniforme' })
-  if (pref) add({ titulo: 'Seu preferido', porque: `Você escolheu este estilo ${pref.vezes} de ${pref.total} vezes.`, tema: pref.tema, hero: pref.hero, galeria: pref.galeria })
+  const castor = designDoCastor(dados)
+  add({ titulo: 'Direção de arte do Castor', porque: `${castor.design.identidade}, fonte ${castor.estilo.fonte} — padrão de agência para este ramo.`, tema: 'modelo', hero: 'agua', galeria: 'bento', modelo: castor })
+  usado.delete('modelo') // o modelo do estudo também pode entrar (é outro conjunto de cores)
+  if (modelo && !modelo.design) add({ titulo: 'Do estudo', porque: `Cores e fonte de ${modelo.fonte || 'um site real do ramo'} que o Gato estudou.`, tema: 'modelo', hero: 'agua', galeria: 'uniforme', modelo })
+  if (pref && pref.tema !== 'castor') add({ titulo: 'Seu preferido', porque: `Você escolheu este estilo ${pref.vezes} de ${pref.total} vezes.`, tema: pref.tema, hero: pref.hero, galeria: pref.galeria })
   add({ titulo: 'Clássico do ramo', porque: 'O visual mais comum para este tipo de comércio.', tema: doRamo, hero: 'agua', galeria: 'uniforme' })
   // Completa com estilos bem diferentes (contraste claro × escuro, capa e galeria trocadas).
   const extras = [

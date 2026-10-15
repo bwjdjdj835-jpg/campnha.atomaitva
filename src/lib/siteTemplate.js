@@ -2,6 +2,7 @@
 // Retorna { caminho: conteúdo } para o JSZip. O componente visual é src/lib/ClienteSite.jsx,
 // copiado como texto para src/Site.jsx — o mesmo usado na prévia do Gato Negro.
 
+import { fonteDoSite } from './ClienteSite.jsx'
 import siteSource from './ClienteSite.jsx?raw'
 import animacoesCss from './clienteAnimacoes.css?raw'
 import aguaSource from './clienteAgua.js?raw'
@@ -34,8 +35,7 @@ function jsonLd(dados) {
 
 // Mesmo link do Google Fonts da prévia (tema "Do modelo").
 function fonteDoModelo(dados) {
-  const fonte = dados.tema === 'modelo' && dados.modelo?.estilo?.fonte
-  if (!fonte || !/^[\w -]{2,40}$/.test(fonte)) return ''
+  const fonte = fonteDoSite(dados)
   return `\n    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(fonte).replace(/%20/g, '+')}:wght@400;600;700;800&display=swap" />`
 }
 

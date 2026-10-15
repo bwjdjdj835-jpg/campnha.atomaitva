@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video, X, Plus, GraduationCap, LayoutList, PenLine, Palette } from 'lucide-react'
 import { TEMAS } from '../lib/ClienteSite.jsx'
 import CastorModelos from './CastorModelos.jsx'
+import { propostasDoCastor } from '../lib/castor.js'
+import { lerPipeline } from '../store/pipeline.js'
 import { lembrar } from '../lib/mentes.js'
 import { gerarZipFinal, gravarVideoPrevia, guardarVideo, SEM_DOWNLOAD } from '../services/agents.js'
 import { setPipeline } from '../store/pipeline.js'
@@ -14,13 +16,15 @@ function marcarSite(siteId, campos) {
 
 // Prévia ao vivo do site (mesmo componente que vai no ZIP) + aprovação obrigatória antes do ZIP final.
 export default function GatoPreview({ preview }) {
-  const [tema, setTema] = useState(preview.dados.tema)
+  // Sem link colado nem estilo do estudo, começa no modelo recomendado pelo Castor (direção de arte do ramo).
+  const inicioCastor = useMemo(() => (preview.modeloInicial ? null : propostasDoCastor(preview.dados, null, lerPipeline())[0]), [preview])
+  const [tema, setTema] = useState(inicioCastor?.tema || preview.dados.tema)
   const [conteudo, setConteudo] = useState(preview.dados.conteudo || {})
   const [efeitos, setEfeitos] = useState(preview.dados.efeitos !== false) // estilo 21st.dev / Code Eagle / GSAP
-  const [hero, setHero] = useState(preview.dados.hero === 'parallax' ? 'parallax' : 'agua') // capa: água ou parallax
-  const [galeria, setGaleria] = useState(preview.dados.galeria === 'bento' ? 'bento' : 'uniforme')
+  const [hero, setHero] = useState(inicioCastor?.hero || (preview.dados.hero === 'parallax' ? 'parallax' : 'agua')) // capa: água ou parallax
+  const [galeria, setGaleria] = useState(inicioCastor?.galeria || (preview.dados.galeria === 'bento' ? 'bento' : 'uniforme'))
   // Site modelo cujas cores/fonte viram o tema "Do modelo": o seu link colado ou o estilo que o estudo achou.
-  const [modelo, setModelo] = useState(preview.modeloInicial || null)
+  const [modelo, setModelo] = useState(preview.modeloInicial || inicioCastor?.modelo || null)
   const [device, setDevice] = useState('desktop')
   const [fotosUrl, setFotosUrl] = useState(null)
   const [aprovado, setAprovado] = useState(false)
@@ -191,8 +195,9 @@ export default function GatoPreview({ preview }) {
         fotosUrl={fotosUrl}
         modelo={modelo}
         conteudo={conteudoPrevia}
-        escolhido={{ tema, hero, galeria }}
+        escolhido={{ tema, hero, galeria, modelo }}
         onEscolher={(p) => {
+          if (p.modelo) setModelo(p.modelo)
           setTema(p.tema)
           setHero(p.hero)
           setGaleria(p.galeria)
