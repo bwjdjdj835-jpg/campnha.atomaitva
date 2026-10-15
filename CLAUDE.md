@@ -406,6 +406,12 @@ e "Leão Dourado" foi unificado como **Leão**.
   salva 2 s depois de cada mudança, puxa de novo ao voltar para a aba e a cada 60 s. Página `/nuvem` (código, copiar, usar o
   código de outro aparelho, passo a passo para ligar) e status no menu. Vídeos e ZIPs (IndexedDB) ficam no aparelho.
 
+## Skills do Claude Code (`.claude/skills/`)
+- Pacote **Replica** (11 skills, MIT, `.claude/skills/LEIA-ME.md`): `/replica-recon`, `-architect`, `-design`, `-build`,
+  `-backend`, `-test`, `-diff`, `-entrepreneur`, `-brand`, `-launch`, `-deploy` — para criar apps novos do zero, testar e
+  lançar (pedido do usuário: "conectar vários agentes"). O upload do usuário em `multis-gentes` perdeu as pastas; a cópia
+  aqui veio do repositório original do autor.
+
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.
 2. ~~Leão~~ — feito, com fotos hospedadas no Vercel Blob (pasta online).
