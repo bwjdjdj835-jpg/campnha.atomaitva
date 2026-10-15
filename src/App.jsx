@@ -6,6 +6,7 @@ import Projeto from './pages/Projeto.jsx'
 import Automatico from './pages/Automatico.jsx'
 import Admin from './pages/Admin.jsx'
 import Aguia from './pages/Aguia.jsx'
+import Nuvem from './pages/Nuvem.jsx'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="automatico" element={<Automatico />} />
         <Route path="admin" element={<Admin />} />
         <Route path="aguia" element={<Aguia />} />
+        <Route path="nuvem" element={<Nuvem />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

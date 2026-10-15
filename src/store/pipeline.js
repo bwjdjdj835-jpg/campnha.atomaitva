@@ -16,12 +16,22 @@ function load() {
   }
 }
 
+// erroLocal: o navegador recusou guardar (espaço cheio, modo anônimo). A nuvem continua guardando.
+export let erroLocal = null
 function save() {
   try {
     localStorage.setItem(KEY, JSON.stringify(state))
-  } catch {
-    /* storage indisponível: segue só em memória */
+    erroLocal = null
+  } catch (e) {
+    erroLocal = e?.name || 'erro'
+    console.warn('[pipeline] não consegui guardar no navegador:', e)
   }
+}
+
+// Avisa fora do React quando o estado muda (sincronização com a nuvem).
+export function assinar(fn) {
+  listeners.add(fn)
+  return () => listeners.delete(fn)
 }
 
 // Estado atual fora do React (para laços que rodam entre renders).
