@@ -21,7 +21,7 @@ function apelido(nome, pedacoDoNome, formato) {
 }
 apelido('GOOGLE_PLACES_API_KEY', /google/i, /^AIza/)
 apelido('FIRECRAWL_API_KEY', /fire/i, /^fc-/)
-apelido('GROQ_API_KEY', /groq/i, /^gsk_/)
+apelido('GROQ_API_KEY', /./, /^gsk_[A-Za-z0-9]{20,}$/) // qualquer nome ("groq", "grok", "ia"…): a chave da Groq começa com gsk_
 apelido('APIFY_TOKEN', /ap[iy]f[iy]/i, /^apify_api_/) // "apify", "apyfi"…
 apelido('SERPAPI_KEY', /serp/i, /^[0-9a-f]{64}$/)
 apelido('BLOB_READ_WRITE_TOKEN', /blob/i, /^vercel_blob_rw_/)
