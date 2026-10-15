@@ -17,7 +17,7 @@ Responda SÓ com JSON: {"propostas":[{"titulo":"2 a 4 palavras","porque":"1 fras
 "paleta_cores":{"fundo":"#hex","fundo_alternado":"#hex","texto":"#hex","destaque":"#hex"}}]} com EXATAMENTE 3 propostas bem diferentes entre si
 (a 1ª é a recomendada para o ramo; as outras exploram caminhos diferentes, ex.: claro × escuro, outra cor de destaque, outra fonte).`
 
-function limpar(p) {
+export function limpar(p) {
   const c = p?.paleta_cores || {}
   if (![c.fundo, c.texto, c.destaque].every((x) => HEX.test(String(x || '')))) return null
   const escuro = p.esquema === 'escuro' || (p.esquema !== 'claro' && parseInt(c.fundo.slice(1), 16) < 0x808080)
@@ -46,4 +46,36 @@ Crie os 3 design systems.`
   const propostas = (json.propostas || []).map(limpar).filter(Boolean).slice(0, 3)
   if (!propostas.length) throw new Error('A Groq não devolveu um design válido.')
   return propostas
+}
+
+// 📤 Imagem de site que o usuário gerou no Gemini (ou em qualquer lugar): a Groq com visão lê cores, fonte, claro/escuro e
+// dá uma nota de 0 a 10 para o Castor escolher a melhor. O Gato aplica esse design no site real (mesmas cores e fonte;
+// o layout continua o do nosso site). Modelo de visão: GROQ_VISION_MODEL ou o da documentação da Groq.
+const MODELO_VISAO = () => process.env.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b'
+
+const SISTEMA_IMAGEM = `Você é o Castor, Diretor de Arte. Vai receber a imagem de um modelo de site (mockup) para um comércio local.
+Leia o design e responda SÓ com JSON: {"titulo":"2 a 4 palavras sobre o estilo","porque":"1 frase dizendo o que tem de bom",
+"esquema":"escuro|claro","fonte":"a mais parecida, uma de: ${FONTES.join(', ')}","hero":"agua|parallax","galeria":"uniforme|bento",
+"paleta_cores":{"fundo":"#hex","fundo_alternado":"#hex","texto":"#hex","destaque":"#hex"},
+"nota":0 a 10 (beleza, contraste de leitura, cara de site profissional e combinação com o ramo)}.
+As cores devem ser as que aparecem na imagem. Texto e fundo precisam ter bom contraste.`
+
+export async function designDaImagem({ imagem, categoria }) {
+  if (!process.env.GROQ_API_KEY) return null
+  const texto = await groq({
+    modelo: MODELO_VISAO(),
+    system: SISTEMA_IMAGEM,
+    user: [
+      { type: 'text', text: `Ramo do comércio: ${categoria || '—'}. Leia este modelo de site.` },
+      { type: 'image_url', image_url: { url: imagem } },
+    ],
+    json: true,
+    maxTokens: 900,
+    temperatura: 0.2,
+  })
+  const json = JSON.parse(texto)
+  const design = limpar(json)
+  if (!design) throw new Error('Não consegui ler as cores dessa imagem.')
+  const nota = Math.max(0, Math.min(10, Number(json.nota) || 0))
+  return { ...design, nota }
 }

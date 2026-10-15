@@ -180,3 +180,100 @@ export async function imagemDoModelo(p, categoria, { deNovo = false } = {}) {
   }
   return imagensFeitas.get(chave)
 }
+
+// 📤 Imagens de modelo que VOCÊ gerou no Gemini (app/site, de graça): o Castor lê cada uma, dá nota, escolhe a melhor e o
+// Gato aplica as cores, a fonte e o clima dela no site real. O layout continua o do nosso site (o Gato não copia pixel a pixel).
+export const pedidoParaGemini = (categoria) =>
+  `Crie a imagem de um site moderno e profissional (tela de celular, página inicial inteira, sem moldura de celular) para uma ${
+    categoria || 'loja local'
+  } no Brasil. Estilo de agência: menu flutuante de vidro, capa em tela cheia com foto típica do ramo e escurecida, título grande, botão de destaque "Agendar pelo WhatsApp", seção de serviços em cards arredondados, galeria de fotos, mapa e botão flutuante do WhatsApp. Escolha uma paleta de cores marcante e uma fonte moderna. Não escreva nome de empresa, telefone, preço nem avaliações — só palavras como "Serviços", "Galeria" e "Agende".`
+
+async function reduzirParaDataUrl(arquivo, lado = 1024) {
+  const img = await createImageBitmap(arquivo)
+  const k = Math.min(1, lado / Math.max(img.width, img.height))
+  const c = document.createElement('canvas')
+  c.width = Math.round(img.width * k)
+  c.height = Math.round(img.height * k)
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+  return { url: c.toDataURL('image/jpeg', 0.85), canvas: c }
+}
+
+const hex = (r, g, b) => '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase()
+const luz = (r, g, b) => (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+// Sem Groq: tira as cores da própria imagem (a mais comum = fundo; a mais comum bem colorida = destaque).
+export function paletaDaImagem(canvas) {
+  const w = 96
+  const h = Math.max(1, Math.round((canvas.height / canvas.width) * w))
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const ctx = c.getContext('2d')
+  ctx.drawImage(canvas, 0, 0, w, h)
+  const px = ctx.getImageData(0, 0, w, h).data
+  const conta = new Map()
+  for (let i = 0; i < px.length; i += 4) {
+    const k = ((px[i] >> 4) << 8) | ((px[i + 1] >> 4) << 4) | (px[i + 2] >> 4)
+    const e = conta.get(k) || { n: 0, r: 0, g: 0, b: 0 }
+    e.n++
+    e.r += px[i]
+    e.g += px[i + 1]
+    e.b += px[i + 2]
+    conta.set(k, e)
+  }
+  const cores = [...conta.values()].map((e) => ({ n: e.n, r: e.r / e.n, g: e.g / e.n, b: e.b / e.n })).sort((a, b) => b.n - a.n)
+  const fundo = cores[0]
+  const sat = (x) => {
+    const mx = Math.max(x.r, x.g, x.b)
+    const mn = Math.min(x.r, x.g, x.b)
+    return mx ? (mx - mn) / mx : 0
+  }
+  const dist = (a, b) => Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b)
+  const destaque = cores.find((x) => sat(x) > 0.4 && Math.max(x.r, x.g, x.b) > 90 && dist(x, fundo) > 90)
+  const escuro = luz(fundo.r, fundo.g, fundo.b) < 0.5
+  const alt = escuro ? 14 : -10
+  return {
+    esquema: escuro ? 'escuro' : 'claro',
+    fonte: escuro ? 'Outfit' : 'Plus Jakarta Sans',
+    paleta_cores: {
+      fundo: hex(fundo.r, fundo.g, fundo.b),
+      fundo_alternado: hex(...[fundo.r, fundo.g, fundo.b].map((v) => Math.max(0, Math.min(255, v + alt)))),
+      texto: escuro ? '#F5F5F4' : '#1F2937',
+      destaque: destaque ? hex(destaque.r, destaque.g, destaque.b) : escuro ? '#C9A227' : '#5F7F6B',
+    },
+  }
+}
+
+export async function lerImagemDeModelo(arquivo, categoria, n) {
+  const { url, canvas } = await reduzirParaDataUrl(arquivo)
+  let d = null
+  let aviso = null
+  try {
+    const res = await fetch('/api/castor/ler-imagem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imagem: url, categoria }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (res.ok) d = json
+    else aviso = json.error
+  } catch {
+    aviso = 'Sem servidor'
+  }
+  const lidaPelaIA = Boolean(d)
+  if (!d) d = { titulo: `Sua imagem ${n}`, porque: 'Cores tiradas da sua imagem.', hero: 'agua', galeria: 'uniforme', nota: null, ...paletaDaImagem(canvas) }
+  return {
+    id: `imagem-${n}-${Date.now()}`,
+    titulo: d.titulo || `Sua imagem ${n}`,
+    porque: `${d.porque || ''} Fonte ${d.fonte}.`.trim(),
+    tema: 'modelo',
+    hero: d.hero,
+    galeria: d.galeria,
+    modelo: { ...modeloDoDesign(d), fonte: `Sua imagem do Gemini: ${d.titulo || n}` },
+    imagem: url,
+    nota: typeof d.nota === 'number' ? d.nota : null,
+    enviada: true,
+    lidaPelaIA,
+    aviso: lidaPelaIA ? null : aviso,
+  }
+}

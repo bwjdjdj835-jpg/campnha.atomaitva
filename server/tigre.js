@@ -22,12 +22,12 @@ const MODELO_GROQ = () => process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
 export const provedorIA = () => (process.env.GROQ_API_KEY ? 'groq' : process.env.ANTHROPIC_API_KEY ? 'claude' : null)
 
 // Groq: API no formato da OpenAI (https://console.groq.com/docs/api-reference#chat-create).
-export async function groq({ system, user, json = false, maxTokens = 600, temperatura }) {
+export async function groq({ system, user, json = false, maxTokens = 600, temperatura, modelo }) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: MODELO_GROQ(),
+      model: modelo || MODELO_GROQ(),
       temperature: temperatura ?? (json ? 0 : 0.7),
       max_tokens: maxTokens,
       ...(json ? { response_format: { type: 'json_object' } } : {}),
@@ -39,7 +39,8 @@ export async function groq({ system, user, json = false, maxTokens = 600, temper
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(`Groq: ${data.error?.message || res.statusText}`)
-  return String(data.choices?.[0]?.message?.content || '').trim()
+  // Modelos que pensam em voz alta (ex.: Qwen) podem mandar <think>…</think> antes da resposta.
+  return String(data.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim()
 }
 
 let cliente = null

@@ -14,7 +14,7 @@ import { creditosFirecrawl, erroDeCredito } from './firecrawlCreditos.js'
 import { lugarDoApify, linkDoMaps } from './apify.js'
 import { gravarNaNuvem, temVideoNuvem } from './videoNuvem.js'
 import { enviarRelatorio, temEmail } from './aguia.js'
-import { designsDoCastor } from './castor.js'
+import { designsDoCastor, designDaImagem } from './castor.js'
 import { imagemDoCastor, temImagem } from './castorImagem.js'
 import { temNuvem, codigoValido, lerDados, gravarDados } from './nuvem.js'
 import { conectarZap, statusZap, enviarZap, lerConversaZap } from './zapWeb.js'
@@ -227,6 +227,18 @@ app.post('/castor/imagem', async (c) => {
   if (!design?.paleta_cores) return c.json({ error: 'Mande o design do Castor.' }, 400)
   try {
     return c.json(await imagemDoCastor({ categoria: String(categoria || '').slice(0, 60), design }))
+  } catch (e) {
+    return c.json({ error: e.message }, 502)
+  }
+})
+
+// 📤 Lê uma imagem de modelo de site (feita no Gemini) e devolve o design + nota (Groq com visão).
+app.post('/castor/ler-imagem', async (c) => {
+  if (!process.env.GROQ_API_KEY) return c.json({ error: 'Sem GROQ_API_KEY — as cores são tiradas da imagem no navegador.', code: 'NO_KEY' }, 503)
+  const { imagem, categoria } = await c.req.json().catch(() => ({}))
+  if (!/^data:image\/(png|jpe?g|webp);base64,/.test(String(imagem || ''))) return c.json({ error: 'Mande a imagem (PNG, JPG ou WEBP).' }, 400)
+  try {
+    return c.json(await designDaImagem({ imagem, categoria: String(categoria || '').slice(0, 60) }))
   } catch (e) {
     return c.json({ error: e.message }, 502)
   }
