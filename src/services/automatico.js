@@ -364,7 +364,7 @@ async function finalizar({ siteId, nome }, { nicho }, ui) {
   try {
     const pacote = await lerPacoteLeao(await lerZip(`${siteId}:final`))
     const html = htmlDaPrevia(pacote.dados, await fotosEmDataUrl(pacote.fotos), CSS_GRAVACAO, { agua: false })
-    const video = await gravar(html, siteId)
+    const video = await gravar(html, siteId, pacote)
     if (video) {
       await guardarVideo(siteId, video)
       temVideo = true

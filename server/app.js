@@ -11,6 +11,7 @@ import { hospedar, listarPastas, temPasta } from './pasta.js'
 import { enriquecer } from './abelha.js'
 import { gravarVideo, servidorGrava, salvarNaPasta, abrirPasta } from './video.js'
 import { creditosFirecrawl, erroDeCredito } from './firecrawlCreditos.js'
+import { gravarNaNuvem, temVideoNuvem } from './videoNuvem.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
 // Aceita as chaves com outros nomes de variável (ex.: "google" ou "firecrawl" no Vercel):
@@ -22,6 +23,7 @@ function apelido(nome, pedacoDoNome, formato) {
 apelido('GOOGLE_PLACES_API_KEY', /google/i, /^AIza/)
 apelido('FIRECRAWL_API_KEY', /fire/i, /^fc-/)
 apelido('GROQ_API_KEY', /./, /^gsk_[A-Za-z0-9]{20,}$/) // qualquer nome ("groq", "grok", "ia"…): a chave da Groq começa com gsk_
+apelido('SCREENSHOTONE_ACCESS_KEY', /screenshot/i, /^[\w-]{8,}$/)
 apelido('APIFY_TOKEN', /ap[iy]f[iy]/i, /^apify_api_/) // "apify", "apyfi"…
 apelido('SERPAPI_KEY', /serp/i, /^[0-9a-f]{64}$/)
 apelido('BLOB_READ_WRITE_TOKEN', /blob/i, /^vercel_blob_rw_/)
@@ -40,6 +42,7 @@ const keys = () => ({
   whatsappTemplate: Boolean(process.env.WHATSAPP_TEMPLATE),
   vercel: Boolean(process.env.VERCEL_TOKEN),
   pasta: temPasta(),
+  videoNuvem: temVideoNuvem(), // ScreenshotOne grava o vídeo da prévia (funciona no Vercel)
 })
 
 // videoServidor: o servidor tem navegador para gravar (computador); senão o vídeo é gravado no navegador do usuário.
@@ -125,6 +128,27 @@ app.post('/gato/video', async (c) => {
   const salvoEm = salvarComo ? await salvarNaPasta(buffer, tipo, salvarComo).catch(() => null) : null
   const extras = salvoEm ? { 'X-Salvo-Em': encodeURIComponent(salvoEm) } : {}
   return new Response(buffer, { headers: { 'Content-Type': tipo, 'Content-Length': String(buffer.length), ...extras } })
+})
+
+// Vídeo gravado na nuvem (ScreenshotOne): devolve o link do MP4; o navegador baixa direto de lá.
+app.post('/gato/video-nuvem', async (c) => {
+  const { html, segundos } = await c.req.json().catch(() => ({}))
+  if (typeof html !== 'string' || !html.includes('<html')) return c.json({ error: 'Prévia inválida.' }, 400)
+  if (!temVideoNuvem()) return c.json({ error: 'Falta a SCREENSHOTONE_ACCESS_KEY no servidor.', code: 'NO_KEY' }, 503)
+  try {
+    return c.json(await gravarNaNuvem(html, { segundos: Number(segundos) || 20 }))
+  } catch (e) {
+    return c.json({ error: e.message }, 502)
+  }
+})
+
+// Reserva: se o navegador não conseguir baixar direto do link da ScreenshotOne, o servidor repassa o vídeo.
+app.get('/gato/video-nuvem/baixar', async (c) => {
+  const u = c.req.query('u') || ''
+  if (!/^https:\/\/([\w-]+\.)*screenshotone\.(com|io)\//.test(u)) return c.json({ error: 'Link não permitido.' }, 400)
+  const res = await fetch(u)
+  if (!res.ok) return c.json({ error: 'Não consegui baixar o vídeo.' }, 502)
+  return new Response(res.body, { headers: { 'Content-Type': res.headers.get('content-type') || 'video/mp4' } })
 })
 
 // Abre no Explorador de Arquivos a pasta onde o vídeo foi salvo (só no notebook, só dentro da pasta dos vídeos).

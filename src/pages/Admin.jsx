@@ -4,6 +4,7 @@ import { ShieldCheck, CheckCircle2, Play, Inbox, Ban, Video, Upload, MonitorPlay
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { videoDoSite, guardarVideo, negocioDoSite, rascunho, lerPacoteLeao, gravarVideoPrevia, abrirPastaDoVideo } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
+import { gravarNaNuvem } from '../services/videoNuvem.js'
 import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp, CSS_GRAVACAO } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
 import { lerResposta, registrarEnviada, outraSugestao, esperandoVoce, marcarVenda } from '../services/tigreConversa.js'
@@ -34,10 +35,14 @@ export default function Admin() {
   const navigate = useNavigate()
   const [iniciando, setIniciando] = useState(false)
   const [videoServidor, setVideoServidor] = useState(false)
+  const [videoNuvem, setVideoNuvem] = useState(false)
   useEffect(() => {
     fetch('/api/status')
       .then((r) => r.json())
-      .then((d) => setVideoServidor(Boolean(d.keys?.videoServidor)))
+      .then((d) => {
+        setVideoServidor(Boolean(d.keys?.videoServidor))
+        setVideoNuvem(Boolean(d.keys?.videoNuvem))
+      })
       .catch(() => {})
   }, [])
   // Um nicho por vez: o próximo só começa depois que você aprova (ou descarta) todos os clientes do nicho atual.
@@ -173,7 +178,7 @@ export default function Admin() {
               <Loader2 size={16} className="animate-spin" /> {preparando} cliente(s) sendo preparado(s) pelo automático (vídeo e mensagem)…
             </div>
           )}
-          {paraAprovar.map((s) => <CartaoAprovar key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} videoServidor={videoServidor} />)}
+          {paraAprovar.map((s) => <CartaoAprovar key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} videoServidor={videoServidor} videoNuvem={videoNuvem} />)}
         </div>
       )}
 
@@ -201,7 +206,7 @@ export default function Admin() {
   )
 }
 
-function CartaoAprovar({ site, negocio, conversa, videoServidor }) {
+function CartaoAprovar({ site, negocio, conversa, videoServidor, videoNuvem }) {
   const [video, setVideo] = useState(null) // { blob, url }
   const [texto, setTexto] = useState(conversa?.rascunho || '')
   const [abriu, setAbriu] = useState(false)
@@ -296,8 +301,10 @@ function CartaoAprovar({ site, negocio, conversa, videoServidor }) {
     setErroVideo(null)
     try {
       const p = await lerPacoteLeao(await lerZip(`${site.id}:final`))
-      const html = htmlDaPrevia(p.dados, await fotosEmDataUrl(p.fotos), CSS_GRAVACAO, { agua: false })
-      const blob = await gravarVideoPrevia(html, site.id, Number(lerOpcoes().duracao) || 20)
+      const segundos = Number(lerOpcoes().duracao) || 20
+      const blob = videoServidor
+        ? await gravarVideoPrevia(htmlDaPrevia(p.dados, await fotosEmDataUrl(p.fotos), CSS_GRAVACAO, { agua: false }), site.id, segundos)
+        : await gravarNaNuvem(p, site.id, segundos)
       setVideo((v) => {
         if (v?.url) URL.revokeObjectURL(v.url)
         return { blob, url: URL.createObjectURL(blob) }
@@ -393,13 +400,17 @@ function CartaoAprovar({ site, negocio, conversa, videoServidor }) {
           {!video && (
             <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 space-y-2">
               <div className="text-sm font-medium text-white">1️⃣ Grave o vídeo da prévia</div>
-              {videoServidor && (
+              {(videoServidor || videoNuvem) && (
                 <div className="space-y-1">
                   <button className="btn-primary !py-2 !px-4 text-sm" onClick={gravarNoNotebook} disabled={gravando}>
                     {gravando ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />}{' '}
-                    {gravando ? 'Gravando… (uns 30 s a 1 min)' : 'Gravar agora no notebook (nítido)'}
+                    {gravando ? 'Gravando… (uns 30 s a 1 min)' : videoServidor ? 'Gravar agora no notebook (nítido)' : 'Gravar agora na nuvem (nítido)'}
                   </button>
-                  <p className="text-xs text-slate-500">A Aranha grava sozinha e salva em Vídeos → Central de Agentes → {negocio.categoria || 'nicho'}.</p>
+                  <p className="text-xs text-slate-500">
+                    {videoServidor
+                      ? `A Aranha grava sozinha e salva em Vídeos → Central de Agentes → ${negocio.categoria || 'nicho'}.`
+                      : 'A Aranha manda a prévia para a ScreenshotOne gravar (formato de celular, 20 s) e o vídeo aparece aqui.'}
+                  </p>
                 </div>
               )}
               {erroVideo && <p className="text-xs text-rose-300">{erroVideo}</p>}
