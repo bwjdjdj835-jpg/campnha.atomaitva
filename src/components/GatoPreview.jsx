@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye, Video, X, Plus, GraduationCap, LayoutList, PenLine, Palette } from 'lucide-react'
 import { TEMAS } from '../lib/ClienteSite.jsx'
 import CastorModelos from './CastorModelos.jsx'
+import FotosDoSite from './FotosDoSite.jsx'
 import { propostasDoCastor } from '../lib/castor.js'
 import { lerPipeline } from '../store/pipeline.js'
 import { lembrar } from '../lib/mentes.js'
@@ -15,7 +16,7 @@ function marcarSite(siteId, campos) {
 }
 
 // Prévia ao vivo do site (mesmo componente que vai no ZIP) + aprovação obrigatória antes do ZIP final.
-export default function GatoPreview({ preview }) {
+export default function GatoPreview({ preview, onMudar }) {
   // Sem link colado nem estilo do estudo, começa no modelo recomendado pelo Castor (direção de arte do ramo).
   const inicioCastor = useMemo(() => (preview.modeloInicial ? null : propostasDoCastor(preview.dados, null, lerPipeline())[0]), [preview])
   const [tema, setTema] = useState(inicioCastor?.tema || preview.dados.tema)
@@ -188,6 +189,17 @@ export default function GatoPreview({ preview }) {
           </button>
         </div>
       </div>
+
+      {/* 📸 Fotos: completar quando o Leão trouxe poucas */}
+      {onMudar && (
+        <FotosDoSite
+          preview={preview}
+          onMudar={(p) => {
+            onMudar(p)
+            desaprovar()
+          }}
+        />
+      )}
 
       {/* 🦫 Castor: 3 modelos completos (tema + capa + galeria) antes do Gato finalizar */}
       <CastorModelos

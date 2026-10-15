@@ -123,6 +123,9 @@ const ext = (tipo) => ({ 'image/png': 'png', 'image/webp': 'webp' })[tipo] || 'j
 const blobDeBase64 = (b64, tipo) => new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: tipo })
 const ORIGEM = { maps: 'Google Maps', instagram: 'Instagram', facebook: 'Facebook' }
 
+const MIN_FOTOS = 4 // menos que isso, o Leão vai atrás de mais fotos
+const MAX_FOTOS_LEAO = 8
+
 async function baixarFotos(lista, log) {
   const fotos = []
   for (const item of lista.slice(0, 8)) {
@@ -157,7 +160,35 @@ async function leadDoLeao(inputs, log, leads) {
     throw new Error('Esse WhatsApp não está nos leads do Pinguim. Cole o link do Google Maps ou do Instagram do negócio.')
   }
   log('info', `Link de ${ORIGEM[tipo]} fora da lista do Pinguim — tirando print para descobrir o negócio`)
-  const p = await api('/leao/print', { url: link })
+  let p
+  try {
+    p = await api('/leao/print', { url: link })
+  } catch (e) {
+    // Sem Firecrawl (sem chave ou sem crédito): o Apify lê a ficha do Maps — nome, telefone, endereço e fotos.
+    if (tipo !== 'maps') throw e
+    log('warn', `Print: ${e.message.replace(/\.$/, '')} — lendo a ficha do Maps pelo Apify`)
+    const lugar = await api('/leao/lugar', { url: link })
+    log('ok', `Negócio identificado pelo Apify: ${lugar.nome}${lugar.telefoneExibicao ? ` · ${lugar.telefoneExibicao}` : ''}`)
+    const lead = {
+      id: `link-${Date.now()}`,
+      demo: false,
+      fonte: 'link colado no Leão (Apify)',
+      nome: lugar.nome,
+      categoria: lugar.categorias?.[0] || null,
+      endereco: lugar.endereco || '',
+      telefone: lugar.telefoneExibicao || lugar.telefone || '—',
+      rating: lugar.rating ?? null,
+      avaliacoes: lugar.avaliacoes || 0,
+      maps: lugar.maps || link,
+      instagram: null,
+      whatsapp: lugar.telefone ? waLink(lugar.telefone) : null,
+      fotos: lugar.fotos || [],
+      fotosCompletas: true,
+      confianca: 'Médio',
+      observacao: 'Criado a partir de um link colado no Leão — confira telefone e endereço',
+    }
+    return { lead, novo: true, prints: [] }
+  }
   const nome = nomeDoTitulo(p.titulo)
   if (!nome) throw new Error('Não consegui ler o nome do negócio nessa página. Tente o link do Google Maps.')
   log('ok', `Negócio identificado pelo print: ${nome}`)
@@ -195,6 +226,21 @@ async function leao(inputs, log, { leads }) {
   if (lead.fotos?.length) {
     log('info', `Baixando ${lead.fotos.length} foto(s) da ficha do Google`)
     fotos = await baixarFotos(lead.fotos, log)
+  }
+
+  // A busca do Pinguim traz só a 1ª foto da ficha: pega as outras fotos do lugar no Maps pelo Apify.
+  if (!lead.demo && lead.maps && !lead.fotosCompletas && fotos.length < MIN_FOTOS) {
+    try {
+      log('info', 'Buscando mais fotos do lugar no Google Maps (Apify)')
+      const lugar = await api('/leao/lugar', { url: lead.maps })
+      const base = (u) => String(u).replace(/=[^/=]*$/, '')
+      const tem = new Set((lead.fotos || []).map(base))
+      const novas = (lugar.fotos || []).filter((u) => !tem.has(base(u))).slice(0, MAX_FOTOS_LEAO - fotos.length)
+      if (novas.length) fotos = [...fotos, ...(await baixarFotos(novas, log))]
+      else log('warn', 'O Maps não tem outras fotos desse lugar')
+    } catch (e) {
+      log('warn', `Mais fotos pelo Apify: ${e.message.replace(/\.$/, '')}`)
+    }
   }
 
   // Prints das páginas do negócio (hospedados pelo Firecrawl) — vão no ZIP em public/prints/.

@@ -11,6 +11,7 @@ import { hospedar, listarPastas, temPasta } from './pasta.js'
 import { enriquecer } from './abelha.js'
 import { gravarVideo, servidorGrava, salvarNaPasta, abrirPasta } from './video.js'
 import { creditosFirecrawl, erroDeCredito } from './firecrawlCreditos.js'
+import { lugarDoApify, linkDoMaps } from './apify.js'
 import { gravarNaNuvem, temVideoNuvem } from './videoNuvem.js'
 import { enviarRelatorio, temEmail } from './aguia.js'
 import { designsDoCastor } from './castor.js'
@@ -86,6 +87,19 @@ app.post('/leao/fotos', async (c) => {
   const { fotos } = await c.req.json().catch(() => ({}))
   if (!Array.isArray(fotos) || !fotos.length) return c.json({ fotos: [] })
   return c.json({ fotos: await buscarFotos(fotos) })
+})
+
+// Dados + todas as fotos de um lugar do Google Maps pelo Apify (não gasta Firecrawl).
+app.post('/leao/lugar', async (c) => {
+  const { url } = await c.req.json().catch(() => ({}))
+  if (!linkDoMaps(url)) return c.json({ error: 'Mande o link do Google Maps do negócio.' }, 400)
+  if (!keys().apify) return c.json({ error: 'APIFY_TOKEN não configurado no servidor.', code: 'NO_KEY' }, 503)
+  try {
+    const lugar = await lugarDoApify(url)
+    return lugar ? c.json(lugar) : c.json({ error: 'O Apify não achou esse lugar no Maps.' }, 404)
+  } catch (e) {
+    return c.json({ error: e.message }, 502)
+  }
 })
 
 app.post('/leao/print', async (c) => {

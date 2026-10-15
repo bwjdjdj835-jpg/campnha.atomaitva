@@ -60,3 +60,64 @@ export function candidatoDoApify(p) {
     fotos: p.imageUrl ? [fotoGrande(p.imageUrl)] : [],
   }
 }
+
+// Um lugar só, pelo link do Google Maps (inclusive maps.app.goo.gl): dados + até 12 fotos do lugar.
+// Usado pelo Leão quando a ficha veio com 1 foto só (a busca do Pinguim pede maxImages: 0 para sair barata)
+// e quando o Firecrawl está sem crédito para ler a página do Maps.
+const MAX_FOTOS_LUGAR = 12
+
+async function linkCompleto(url) {
+  const u = new URL(url)
+  if (!/(^|\.)goo\.gl$|^g\.page$/.test(u.hostname)) return url
+  // Link curto: segue o redirecionamento até o endereço completo do Maps.
+  const r = await fetch(url, { redirect: 'manual' }).catch(() => null)
+  const destino = r?.headers.get('location')
+  return destino ? new URL(destino, url).href : url
+}
+
+export function linkDoMaps(url) {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' && (/(^|\.)google\.[a-z.]+$/.test(u.hostname) ? u.hostname.startsWith('maps.') || u.pathname.startsWith('/maps') : /^(maps\.app\.goo\.gl|goo\.gl|g\.page)$/.test(u.hostname))
+  } catch {
+    return false
+  }
+}
+
+export async function lugarDoApify(url) {
+  const entrada = {
+    startUrls: [{ url: await linkCompleto(url) }],
+    language: 'pt-BR',
+    maxCrawledPlacesPerSearch: 1,
+    maxImages: MAX_FOTOS_LUGAR,
+    scrapeImageAuthors: false,
+    maxReviews: 0,
+    maxQuestions: 0,
+    scrapeContacts: false,
+    includeWebResults: false,
+    scrapeDirectories: false,
+  }
+  const res = await fetch(`https://api.apify.com/v2/acts/${ATOR}/run-sync-get-dataset-items?timeout=240`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.APIFY_TOKEN}` },
+    body: JSON.stringify(entrada),
+  })
+  const dados = await res.json().catch(() => null)
+  if (!res.ok || !Array.isArray(dados)) {
+    if (res.status === 401) throw new Error('Apify: token inválido (confira APIFY_TOKEN)')
+    if (res.status === 402) throw new Error('Apify: sem crédito na conta')
+    throw new Error(`Apify: ${dados?.error?.message || res.statusText}`)
+  }
+  const p = dados.find((x) => x.title)
+  if (!p) return null
+  const vistas = new Set()
+  const fotos = [p.imageUrl, ...(p.imageUrls || []), ...(p.images || []).map((i) => i?.imageUrl)]
+    .filter((f) => typeof f === 'string' && /^https:\/\/[^/]*googleusercontent\.com\//.test(f))
+    .map(fotoGrande)
+    .filter((f) => {
+      const base = f.replace(/=[^/=]*$/, '')
+      return !vistas.has(base) && vistas.add(base)
+    })
+    .slice(0, MAX_FOTOS_LUGAR)
+  return { ...candidatoDoApify(p), fotos }
+}

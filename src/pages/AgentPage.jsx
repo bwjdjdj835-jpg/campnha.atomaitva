@@ -286,7 +286,7 @@ function AgentPage() {
 
       {preview && (
         <Suspense fallback={<div className="glass p-10 grid place-items-center"><Loader2 className="animate-spin text-neon" /></div>}>
-          <GatoPreview key={preview.dados.geradoEm + preview.siteId} preview={preview} />
+          <GatoPreview key={preview.dados.geradoEm + preview.siteId} preview={preview} onMudar={setPreview} />
         </Suspense>
       )}
 

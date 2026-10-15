@@ -51,6 +51,10 @@ e "Leão Dourado" foi unificado como **Leão**.
     evidências (links) e quantos pedidos usou. O `LeadsTable` roda a fila sozinho com no máx. 8 pedidos/min (plano
     grátis), mostra selo por lead (Não tem site / Tem site / Possível site com "É o site dele" ou "Não é"), pausa, e
     num 429 (`code: 'LIMITE'`) espera 1 minuto e tenta de novo.
+  - `POST /api/leao/lugar` (`lugarDoApify` em `server/apify.js`, `linkDoMaps`) — um lugar pelo link do Maps (segue
+    `maps.app.goo.gl`), `startUrls` + `maxImages: 12` → dados + até 12 fotos. O Leão usa quando o lead tem < 4 fotos
+    (`MIN_FOTOS`; a busca do Pinguim traz só 1, `maxImages: 0`) e, sem Firecrawl, para identificar um link de Maps colado
+    (`fotosCompletas`). Pedido do usuário: "o Leão não extraiu todas as fotos".
   - `POST /api/leao/fotos` — baixa fotos da ficha (Places Photos ou links googleusercontent.com vindos da SerpApi;
     outros hosts são recusados) sem expor chaves (`server/leao.js`).
   - `POST /api/leao/print` — print da página (Google Maps/Instagram/Facebook, lista fechada) via Firecrawl
@@ -177,6 +181,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   passos, faq típicos do segmento — sem preço, ano, prêmio ou nome; o nome do negócio é o sujeito da frase para não
   errar gênero). Campos sugeridos ficam em `conteudo.sugerido`; o `EditorConteudo` do `GatoPreview` deixa editar
   (editar tira a marca), a auditoria conta sugestão como "aviso" e a Abelha tira a marca do que trouxe com fonte.
+- **📸 Fotos do site no Gato** (`src/components/FotosDoSite.jsx`, acima do Castor): "Adicionar fotos" (do celular/computador,
+  reduzidas a 1600 px), tirar foto e "usar como capa"; troca `preview.fotos` + `dados.imagens` (renumerados
+  `foto-N-<carimbo>`) via `onMudar` → `setPreview` do `AgentPage` e desfaz a aprovação; o ZIP final sai com essas fotos.
 - Leão mostra o painel `PreviaLeao.jsx` (dados extraídos, fotos, prévia) e manda pro Gato com `?site=<id>`.
   Gato abre do IndexedDB, da pasta online do site (`site.pasta`) ou de uma pasta da lista (`pasta:<url>`, outro aparelho).
 - Leão aceita link colado (`src/lib/links.js`): acha o lead pelo Maps/Instagram/WhatsApp; link de Maps/Instagram
