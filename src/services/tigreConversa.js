@@ -18,7 +18,8 @@ export function atualizarConversa(siteId, fn) {
 export function registrarEnviada(siteId, texto, tipo = null, via = 'whatsapp-manual') {
   atualizarConversa(siteId, (c) => ({
     mensagens: [...c.mensagens, { de: 'nos', texto, via, at: new Date().toISOString(), ...(tipo ? { tipo } : {}) }],
-    status: ['novo', 'recusou', 'duvida', 'bot'].includes(c.status) ? 'contatado' : c.status,
+    // "Só dá uma olhada" e despedida: continua "Não quer site ainda" (o selo que todos os agentes veem).
+    status: ['olhada', 'despedida'].includes(tipo) ? 'recusou' : ['novo', 'recusou', 'duvida', 'bot'].includes(c.status) ? 'contatado' : c.status,
     rascunho: undefined,
   }))
 }
@@ -33,11 +34,20 @@ export async function lerResposta(siteId, negocio, textoCliente, { temVideo = fa
     status: ['vendido', 'publicado'].includes(c.status) ? c.status : novoStatus,
   }))
   if (r.intencao === 'nao_contatar') {
-    return { leitura: r, texto: '', tipo: null, aviso: `Leitura da resposta: ${r.resumo} Contato bloqueado — não mande mais nada.` }
+    return { leitura: r, texto: '', tipo: null, fonte: null, aviso: `Leitura da resposta: ${r.resumo} Contato bloqueado — não mande mais nada.` }
   }
   const historico = [...conversa.mensagens, { de: 'cliente', texto: textoCliente }]
-  const sugerir = async (tipo) => (await rascunho(tipo, negocio, historico)).texto
+  let fonte = 'modelo'
+  const sugerir = async (tipo) => {
+    const r = await rascunho(tipo, negocio, historico)
+    fonte = r.fonte || 'modelo'
+    return r.texto
+  }
+  const resultado = await sugerirProxima(r, conversa, sugerir, temVideo)
+  return { ...resultado, fonte }
+}
 
+async function sugerirProxima(r, conversa, sugerir, temVideo) {
   if (r.intencao === 'bot') {
     // Robô (saudação automática, menu, assistente): pede para falar com uma pessoa, usando a opção de atendente do menu.
     return {
@@ -61,4 +71,18 @@ export async function lerResposta(siteId, negocio, textoCliente, { temVideo = fa
   }
   // Interesse, pergunta ou qualquer outra coisa (preço, "quem é?", engano, desconfiança…): responde o que ele disse.
   return { leitura: r, texto: await sugerir('resposta'), tipo: null, aviso: `Leitura da resposta: ${r.resumo} Confira a resposta sugerida e envie pelo seu WhatsApp.` }
+}
+
+// Outra versão da mensagem sugerida (mesmo tipo), olhando a conversa inteira.
+export async function outraSugestao(siteId, negocio, tipo) {
+  const conversa = lerPipeline().conversas?.[siteId] || { mensagens: [] }
+  const r = await rascunho(tipo || 'resposta', negocio, conversa.mensagens)
+  return { texto: r.texto, fonte: r.fonte || 'modelo' }
+}
+
+// Quem respondeu por último foi o cliente (ou o robô dele) → está esperando você.
+export const esperandoVoce = (c) => c?.status !== 'nao_contatar' && c?.mensagens?.at(-1)?.de === 'cliente'
+
+export function marcarVenda(siteId) {
+  atualizarConversa(siteId, () => ({ status: 'vendido', vendidoEm: new Date().toISOString() }))
 }

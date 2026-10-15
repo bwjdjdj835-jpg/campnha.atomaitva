@@ -251,7 +251,11 @@ e "Leão Dourado" foi unificado como **Leão**.
   `setInterval` de 30 quadros/s — fora da página e só com `requestVideoFrameCallback`, alguns Chrome soltavam poucos quadros;
   "Já enviei" registra a mensagem (+ vídeo) na conversa (status `contatado`, site `aprovado`). Aba "Enviados" com selo,
   **"Ele respondeu"** (cola a resposta → `lerResposta` → mensagem sugerida → "Aprovar e abrir no WhatsApp" → "Já enviei"
-  = `registrarEnviada`) e "Conversa completa" (`/agente/tigre?cliente=<id>`). A lógica de ler a resposta e escolher a
+  = `registrarEnviada`) e "Conversa completa" (`/agente/tigre?cliente=<id>`). **Aba "Conversas"** (pedido do usuário: "tem que ser
+  uma interação, não só uma mensagem"): histórico em balões, quem respondeu por último vem primeiro com "💬 Esperando
+  você" (`esperandoVoce`), cola a resposta → próxima mensagem com selo da IA (`FONTE_IA`: Groq/Claude/texto pronto) →
+  "Gerar outra" (`outraSugestao`) → "Já enviei" → cola a próxima… até "💰 Fechou! Pagou" (`marcarVenda`). O `SISTEMA` do
+  Tigre tem o objetivo de levar a conversa até fechar, lendo a conversa inteira. `olhada`/`despedida` mantêm o selo `recusou`. A lógica de ler a resposta e escolher a
   próxima mensagem fica em `src/services/tigreConversa.js` (usada pelo `TigrePainel` e pelo Admin). O Tigre também mostra a fila (`FilaAprovacao.jsx`).
 - Estado global simples em `src/store/pipeline.js` (localStorage): `leads`, `sites`, `conversas`, `comSite`, `contatos`;
   `lerPipeline()` lê o estado atual fora do React (laço da conferência).
