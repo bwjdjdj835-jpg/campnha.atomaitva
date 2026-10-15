@@ -46,6 +46,7 @@ const keys = () => ({
   vercel: Boolean(process.env.VERCEL_TOKEN),
   pasta: temPasta(),
   email: temEmail(), // 🦅 Águia manda relatório (Resend)
+  emailDestino: Boolean(process.env.AGUIA_EMAIL),
   videoNuvem: temVideoNuvem(), // ScreenshotOne grava o vídeo da prévia (funciona no Vercel)
 })
 
@@ -157,10 +158,10 @@ app.get('/gato/video-nuvem/baixar', async (c) => {
 
 // 🦅 Águia: relatório do processo por e-mail.
 app.post('/aguia/email', async (c) => {
-  const { assunto, texto } = await c.req.json().catch(() => ({}))
-  if (!temEmail()) return c.json({ error: 'Falta RESEND_API_KEY e AGUIA_EMAIL no servidor.', code: 'NO_KEY' }, 503)
+  const { assunto, texto, para } = await c.req.json().catch(() => ({}))
+  if (!temEmail()) return c.json({ error: 'Falta a chave do Resend (RESEND_API_KEY) no servidor.', code: 'NO_KEY' }, 503)
   try {
-    return c.json(await enviarRelatorio({ assunto, texto }))
+    return c.json(await enviarRelatorio({ assunto, texto, para }))
   } catch (e) {
     return c.json({ error: e.message }, 502)
   }

@@ -55,9 +55,25 @@ export function relatorioDaAguia(estado = lerPipeline()) {
 }
 
 // Manda pelo servidor (Resend). Sem chave, devolve false (a página oferece abrir no seu e-mail).
+const CHAVE_EMAIL = 'central-agentes:aguia-email'
+export const emailDaAguia = () => {
+  try {
+    return localStorage.getItem(CHAVE_EMAIL) || ''
+  } catch {
+    return ''
+  }
+}
+export const guardarEmailDaAguia = (v) => {
+  try {
+    localStorage.setItem(CHAVE_EMAIL, String(v || '').trim())
+  } catch {
+    /* sem storage */
+  }
+}
+
 export async function enviarRelatorioAguia(estado) {
   const r = relatorioDaAguia(estado)
-  const res = await fetch('/api/aguia/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(r) }).catch(() => null)
+  const res = await fetch('/api/aguia/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...r, para: emailDaAguia() }) }).catch(() => null)
   if (!res) throw new Error('Servidor fora do ar.')
   if (res.status === 503) return false
   const json = await res.json().catch(() => ({}))
