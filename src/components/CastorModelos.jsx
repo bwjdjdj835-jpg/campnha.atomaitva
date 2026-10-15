@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePipeline } from '../store/pipeline.js'
-import { propostasDoCastor, designsDaGroq } from '../lib/castor.js'
+import { propostasDoCastor, designsDaGroq, imagemDoModelo } from '../lib/castor.js'
 import { htmlDaPrevia, SANDBOX_PREVIA, CSS_MINIATURA } from '../lib/previa.jsx'
 import { lembrar, PERSONALIDADES } from '../lib/mentes.js'
 import MenteAgente from './MenteAgente.jsx'
@@ -21,6 +21,40 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
     }
   }, [dados])
   const propostas = useMemo(() => (daIA ? [...daIA, ...locais].slice(0, 3) : locais), [daIA, locais])
+
+  // 🍌 Nano Banana (Gemini): desenha uma imagem de cada modelo, só para você escolher. Uma de cada vez (limite da cota).
+  const [temBanana, setTemBanana] = useState(false)
+  const [desenhos, setDesenhos] = useState({}) // id → { url } | { carregando } | { erro }
+  const [verReal, setVerReal] = useState({}) // id → true = mostra a prévia real em vez da imagem
+  useEffect(() => {
+    fetch('/api/status')
+      .then((r) => r.json())
+      .then((d) => setTemBanana(Boolean(d.keys?.imagem)))
+      .catch(() => {})
+  }, [])
+  const categoria = dados.negocio?.categoria || ''
+  async function desenhar(p, deNovo) {
+    setDesenhos((d) => ({ ...d, [p.id]: { carregando: true } }))
+    try {
+      const url = await imagemDoModelo(p, categoria, { deNovo })
+      setDesenhos((d) => ({ ...d, [p.id]: { url } }))
+    } catch (e) {
+      setDesenhos((d) => ({ ...d, [p.id]: { erro: e.message } }))
+    }
+  }
+  useEffect(() => {
+    if (!temBanana || daIA === undefined) return
+    let vivo = true
+    ;(async () => {
+      for (const p of propostas) {
+        if (!vivo) return
+        await desenhar(p)
+      }
+    })()
+    return () => {
+      vivo = false
+    }
+  }, [temBanana, daIA, propostas]) // eslint-disable-line react-hooks/exhaustive-deps
   const imagens = useMemo(
     () =>
       fotosUrl
@@ -49,10 +83,12 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
             <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-normal text-slate-300">
               {daIA === undefined ? '🤖 Groq criando os designs…' : daIA ? '🤖 Designs criados pela Groq' : '📐 Matriz de design do Castor'}
             </span>
+            {temBanana && <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[11px] font-normal text-amber-200">🍌 Imagens do Nano Banana</span>}
           </div>
           <p className="text-xs text-slate-400">
             Antes do Gato finalizar, o Castor desenhou o site de 3 jeitos diferentes, com base no estudo do Gato e no que você já escolheu
             antes. Escolha um e o Gato refina em cima dele.
+            {temBanana && ' As imagens do 🍌 Nano Banana são só para você escolher o estilo — o cliente recebe o site real que o Gato produz.'}
           </p>
         </div>
         <button className="btn-ghost border border-white/10 !py-1 !px-3 text-xs" onClick={() => setAbertos(!abertos)}>
@@ -67,7 +103,12 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
             return (
               <div key={p.id} className={`overflow-hidden rounded-xl border ${ativo ? 'border-neon ring-2 ring-neon/40' : 'border-white/10'}`}>
                 <div className="relative aspect-[3/4] overflow-hidden bg-black">
-                  {imagens[p.id] && (
+                  {temBanana && !verReal[p.id] && desenhos[p.id]?.url ? (
+                    <img src={desenhos[p.id].url} alt={`Imagem do modelo ${i + 1}: ${p.titulo}`} className="absolute inset-0 h-full w-full object-cover object-top" />
+                  ) : temBanana && !verReal[p.id] && desenhos[p.id]?.carregando ? (
+                    <div className="absolute inset-0 grid place-items-center text-center text-xs text-amber-200">🍌 Desenhando…</div>
+                  ) : null}
+                  {imagens[p.id] && (verReal[p.id] || !temBanana || !desenhos[p.id] || desenhos[p.id].erro) && (
                     <iframe
                       title={`Modelo ${i + 1}: ${p.titulo}`}
                       srcDoc={imagens[p.id]}
@@ -84,6 +125,21 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
                     {i + 1}. {p.titulo}
                   </div>
                   {p.porque && <p className="text-xs text-slate-400">{p.porque}</p>}
+                  {temBanana && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                      {desenhos[p.id]?.url && (
+                        <button className="text-neon hover:underline" onClick={() => setVerReal((v) => ({ ...v, [p.id]: !v[p.id] }))}>
+                          {verReal[p.id] ? '🍌 Ver a imagem' : '👁️ Ver a prévia real'}
+                        </button>
+                      )}
+                      {!desenhos[p.id]?.carregando && (
+                        <button className="text-amber-200 hover:underline" onClick={() => desenhar(p, true)}>
+                          🍌 Desenhar de novo
+                        </button>
+                      )}
+                      {desenhos[p.id]?.erro && <span className="text-rose-300">{desenhos[p.id].erro}</span>}
+                    </div>
+                  )}
                   <button className={`${ativo ? 'btn-ghost border border-neon/50 text-neon' : 'btn-primary'} !py-1.5 !px-3 w-full text-sm`} onClick={() => escolher(p)}>
                     {ativo ? '✓ Escolhido' : 'Usar este modelo'}
                   </button>

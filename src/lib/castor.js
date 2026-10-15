@@ -137,3 +137,46 @@ export async function designsDaGroq(dados) {
     return null
   }
 }
+
+// 🍌 Nano Banana: cores e fonte de cada proposta para o Gemini desenhar a imagem do modelo (só para você escolher;
+// o cliente recebe a prévia real feita pelo Gato).
+const PALETA_DO_TEMA = {
+  noite: { esquema: 'escuro', fonte: 'Outfit', paleta_cores: { fundo: '#0A0A0A', fundo_alternado: '#141414', texto: '#F5F5F5', destaque: '#FBBF24' } },
+  claro: { esquema: 'claro', fonte: 'Plus Jakarta Sans', paleta_cores: { fundo: '#FFFFFF', fundo_alternado: '#F4F2EC', texto: '#171717', destaque: '#059669' } },
+  studio: { esquema: 'escuro', fonte: 'Outfit', paleta_cores: { fundo: '#09090B', fundo_alternado: '#18181B', texto: '#F4F4F5', destaque: '#E879F9' } },
+  vibrante: { esquema: 'claro', fonte: 'Plus Jakarta Sans', paleta_cores: { fundo: '#FFF7ED', fundo_alternado: '#FFEDD5', texto: '#1C1917', destaque: '#EA580C' } },
+}
+
+export function designParaImagem(p) {
+  const e = p.modelo?.estilo
+  if (p.tema === 'modelo' && e?.cores) {
+    return {
+      titulo: p.titulo,
+      esquema: e.esquema === 'escuro' ? 'escuro' : 'claro',
+      fonte: e.fonte,
+      paleta_cores: { fundo: e.cores.fundo, fundo_alternado: e.cores.fundoAlt || e.cores.fundo, texto: e.cores.texto, destaque: e.cores.primaria },
+    }
+  }
+  return { titulo: p.titulo, ...(PALETA_DO_TEMA[p.tema] || PALETA_DO_TEMA.noite) }
+}
+
+const imagensFeitas = new Map() // a mesma proposta não é desenhada (nem paga) duas vezes na mesma visita
+
+export async function imagemDoModelo(p, categoria, { deNovo = false } = {}) {
+  const chave = `${categoria}|${p.id}`
+  if (deNovo) imagensFeitas.delete(chave)
+  if (!imagensFeitas.has(chave)) {
+    const pedido = fetch('/api/castor/imagem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ categoria, design: designParaImagem(p) }),
+    }).then(async (res) => {
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw Object.assign(new Error(json.error || 'Falha ao desenhar'), { code: json.code })
+      return `data:${json.tipo};base64,${json.base64}`
+    })
+    imagensFeitas.set(chave, pedido)
+    pedido.catch(() => imagensFeitas.delete(chave))
+  }
+  return imagensFeitas.get(chave)
+}
