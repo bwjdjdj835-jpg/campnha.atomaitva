@@ -17,7 +17,7 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
         ? Object.fromEntries(
             propostas.map((p) => [
               p.id,
-              htmlDaPrevia({ ...dados, tema: p.tema, modelo, hero: p.hero, galeria: p.galeria, efeitos: false, conteudo }, fotosUrl, CSS_MINIATURA),
+              htmlDaPrevia({ ...dados, tema: p.tema, modelo: p.modelo || modelo, hero: p.hero, galeria: p.galeria, efeitos: false, conteudo }, fotosUrl, CSS_MINIATURA),
             ]),
           )
         : {},
@@ -26,7 +26,7 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
 
   function escolher(p) {
     onEscolher(p)
-    lembrar('castor', `${dados.negocio?.nome || 'Site'}: você escolheu "${p.titulo}"`, { tema: p.tema, hero: p.hero, galeria: p.galeria, categoria: dados.negocio?.categoria })
+    lembrar('castor', `${dados.negocio?.nome || 'Site'}: você escolheu "${p.titulo}"`, { tema: p.titulo === 'Direção de arte do Castor' ? 'castor' : p.tema, hero: p.hero, galeria: p.galeria, categoria: dados.negocio?.categoria })
   }
 
   return (
@@ -47,7 +47,8 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
       {abertos && (
         <div className="grid gap-3 sm:grid-cols-3">
           {propostas.map((p, i) => {
-            const ativo = escolhido && escolhido.tema === p.tema && escolhido.hero === p.hero && escolhido.galeria === p.galeria
+            const ativo =
+              escolhido && escolhido.tema === p.tema && escolhido.hero === p.hero && escolhido.galeria === p.galeria && (p.tema !== 'modelo' || escolhido.modelo === p.modelo)
             return (
               <div key={p.id} className={`overflow-hidden rounded-xl border ${ativo ? 'border-neon ring-2 ring-neon/40' : 'border-white/10'}`}>
                 <div className="relative aspect-[3/4] overflow-hidden bg-black">
@@ -76,6 +77,12 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
             )
           })}
         </div>
+      )}
+      {propostas[0]?.modelo?.design && (
+        <details className="rounded-xl border border-white/10 px-4 py-2 text-xs text-slate-300">
+          <summary className="cursor-pointer text-slate-200">Design system do Castor (JSON para o Gato)</summary>
+          <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap text-[11px] text-slate-400">{JSON.stringify(propostas[0].modelo.design, null, 2)}</pre>
+        </details>
       )}
       <MenteAgente agente="castor" />
     </div>

@@ -19,6 +19,17 @@ Logo: gato moderno, minimalista, vetorial, fundo branco, olhos grandes, preto e 
 - Prévia ao vivo antes do ZIP.
 - Nunca finalizar o site sem aprovação visual do usuário.
 
+## Padrão de agência (UI/UX obrigatório — pedido do usuário)
+- Seguir o design system do 🦫 Castor (`prompts/06-castor.md`): paleta por nicho, fonte do Google Fonts (Outfit, Plus
+  Jakarta Sans ou Inter — nunca fonte genérica), estrutura de seções.
+- Hero: foto real em tela cheia + overlay escuro, headline enorme em negrito `tracking-tight`, frase de valor e CTA grande
+  para o WhatsApp.
+- Nada de blocos repetitivos: cards flutuantes de vidro (`rounded-2xl`, `border-white/10`, `backdrop-blur`) e seções
+  alternadas (fundo principal → contraste suave).
+- Obrigatórios: serviços em grid de cards, prova social com avaliações reais do Google (nunca inventar depoimento),
+  contato com botão "Como chegar (Google Maps)", botão flutuante do WhatsApp.
+- Mobile-first, Tailwind CSS, impecável no celular e no computador.
+
 ## Regras
 - Técnico, direto e preciso. Nunca invente dados. Priorize fontes públicas reais.
 - Português brasileiro, descontraído, com termos técnicos.

@@ -327,9 +327,10 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
   const pv = rg.preview
   // 🦫 Castor: no automático usa o modelo recomendado (o 1º dos 3: estudo do Gato → seu preferido → clássico do ramo).
   const castor = propostasDoCastor(pv.dados, pv.modeloInicial, lerPipeline())[0]
-  const tema = castor?.tema === 'modelo' && !pv.modeloInicial ? pv.dados.tema : castor?.tema || pv.dados.tema
+  const modeloCastor = castor?.modelo || pv.modeloInicial
+  const tema = castor?.tema === 'modelo' && !modeloCastor ? pv.dados.tema : castor?.tema || pv.dados.tema
   log('info', `🦫 Castor escolheu o modelo "${castor?.titulo || tema}" para ${nome}`)
-  await gerarZipFinal(pv, tema, pv.dados.conteudo, pv.modeloInicial || undefined, true, { hero: castor?.hero || 'agua', galeria: castor?.galeria || 'uniforme' }, { baixarZip: false })
+  await gerarZipFinal(pv, tema, pv.dados.conteudo, modeloCastor || undefined, true, { hero: castor?.hero || 'agua', galeria: castor?.galeria || 'uniforme' }, { baixarZip: false })
   marcarSite(siteId, { status: 'preparando', tema, auto: true })
 
   if (abelha && !parar()) {
