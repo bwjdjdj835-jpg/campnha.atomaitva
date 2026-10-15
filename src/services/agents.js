@@ -17,6 +17,7 @@
 import JSZip from 'jszip'
 import { waLink, zipName } from '../lib/whatsapp.js'
 import { siteFiles } from '../lib/siteTemplate.js'
+import { trocarFotos } from '../lib/siteProprio.js'
 import { temaSugerido } from '../lib/ClienteSite.jsx'
 import { conteudoSugerido } from '../lib/conteudoSugerido.js'
 import { salvarZip, lerZip } from '../lib/zipStore.js'
@@ -756,6 +757,7 @@ export async function gerarZipFinal(preview, tema, conteudo = preview.dados.cont
     galeria: estilo.galeria || 'uniforme',
     conteudo,
     modelo: tema === 'modelo' ? modelo : undefined,
+    htmlProprio: estilo.htmlProprio || undefined, // site montado igual à imagem escolhida no Castor
     gerador: 'Gato Negro — Central de Agentes',
     aprovadoEm: new Date().toISOString(),
     referencias: preview.referencias,
@@ -765,6 +767,8 @@ export async function gerarZipFinal(preview, tema, conteudo = preview.dados.cont
   const zip = new JSZip()
   const root = zip.folder(nomeZip.replace(/\.zip$/, ''))
   for (const [path, content] of Object.entries(siteFiles(dados))) root.file(path, content)
+  // Site feito pela imagem: o index.html é a própria página (o Vite só copia; fotos em public/fotos).
+  if (dados.htmlProprio) root.file('index.html', trocarFotos(dados.htmlProprio, dados.imagens, (a) => a))
   for (const f of [...preview.fotos, ...(preview.prints || [])]) root.file(`public${f.caminho}`, f.blob)
   const blob = await zip.generateAsync({ type: 'blob' })
   if (baixarZip) baixar(blob, nomeZip)

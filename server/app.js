@@ -16,6 +16,7 @@ import { gravarNaNuvem, temVideoNuvem } from './videoNuvem.js'
 import { enviarRelatorio, temEmail } from './aguia.js'
 import { designsDoCastor, designDaImagem } from './castor.js'
 import { imagemDoCastor, temImagem } from './castorImagem.js'
+import { siteDaImagem, temSiteDaImagem } from './siteDaImagem.js'
 import { temNuvem, codigoValido, lerDados, gravarDados } from './nuvem.js'
 import { conectarZap, statusZap, enviarZap, lerConversaZap } from './zapWeb.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
@@ -54,7 +55,8 @@ const keys = () => ({
   nuvem: temNuvem(), // ☁️ dados salvos na nuvem (Upstash Redis)
   email: temEmail(), // 🦅 Águia manda relatório (Resend)
   emailDestino: Boolean(process.env.AGUIA_EMAIL),
-  imagem: temImagem(), // 🍌 Castor desenha os 3 modelos com o Nano Banana (Gemini)
+  imagem: temImagem(),
+  siteDaImagem: temSiteDaImagem(), // 🐈‍⬛ Gato monta o site igual à imagem do Castor // 🍌 Castor desenha os 3 modelos com o Nano Banana (Gemini)
   videoNuvem: temVideoNuvem(), // ScreenshotOne grava o vídeo da prévia (funciona no Vercel)
 })
 
@@ -239,6 +241,18 @@ app.post('/castor/ler-imagem', async (c) => {
   if (!/^data:image\/(png|jpe?g|webp);base64,/.test(String(imagem || ''))) return c.json({ error: 'Mande a imagem (PNG, JPG ou WEBP).' }, 400)
   try {
     return c.json(await designDaImagem({ imagem, categoria: String(categoria || '').slice(0, 60) }))
+  } catch (e) {
+    return c.json({ error: e.message }, 502)
+  }
+})
+
+// 🐈‍⬛ Gato monta o site igual à imagem escolhida no Castor (layout + estilo), com os dados e fotos reais.
+app.post('/gato/site-da-imagem', async (c) => {
+  if (!temSiteDaImagem()) return c.json({ error: 'Configure GEMINI_API_KEY ou GROQ_API_KEY para o Gato montar o site pela imagem.', code: 'NO_KEY' }, 503)
+  const { imagem, negocio, conteudo, fotos } = await c.req.json().catch(() => ({}))
+  if (!/^data:image\/(png|jpe?g|webp);base64,/.test(String(imagem || ''))) return c.json({ error: 'Mande a imagem do modelo.' }, 400)
+  try {
+    return c.json(await siteDaImagem({ imagem, negocio: negocio || {}, conteudo: conteudo || {}, fotos: Math.max(0, Math.min(12, Number(fotos) || 0)) }))
   } catch (e) {
     return c.json({ error: e.message }, 502)
   }

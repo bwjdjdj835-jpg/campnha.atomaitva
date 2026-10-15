@@ -3,6 +3,7 @@ import { Monitor, Smartphone, CheckCircle2, Download, Loader2, ExternalLink, Eye
 import { TEMAS } from '../lib/ClienteSite.jsx'
 import CastorModelos from './CastorModelos.jsx'
 import FotosDoSite from './FotosDoSite.jsx'
+import { gerarSiteDaImagem } from '../lib/siteProprio.js'
 import { propostasDoCastor } from '../lib/castor.js'
 import { lerPipeline } from '../store/pipeline.js'
 import { lembrar } from '../lib/mentes.js'
@@ -26,6 +27,9 @@ export default function GatoPreview({ preview, onMudar }) {
   const [galeria, setGaleria] = useState(inicioCastor?.galeria || (preview.dados.galeria === 'bento' ? 'bento' : 'uniforme'))
   // Site modelo cujas cores/fonte viram o tema "Do modelo": o seu link colado ou o estilo que o estudo achou.
   const [modelo, setModelo] = useState(preview.modeloInicial || inicioCastor?.modelo || null)
+  // 🐈‍⬛ Site montado igual à imagem escolhida no Castor (layout + estilo) — null = o nosso modelo padrão.
+  const [htmlProprio, setHtmlProprio] = useState(preview.dados.htmlProprio || null)
+  const [pelaImagem, setPelaImagem] = useState(null) // { titulo, imagem, ia, montando, erro }
   const [device, setDevice] = useState('desktop')
   const [fotosUrl, setFotosUrl] = useState(null)
   const [aprovado, setAprovado] = useState(false)
@@ -57,14 +61,14 @@ export default function GatoPreview({ preview, onMudar }) {
   }, [conteudo])
 
   const srcDoc = useMemo(
-    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia }, fotosUrl) : ''),
-    [preview, tema, modelo, efeitos, hero, galeria, conteudoPrevia, fotosUrl],
+    () => (fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia, htmlProprio }, fotosUrl) : ''),
+    [preview, tema, modelo, efeitos, hero, galeria, conteudoPrevia, fotosUrl, htmlProprio],
   )
   // Versão para o vídeo: sem água e sem granulado (no vídeo comprimido parecem defeito). O quadro mostra esta
   // versão enquanto grava.
   const srcDocGravacao = useMemo(
-    () => (gravando && fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia }, fotosUrl, CSS_GRAVACAO, { agua: false }) : ''),
-    [gravando, preview, tema, modelo, efeitos, hero, galeria, conteudoPrevia, fotosUrl],
+    () => (gravando && fotosUrl ? htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia, htmlProprio }, fotosUrl, CSS_GRAVACAO, { agua: false }) : ''),
+    [gravando, preview, tema, modelo, efeitos, hero, galeria, conteudoPrevia, fotosUrl, htmlProprio],
   )
   // Miniaturas dos temas lado a lado (mesma prévia real do cliente, só trocando o tema).
   const temasLado = ['noite', 'claro', 'studio', 'vibrante', ...(modelo ? ['modelo'] : [])]
@@ -93,6 +97,8 @@ export default function GatoPreview({ preview, onMudar }) {
   }
 
   function trocarTema(t) {
+    setHtmlProprio(null) // escolheu um dos nossos temas: sai do site feito pela imagem
+    setPelaImagem(null)
     setTema(t)
     desaprovar() // mudou o visual: precisa aprovar de novo
   }
@@ -100,6 +106,26 @@ export default function GatoPreview({ preview, onMudar }) {
   function usarModelo(m) {
     setModelo(m)
     setTema('modelo')
+    desaprovar()
+  }
+
+  // A imagem que você escolheu no Castor vira o site de verdade: a IA monta a página igual a ela, com os dados e fotos reais.
+  async function montarPelaImagem(p) {
+    setPelaImagem({ titulo: p.titulo, imagem: p.imagem, montando: true })
+    desaprovar()
+    try {
+      const r = await gerarSiteDaImagem(p.imagem, preview.dados, conteudo)
+      setHtmlProprio(r.html)
+      setPelaImagem({ titulo: p.titulo, imagem: p.imagem, ia: r.ia })
+      lembrar('gato', `${preview.dados.negocio?.nome || 'Site'}: montei o site igual à imagem "${p.titulo}" (${r.ia})`)
+    } catch (e) {
+      setPelaImagem({ titulo: p.titulo, imagem: p.imagem, erro: e.message })
+    }
+  }
+
+  function voltarAoPadrao() {
+    setHtmlProprio(null)
+    setPelaImagem(null)
     desaprovar()
   }
 
@@ -118,7 +144,7 @@ export default function GatoPreview({ preview, onMudar }) {
   async function baixarFinal() {
     setGerando(true)
     try {
-      const r = await gerarZipFinal(preview, tema, conteudo, modelo, efeitos, { hero, galeria })
+      const r = await gerarZipFinal(preview, tema, conteudo, modelo, efeitos, { hero, galeria, htmlProprio })
       setEntregue(r)
       marcarSite(preview.siteId, { zipFinal: r.nomeZip })
     } finally {
@@ -135,7 +161,7 @@ export default function GatoPreview({ preview, onMudar }) {
       const status = gravarAqui.current ? null : await fetch('/api/status').then((r) => r.json()).catch(() => null)
       let blob = null
       if (status?.keys?.videoServidor) {
-        const html = htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia }, fotosUrl, CSS_GRAVACAO, { agua: false })
+        const html = htmlDaPrevia({ ...preview.dados, tema, modelo, efeitos, hero, galeria, conteudo: conteudoPrevia, htmlProprio }, fotosUrl, CSS_GRAVACAO, { agua: false })
         blob = await gravarVideoPrevia(html, preview.siteId).catch(() => null) // falhou: grava aqui mesmo
         if (!blob) {
           gravarAqui.current = true
@@ -214,6 +240,8 @@ export default function GatoPreview({ preview, onMudar }) {
           setHero(p.hero)
           setGaleria(p.galeria)
           desaprovar()
+          if (p.enviada) montarPelaImagem(p)
+          else if (htmlProprio) voltarAoPadrao()
         }}
       />
 
@@ -287,6 +315,34 @@ export default function GatoPreview({ preview, onMudar }) {
       </div>
 
       <div className="p-5">
+        {pelaImagem && (
+          <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-300/30 bg-amber-300/5 px-3 py-2 text-sm text-slate-200">
+            {pelaImagem.imagem && <img src={pelaImagem.imagem} alt="" className="h-14 w-10 rounded object-cover object-top" />}
+            <div className="min-w-0 flex-1">
+              {pelaImagem.montando ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin text-amber-200" /> 🐈‍⬛ O Gato está montando o site igual à sua imagem "{pelaImagem.titulo}"… (leva uns 30 s)
+                </span>
+              ) : pelaImagem.erro ? (
+                <span className="text-rose-300">Não consegui montar pela imagem: {pelaImagem.erro}</span>
+              ) : (
+                <span>
+                  ✅ Site montado igual à sua imagem "{pelaImagem.titulo}" <span className="text-xs text-slate-400">({pelaImagem.ia}) — editou textos ou fotos? Clique em Gerar de novo.</span>
+                </span>
+              )}
+            </div>
+            {!pelaImagem.montando && (
+              <button className="btn-ghost border border-white/10 !py-1 !px-3 text-xs" onClick={() => montarPelaImagem(pelaImagem)}>
+                Gerar de novo
+              </button>
+            )}
+            {(htmlProprio || pelaImagem.erro) && !pelaImagem.montando && (
+              <button className="btn-ghost border border-white/10 !py-1 !px-3 text-xs" onClick={voltarAoPadrao}>
+                Voltar ao modelo padrão
+              </button>
+            )}
+          </div>
+        )}
         <div
           className="mx-auto overflow-hidden rounded-xl border border-white/10 bg-white transition-all"
           style={{ maxWidth: device === 'mobile' ? 390 : '100%' }}
