@@ -60,7 +60,7 @@ export async function abrirPacoteDoSite(site) {
 // Conteúdo para o site: o que os agentes trouxeram + o típico do ramo (marcado como sugestão, como no Gato).
 export const conteudoParaEscorpiao = (dados) => conteudoSugerido(dados)
 
-// Gera o site interativo da especialidade (Gemini → Groq) com os dados e as fotos reais.
+// Gera o site interativo da especialidade (Groq → Gemini de reserva) com os dados e as fotos reais.
 export async function gerarSiteEscorpiao(dados, conteudo, especialidade, referencias) {
   const n = dados.negocio || {}
   return postar('/api/escorpiao/site', {

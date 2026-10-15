@@ -166,7 +166,7 @@ export default function Escorpiao() {
 
       {temIA === false && (
         <div className="glass flex items-start gap-2 border-amber-400/30 p-4 text-sm text-amber-200">
-          <AlertTriangle size={18} className="mt-0.5 shrink-0" /> Configure GEMINI_API_KEY ou GROQ_API_KEY no servidor para o Escorpião gerar o site.
+          <AlertTriangle size={18} className="mt-0.5 shrink-0" /> Configure a GROQ_API_KEY no servidor para o Escorpião gerar o site.
         </div>
       )}
 

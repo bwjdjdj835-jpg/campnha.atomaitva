@@ -3,7 +3,7 @@
 // de referência de interatividade, e gera UMA página HTML profissional e interativa para aquele nicho.
 // As referências são lidas pelo leitor da 📚 Biblioteca do Gato (lerLink: sem Firecrawl, bloqueia endereço interno).
 // A interação vem das peças do app (clienteEfeitos.js / clienteAnimacoes.css por marcações data-*): a IA não escreve <script>.
-// IA: Gemini (GEMINI_API_KEY) → Groq (GROQ_API_KEY).
+// IA: Groq (GROQ_API_KEY, padrão — decisão do usuário) → Gemini (GEMINI_API_KEY) só como reserva.
 
 import { groq } from './tigre.js'
 import { MANUAL_DO_GATO } from './gatoManual.js'
@@ -13,7 +13,7 @@ import { limparHtml } from './siteDaImagem.js'
 export const MAX_REFERENCIAS = 3
 const MODELOS_GEMINI = () => [process.env.GEMINI_TEXT_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean)
 
-export const temEscorpiao = () => Boolean(process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY)
+export const temEscorpiao = () => Boolean(process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY)
 
 // Lê cada site de referência: título, fontes, técnicas interativas e a ordem das seções (títulos H1–H3).
 export async function lerReferencias(links) {
@@ -133,17 +133,18 @@ async function comGroq(texto, manual) {
 export async function siteDoEscorpiao({ especialidade, negocio, conteudo, fotos, referencias = [], licoes = [] }) {
   const texto = pedido({ especialidade: especialidade || negocio?.categoria || 'comércio local', negocio, conteudo, fotos, referencias })
   const manual = licoes.length ? `${MANUAL_DO_GATO}\n10b. LIÇÕES DA BIBLIOTECA DO GATO (aprovadas pelo dono — aplique quando couber):\n${licoes.map((l) => `- ${l}`).join('\n')}` : MANUAL_DO_GATO
+  // Groq primeiro (decisão do usuário: "pode ser a API da Groq, não tenho Gemini"); Gemini só se a Groq faltar ou falhar.
   let r
-  let erroGemini
-  if (process.env.GEMINI_API_KEY) {
+  let erroGroq
+  if (process.env.GROQ_API_KEY) {
     try {
-      r = await comGemini(texto, manual)
+      r = await comGroq(texto, manual)
     } catch (e) {
-      erroGemini = e
+      erroGroq = e
     }
   }
-  if (!r && process.env.GROQ_API_KEY) r = await comGroq(texto, manual)
-  if (!r) throw erroGemini || new Error('Sem IA para o Escorpião (configure GEMINI_API_KEY ou GROQ_API_KEY).')
+  if (!r && process.env.GEMINI_API_KEY) r = await comGemini(texto, manual)
+  if (!r) throw erroGroq || new Error('Sem IA para o Escorpião (configure GROQ_API_KEY).')
   const html = limparHtml(r.html)
   if (!/<body[\s>]/i.test(html) || html.length < 800) throw new Error('A IA devolveu um site incompleto — tente de novo.')
   return { html, ia: r.ia }

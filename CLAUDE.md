@@ -414,7 +414,7 @@ e "Leão Dourado" foi unificado como **Leão**.
   `POST /api/escorpiao/referencias` (`lerReferencias` em `server/escorpiao.js`, reaproveita `lerLink` da Biblioteca do Gato: técnicas,
   fontes e ordem das seções H1–H3). O modelo fica por especialidade em `pipeline.escorpiao[chave]` (`{ especialidade, links,
   referencias, atualizado }`, `juntar` da nuvem: vence o mais novo) e volta sozinho no próximo site do nicho.
-  `POST /api/escorpiao/site` (`siteDoEscorpiao`: Gemini texto → Groq; `MANUAL_DO_GATO` + lições ativas da biblioteca + `PECAS` =
+  `POST /api/escorpiao/site` (`siteDoEscorpiao`: **Groq primeiro** (decisão do usuário: não tem Gemini) → Gemini texto de reserva; `MANUAL_DO_GATO` + lições ativas da biblioteca + `PECAS` =
   marcações que `clienteEfeitos.js` já anima: data-progresso, data-parallax-hero, anim-palavra, data-revelar/cascata, data-brilho,
   data-magnetico, data-parallax, data-contar, faixa-correr, data-carrossel, data-esqueleto; sem `<script>`, passa por `limparHtml`).
   Conteúdo = `conteudoSugerido(dados)`. O HTML vai em `dados.htmlProprio` → prévia (`htmlDaPrevia`), "Aprovar prévia" (site

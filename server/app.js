@@ -297,7 +297,7 @@ app.post('/escorpiao/referencias', async (c) => {
 })
 
 app.post('/escorpiao/site', async (c) => {
-  if (!temEscorpiao()) return c.json({ error: 'Configure GEMINI_API_KEY ou GROQ_API_KEY para o Escorpião gerar o site.', code: 'NO_KEY' }, 503)
+  if (!temEscorpiao()) return c.json({ error: 'Configure GROQ_API_KEY para o Escorpião gerar o site.', code: 'NO_KEY' }, 503)
   const b = await c.req.json().catch(() => ({}))
   if (!b.negocio?.nome) return c.json({ error: 'Escolha um site montado pelos agentes.' }, 400)
   try {
