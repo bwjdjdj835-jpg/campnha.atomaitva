@@ -99,7 +99,7 @@ export const nichosFeitos = () => lerPipeline().auto?.feitos || []
 // Próximo nicho da lista que ainda não foi feito (null = todos feitos).
 export const proximoNicho = (nichos) => nichos.find((n) => !nichosFeitos().includes(chave(n))) || null
 
-// Botão de começar (tela inicial ou Área do Administrador): pede a gravação da aba no próprio clique — o navegador
+// Botão de começar (tela inicial ou Aranha Administradora): pede a gravação da aba no próprio clique — o navegador
 // só pergunta logo depois de um clique — e deixa guardada para a página do automático, que começa sozinha.
 // videoServidor: já lido do /api/status pela página (o servidor local grava sozinho, sem pedir nada).
 // manual: você grava o vídeo no notebook — não pede para compartilhar a aba.
@@ -120,13 +120,15 @@ export const nichoEmAndamento = (n) => Boolean(lerPipeline().auto?.listas?.[chav
 
 // opcoes: { cidade, nichos, porNicho, estudo ('1' = 1 minuto, padrão | '0' | 'nenhum' | '3min'), abelha }
 // Um nicho por vez (pedido do usuário): para depois do 1º nicho que deixar cliente pronto — o próximo só começa
-// quando você aprova na Área do Administrador. Nicho sem nenhum cliente pronto passa direto para o seguinte.
+// quando você aprova na Aranha Administradora. Nicho sem nenhum cliente pronto passa direto para o seguinte.
 // ui: { log(level, msg), etapa({ nicho, comercio, passo }), parar() → bool, gravar(html, siteId) → Blob | null }
 export async function rodarAutomatico(opcoes, ui) {
   const { log, etapa, parar } = ui
   const onLog = (l) => log(l.level, l.msg)
   const { cidade, nichos, porNicho, estudo, abelha } = opcoes
-  const resumo = { prontos: 0, pulados: 0, erros: 0 }
+  const resumo = { prontos: 0, pulados: 0, erros: 0, itens: [] }
+  // Relatório da rodada: o que aconteceu com cada comércio (vai para a Aranha Administradora).
+  const anotar = (nome, resultado, detalhe = '') => resumo.itens.push({ nome, resultado, detalhe })
   // Vídeo + mensagem de um cliente rodam enquanto o próximo site já está sendo montado (um vídeo por vez).
   let filaFinal = Promise.resolve()
 
@@ -158,8 +160,11 @@ export async function rodarAutomatico(opcoes, ui) {
         const ids = achados.map((l) => l.id)
         setPipeline((s) => ({ auto: { ...(s.auto || {}), listas: { ...(s.auto?.listas || {}), [chave(nicho)]: ids } } }))
       } catch (e) {
-        log('error', `🐧 ${nicho}: ${e.message} — indo para o próximo nicho`)
-        continue
+        // Não pula de nicho em silêncio: para e mostra o erro no relatório (dá para tentar de novo).
+        log('error', `🐧 ${nicho}: ${e.message} — parei aqui; tente de novo pela Aranha Administradora`)
+        resumo.nicho = nicho
+        anotar(`Busca de ${nicho}`, 'erro_busca', e.message)
+        break
       }
       log('info', `🐧 ${achados.length} comércio(s) sem site no Maps`)
     }
@@ -197,12 +202,14 @@ export async function rodarAutomatico(opcoes, ui) {
       const nome = lead.nome
       if (String(lead.telefone || '').replace(/\D/g, '').length < 10) {
         log('info', `⏭️ ${nome}: sem telefone — não dá para mandar pelo WhatsApp`)
+        anotar(nome, 'sem_telefone')
         resumo.pulados++
         continue
       }
       const contato = contatoDoLead(lead, p)
       if (contato) {
         log('info', `⏭️ ${nome}: ${contato.status === 'site_feito' ? 'site já feito antes' : 'você já procurou este comércio'} — pulando`)
+        anotar(nome, contato.status === 'site_feito' ? 'ja_feito' : 'ja_contatado')
         resumo.pulados++
         continue
       }
@@ -215,6 +222,7 @@ export async function rodarAutomatico(opcoes, ui) {
       }
       if (veredito === 'tem' || veredito === 'provavel' || veredito === 'erro') {
         log('info', `⏭️ ${nome}: ${veredito === 'tem' ? 'já tem site' : veredito === 'provavel' ? 'possível site — confira à mão no Pinguim' : 'não deu para conferir se tem site'} — pulando`)
+        anotar(nome, veredito === 'tem' ? 'tem_site' : veredito === 'provavel' ? 'possivel_site' : 'erro_conferir', lerPipeline().leads.find((l) => l.id === lead.id)?.conferencia?.site || '')
         resumo.pulados++
         continue
       }
@@ -224,14 +232,20 @@ export async function rodarAutomatico(opcoes, ui) {
         feitos++
         filaFinal = filaFinal.then(() =>
           finalizar(pronto, { nicho }, ui)
-            .then((ok) => (ok ? resumo.prontos++ : resumo.erros++))
+            .then((ok) => {
+              if (ok) resumo.prontos++
+              else resumo.erros++
+              anotar(pronto.nome, ok ? 'pronto' : 'sem_video')
+            })
             .catch((e) => {
               resumo.erros++
+              anotar(pronto.nome, 'erro', e.message)
               log('error', `${pronto.nome}: ${e.message}`)
             }),
         )
       } catch (e) {
         resumo.erros++
+        anotar(nome, 'erro', e.message)
         log('error', `${nome}: ${e.message} — seguindo para o próximo`)
       }
     }
@@ -248,11 +262,17 @@ export async function rodarAutomatico(opcoes, ui) {
       } else {
         log('ok', `✔ ${nicho}: ${feitos} cliente(s) pronto(s) — ainda há comércios de ${nicho} na lista; a próxima rodada continua em ${nicho}`)
       }
-      if (!esgotou || resumo.prontos > 0) break // espera sua aprovação antes de continuar
-      log('info', `${nicho}: nenhum cliente novo — indo para o próximo nicho`)
+      // Para no fim de cada nicho, mesmo sem cliente: você vê o relatório na Aranha Administradora e decide seguir.
+      if (!resumo.prontos) log('warn', `${nicho}: nenhum cliente novo nesta rodada — veja o motivo de cada comércio no relatório da Aranha Administradora`)
+      break
     }
   }
   resumo.proximo = proximoNicho(nichos)
+  if (resumo.nicho) {
+    setPipeline((s) => ({
+      auto: { ...(s.auto || {}), relatorio: { nicho: resumo.nicho, em: new Date().toISOString(), prontos: resumo.prontos, itens: resumo.itens } },
+    }))
+  }
   return resumo
 }
 
@@ -322,7 +342,7 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
 }
 
 // Vídeo da prévia + 1ª mensagem do Tigre. Só entra em "Aguardando sua aprovação" (status `revisar`) com OS DOIS
-// prontos; sem vídeo fica `sem_video` (Área do Administrador → "Gravar os vídeos que faltam"). → true se ficou pronto.
+// prontos; sem vídeo fica `sem_video` (Aranha Administradora → "Gravar os vídeos que faltam"). → true se ficou pronto.
 async function finalizar({ siteId, nome }, { nicho }, ui) {
   const { log, etapa, gravar } = ui
   // Modo "eu gravo no meu notebook" (padrão, pedido do usuário): sem gravação automática — o cliente vai para
@@ -330,7 +350,7 @@ async function finalizar({ siteId, nome }, { nicho }, ui) {
   if (ui.videoManual) {
     await escreverMensagem(siteId, nome, nicho, etapa)
     marcarSite(siteId, { status: 'revisar', videoManual: true })
-    log('ok', `✅ ${nome}: site e mensagem prontos — grave o vídeo da prévia e aprove na Área do Administrador`)
+    log('ok', `✅ ${nome}: site e mensagem prontos — grave o vídeo da prévia e aprove na Aranha Administradora`)
     return true
   }
   etapa({ nicho, comercio: nome, passo: '🎬 Gravando o vídeo da prévia' })
@@ -351,11 +371,11 @@ async function finalizar({ siteId, nome }, { nicho }, ui) {
   await escreverMensagem(siteId, nome, nicho, etapa)
   if (!temVideo) {
     marcarSite(siteId, { status: 'sem_video' })
-    log('warn', `🎬 ${nome}: sem vídeo — fica em "Falta o vídeo" na Área do Administrador até gravar`)
+    log('warn', `🎬 ${nome}: sem vídeo — fica em "Falta o vídeo" na Aranha Administradora até gravar`)
     return false
   }
   marcarSite(siteId, { status: 'revisar' })
-  log('ok', `✅ ${nome}: vídeo e mensagem prontos — aguardando sua aprovação na Área do Administrador`)
+  log('ok', `✅ ${nome}: vídeo e mensagem prontos — aguardando sua aprovação na Aranha Administradora`)
   return true
 }
 

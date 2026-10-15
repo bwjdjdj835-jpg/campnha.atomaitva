@@ -1,4 +1,4 @@
-// 🐯 Conversa com o cliente — usada pelo Tigre e pela Área do Administrador.
+// 🐯 Conversa com o cliente — usada pelo Tigre e pela Aranha Administradora.
 // Você cola o que o cliente (ou o robô dele) respondeu; o Tigre lê, guarda na conversa e sugere a próxima mensagem.
 // Nada é enviado daqui: você confere e manda pelo seu WhatsApp.
 

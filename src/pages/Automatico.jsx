@@ -26,7 +26,7 @@ export default function Automatico() {
   const [estudo, setEstudo] = useState(salvo.v === 3 ? salvo.estudo : '1')
   const [abelha, setAbelha] = useState(salvo.v === 3 ? Boolean(salvo.abelha) : false)
   const [duracao, setDuracao] = useState(salvo.duracao || '20') // segundos do vídeo de cada cliente
-  // 'manual' (padrão, pedido do usuário): você grava o vídeo no notebook e envia na Área do Administrador.
+  // 'manual' (padrão, pedido do usuário): você grava o vídeo no notebook e envia na Aranha Administradora.
   const [videoModo, setVideoModo] = useState(salvo.videoModo || 'manual')
   const manual = videoModo === 'manual'
   const [rodando, setRodando] = useState(false)
@@ -92,7 +92,7 @@ export default function Automatico() {
   }
 
   // Veio do botão "Iniciar inteligência artificial automática" (tela inicial) ou de "Começar: <nicho>" /
-  // "Gravar os vídeos que faltam" (Área do Administrador): começa sozinho com a autorização dada lá.
+  // "Gravar os vídeos que faltam" (Aranha Administradora): começa sozinho com a autorização dada lá.
   useEffect(() => {
     if (keys === undefined) return
     const modo = busca.get('iniciar') === '1' ? 'rodada' : busca.get('regravar') === '1' ? 'regravar' : null
@@ -155,9 +155,9 @@ export default function Automatico() {
       }
       setResumo(r)
       log(pararRef.current ? 'warn' : 'ok', `${pararRef.current ? 'Parado' : 'Rodada concluída'}: ${r.prontos} cliente(s) pronto(s) para aprovar · ${r.pulados} pulado(s) · ${r.erros} com erro`)
-      // Terminou o nicho: vai para a Área do Administrador. O próximo nicho só começa quando você aprovar lá.
-      if (!pararRef.current && r.prontos > 0) {
-        log('ok', `Nicho "${r.nicho}" pronto. Aprove os clientes na Área do Administrador${r.proximo ? ` — depois é só clicar em começar "${r.proximo}"` : ''}.`)
+      // Terminou o nicho: vai para a Aranha Administradora. O próximo nicho só começa quando você aprovar lá.
+      if (!pararRef.current && r.nicho) {
+        log('ok', `Nicho "${r.nicho}" pronto. Aprove os clientes na Aranha Administradora${r.proximo ? ` — depois é só clicar em começar "${r.proximo}"` : ''}.`)
         setTimeout(() => navigate('/admin'), 2000)
       }
     } catch (e) {
@@ -200,7 +200,7 @@ export default function Automatico() {
         <p className="mt-3 text-slate-400 max-w-2xl mx-auto">
           Nicho por nicho: o 🐧 Pinguim acha os comércios sem site, o 🦁 Leão monta, o 🐈‍⬛ Gato faz a prévia, a 🐝 Abelha
           completa, o vídeo é gravado e o 🐯 Tigre escreve a mensagem. <strong className="text-white">Nada é enviado</strong> — no
-          fim você aprova cada cliente na Área do Administrador e manda pelo seu WhatsApp.
+          fim você aprova cada cliente na Aranha Administradora e manda pelo seu WhatsApp.
         </p>
       </section>
 
