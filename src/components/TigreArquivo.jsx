@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { estrategiaDoTigre, definirEstrategia, tigreVigiando, definirVigia, tigreVigiar } from '../services/tigreTrabalho.js'
 import { vigia } from '../services/tigreVigia.js'
+import ListaEnvioMassa from './ListaEnvioMassa.jsx'
 import { Link } from 'react-router-dom'
 import { Archive, Download, Eye, MessageCircle, Search, Layers } from 'lucide-react'
 import { usePipeline } from '../store/pipeline.js'
@@ -86,6 +87,8 @@ export default function TigreArquivo() {
           </p>
         </div>
       </div>
+
+      <ListaEnvioMassa />
 
       <ComoTrabalha />
 
