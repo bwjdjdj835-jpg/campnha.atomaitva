@@ -301,6 +301,14 @@ e "Leão Dourado" foi unificado como **Leão**.
   inválido. Cliente: `designsDaGroq(dados)` + `modeloDoDesign` (`src/lib/castor.js`) → `CastorModelos` mostra os 3 como prévias
   reais (selo "🤖 Designs criados pela Groq"; sem Groq, "📐 Matriz de design do Castor"); o automático usa o 1º da Groq. A Groq
   não gera imagem — a "imagem" é a prévia real do site com aquele design. Página do Gato sem site mostra onde o Castor aparece.
+- **🍌 Castor desenha os 3 modelos com o Nano Banana** (pedido do usuário: "o Castor gera 3 imagens pra eu escolher, aí o Gato
+  produz e eu mando o vídeo da prévia"): `server/castorImagem.js` (`imagemDoCastor`, `POST /api/castor/imagem`, uma imagem por
+  pedido) chama o Gemini `generateContent` com `responseModalities: ['IMAGE']`, 9:16, 1K; modelo `GEMINI_IMAGE_MODEL` →
+  `gemini-3.1-flash-image` → `gemini-2.5-flash-image` (404 = tenta o próximo). Chave `GEMINI_API_KEY` (apelido: nome com
+  gemini/nano/banana e valor `AIza…`), `keys.imagem`. O prompt não pede nome, telefone, preço nem avaliação (a imagem é só
+  inspiração interna; nunca vai para o cliente). Cliente: `designParaImagem`/`imagemDoModelo` em `src/lib/castor.js` (cache por
+  visita — escolher não desenha de novo) e `CastorModelos` (desenha um por vez, "👁️ Ver a prévia real", "🍌 Desenhar de novo",
+  erro no card). O automático não chama o Nano Banana.
 - **Time completo no menu e na tela inicial** (`src/data/equipe.js`, pedido do usuário): Pinguim → Leão → 🦫 Castor (abre o
   Gato) → Gato → Abelha → Tigre → 🕷️ Aranha (`/admin`) → 🦅 Águia (`/aguia`).
 - **🦅 Águia** (`src/pages/Aguia.jsx`, `src/lib/aguia.js`, `server/aguia.js`): números do processo (`numerosDaAguia`), o que

@@ -15,6 +15,7 @@ import { lugarDoApify, linkDoMaps } from './apify.js'
 import { gravarNaNuvem, temVideoNuvem } from './videoNuvem.js'
 import { enviarRelatorio, temEmail } from './aguia.js'
 import { designsDoCastor } from './castor.js'
+import { imagemDoCastor, temImagem } from './castorImagem.js'
 import { temNuvem, codigoValido, lerDados, gravarDados } from './nuvem.js'
 import { conectarZap, statusZap, enviarZap, lerConversaZap } from './zapWeb.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
@@ -28,6 +29,7 @@ function apelido(nome, pedacoDoNome, formato) {
 apelido('GOOGLE_PLACES_API_KEY', /google/i, /^AIza/)
 apelido('FIRECRAWL_API_KEY', /fire/i, /^fc-/)
 apelido('GROQ_API_KEY', /./, /^gsk_[A-Za-z0-9]{20,}$/) // qualquer nome ("groq", "grok", "ia"…): a chave da Groq começa com gsk_
+apelido('GEMINI_API_KEY', /gemini|nano|banana/i, /^AIza/) // 🍌 Nano Banana (imagens do Castor)
 apelido('SCREENSHOTONE_ACCESS_KEY', /screenshot/i, /^[\w-]{8,}$/)
 apelido('RESEND_API_KEY', /./, /^re_[A-Za-z0-9_]{10,}$/)
 apelido('AGUIA_EMAIL', /^(?!.*(git|vercel|npm|author|committer|claude)).*(mail|aguia|águia|resend)/i, /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i) // e-mail da Águia com qualquer nome parecido
@@ -52,6 +54,7 @@ const keys = () => ({
   nuvem: temNuvem(), // ☁️ dados salvos na nuvem (Upstash Redis)
   email: temEmail(), // 🦅 Águia manda relatório (Resend)
   emailDestino: Boolean(process.env.AGUIA_EMAIL),
+  imagem: temImagem(), // 🍌 Castor desenha os 3 modelos com o Nano Banana (Gemini)
   videoNuvem: temVideoNuvem(), // ScreenshotOne grava o vídeo da prévia (funciona no Vercel)
 })
 
@@ -217,6 +220,18 @@ app.put('/dados', async (c) => {
 })
 
 // 🦫 Castor: 3 design systems criados pela Groq para o comércio (sem Groq: o app usa a matriz por nicho).
+// 🍌 Imagem de um modelo do Castor (Nano Banana). Uma por pedido (limite de ~4,5 MB da função do Vercel).
+app.post('/castor/imagem', async (c) => {
+  if (!temImagem()) return c.json({ error: 'GEMINI_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
+  const { categoria, design } = await c.req.json().catch(() => ({}))
+  if (!design?.paleta_cores) return c.json({ error: 'Mande o design do Castor.' }, 400)
+  try {
+    return c.json(await imagemDoCastor({ categoria: String(categoria || '').slice(0, 60), design }))
+  } catch (e) {
+    return c.json({ error: e.message }, 502)
+  }
+})
+
 app.post('/castor/design', async (c) => {
   const b = await c.req.json().catch(() => ({}))
   if (!process.env.GROQ_API_KEY) return c.json({ error: 'Sem GROQ_API_KEY — o Castor usa a matriz por nicho.', code: 'NO_KEY' }, 503)
