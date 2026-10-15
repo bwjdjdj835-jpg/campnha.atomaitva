@@ -4,7 +4,7 @@ import { agents } from './agents.js'
 const porId = Object.fromEntries(agents.map((a) => [a.id, a]))
 const extra = {
   castor: { id: 'castor', name: 'Castor', emoji: '🦫', accent: '#a16207', role: 'Diretor de arte', tagline: '3 modelos do site e o design system do ramo, antes do Gato.', link: '/agente/gato' },
-  aranha: { id: 'aranha', name: 'Aranha Administradora', emoji: '🕷️', accent: '#22d3ee', role: 'Aprovação e conversa', tagline: 'Você confere vídeo e mensagem, manda e conversa até fechar.', link: '/admin' },
+  aranha: { id: 'aranha', name: 'Aranha Administradora', emoji: '🕷️', accent: '#22d3ee', role: 'Seu lugar de administrador', tagline: 'Você confere vídeo e mensagem e só clica em Aprovar — o Tigre faz o resto.', link: '/admin' },
   aguia: { id: 'aguia', name: 'Águia', emoji: '🦅', accent: '#e2e8f0', role: 'Visão geral e relatório', tagline: 'Vê tudo de cima e te manda o relatório por e-mail.', link: '/aguia' },
 }
 

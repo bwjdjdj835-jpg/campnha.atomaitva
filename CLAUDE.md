@@ -319,6 +319,13 @@ e "Leão Dourado" foi unificado como **Leão**.
   enviada, pega as mensagens do cliente que ainda não estão na conversa, roda `lerResposta` e guarda `conversas[id].sugestao`).
   Aranha: `ZapWeb` no cartão "Para aprovar" e em cada conversa ("Aprovar e enviar pelo WhatsApp Web" → registra "Já enviei") e
   `BuscarRespostas` na aba Conversas. Automação não oficial: risco de bloqueio avisado na tela.
+- **🕷️ Aranha = seu lugar de administrador; 🐯 Tigre = o trabalhador** (pedido do usuário): no cartão "Para aprovar" o botão
+  principal é **"Aprovar — o 🐯 Tigre faz o resto"** (`AprovarTigre` → `tigreExecutar` em `src/services/tigreTrabalho.js`):
+  `jaRecebeuMensagem` (mesmo site ou outro site do mesmo `chaveContato`) bloqueia envio repetido; grava o vídeo se faltar
+  (notebook → nuvem); no notebook manda vídeo + mensagem pelo WhatsApp Web e registra (`registrarPrimeiroEnvio`); no Vercel
+  devolve `modo: 'manual'` e a Aranha abre a conversa (`mandarDireto`) para "Já enviei". Respostas: `ResponderTigre` →
+  `tigreResponder`. Tudo vai para `pipeline.tigreDiario` (máx. 60), mostrado em "🐯 Trabalho do Tigre" no Arquivo do Tigre.
+  As opções manuais antigas ficam em "Fazer eu mesmo" (`<details>`).
 - **☁️ Nuvem** (pedido do usuário: "o Tigre salva mas some quando entro de novo"): `server/nuvem.js` (Upstash Redis do Vercel
   Marketplace: `KV_REST_API_URL`/`KV_REST_API_TOKEN` ou `UPSTASH_REDIS_REST_*`; `keys.nuvem`), `GET/PUT /api/dados` pelo
   **código da conta** (chave no Redis = sha256 do código). Cliente `src/store/nuvem.js`: `iniciarNuvem()` no `main.jsx` puxa e
