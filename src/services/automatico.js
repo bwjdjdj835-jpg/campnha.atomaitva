@@ -4,7 +4,7 @@
 // no Tigre (você confere o vídeo e a mensagem e manda pelo seu WhatsApp).
 // Pula quem já tem site, quem é "possível site", quem não tem telefone e quem você já procurou (selo de contato).
 
-import { propostasDoCastor } from '../lib/castor.js'
+import { propostasDoCastor, designsDaGroq } from '../lib/castor.js'
 import { runAgent, conferirSite, gerarZipFinal, gerarColmeia, lerPacoteLeao, guardarVideo, videoDoSite, rascunho, negocioDoSite, encerrarEstudo } from './agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { lerPipeline, setPipeline } from '../store/pipeline.js'
@@ -326,7 +326,7 @@ async function montarSite(lead, { nicho, estudo, abelha }, ui, onLog) {
   aplicar(rg)
   const pv = rg.preview
   // 🦫 Castor: no automático usa o modelo recomendado (o 1º dos 3: estudo do Gato → seu preferido → clássico do ramo).
-  const castor = propostasDoCastor(pv.dados, pv.modeloInicial, lerPipeline())[0]
+  const castor = (await designsDaGroq(pv.dados))?.[0] || propostasDoCastor(pv.dados, pv.modeloInicial, lerPipeline())[0]
   const modeloCastor = castor?.modelo || pv.modeloInicial
   const tema = castor?.tema === 'modelo' && !modeloCastor ? pv.dados.tema : castor?.tema || pv.dados.tema
   log('info', `🦫 Castor escolheu o modelo "${castor?.titulo || tema}" para ${nome}`)

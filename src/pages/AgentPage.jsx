@@ -249,6 +249,16 @@ function AgentPage() {
         </aside>
       </div>
 
+      {agent.id === 'gato' && !preview && (
+        <section className="glass flex items-center gap-3 border-amber-400/20 px-5 py-4 text-sm text-slate-300">
+          <span className="text-2xl">🦫</span>
+          <p>
+            <strong className="text-white">Castor:</strong> escolha um site acima e clique em "{agent.cta}". Assim que o Gato abrir o site, o Castor
+            mostra aqui os 3 modelos (designs criados pela Groq) para você escolher.
+          </p>
+        </section>
+      )}
+
       <MenteAgente agente={agent.id} />
 
       <LogConsole logs={logs} running={running} />

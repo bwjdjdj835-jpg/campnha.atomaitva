@@ -83,3 +83,57 @@ export function propostasDoCastor(dados, modelo, estado) {
   for (const t of TODOS) add({ titulo: t, porque: '', tema: t, hero: 'agua', galeria: 'uniforme' })
   return lista
 }
+
+// Design criado pela Groq (POST /api/castor/design) → o mesmo formato de modelo que o ClienteSite usa (tema "modelo").
+export function modeloDoDesign(d) {
+  const escuro = d.esquema === 'escuro'
+  const paleta_cores = {
+    ...d.paleta_cores,
+    texto_suave: escuro ? 'rgba(255,255,255,0.72)' : 'rgba(0,0,0,0.65)',
+    borda: escuro ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
+    cartao: escuro ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.75)',
+  }
+  return {
+    fonte: `Castor + Groq: ${d.titulo}`,
+    url: null,
+    estilo: {
+      esquema: d.esquema,
+      fonte: d.fonte,
+      cores: { fundo: paleta_cores.fundo, texto: paleta_cores.texto, primaria: paleta_cores.destaque, fundoAlt: paleta_cores.fundo_alternado, cartao: paleta_cores.cartao, borda: paleta_cores.borda },
+    },
+    design: { paleta_cores, fontes_google: [d.fonte], identidade: d.porque, criadoPor: 'groq' },
+  }
+}
+
+// Pede os 3 designs à Groq. null = sem Groq (ou falhou): fica a matriz do Castor.
+export async function designsDaGroq(dados) {
+  const n = dados?.negocio || {}
+  try {
+    const res = await fetch('/api/castor/design', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: n.nome,
+        categoria: n.categoria,
+        cidade: (n.endereco || '').split(' - ').slice(-1)[0],
+        nota: n.rating,
+        avaliacoes: n.avaliacoes,
+        fotos: dados?.imagens?.length || 0,
+      }),
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    return (json.propostas || []).map((d, i) => ({
+      id: `groq-${i}-${d.titulo}`,
+      titulo: d.titulo,
+      porque: `${d.porque} Fonte ${d.fonte}.`,
+      tema: 'modelo',
+      hero: d.hero,
+      galeria: d.galeria,
+      modelo: modeloDoDesign(d),
+      ia: 'groq',
+    }))
+  } catch {
+    return null
+  }
+}

@@ -22,14 +22,14 @@ const MODELO_GROQ = () => process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
 export const provedorIA = () => (process.env.GROQ_API_KEY ? 'groq' : process.env.ANTHROPIC_API_KEY ? 'claude' : null)
 
 // Groq: API no formato da OpenAI (https://console.groq.com/docs/api-reference#chat-create).
-async function groq({ system, user, json = false }) {
+export async function groq({ system, user, json = false, maxTokens = 600, temperatura }) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: MODELO_GROQ(),
-      temperature: json ? 0 : 0.7,
-      max_tokens: 600,
+      temperature: temperatura ?? (json ? 0 : 0.7),
+      max_tokens: maxTokens,
       ...(json ? { response_format: { type: 'json_object' } } : {}),
       messages: [
         { role: 'system', content: system },

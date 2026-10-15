@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePipeline } from '../store/pipeline.js'
-import { propostasDoCastor } from '../lib/castor.js'
+import { propostasDoCastor, designsDaGroq } from '../lib/castor.js'
 import { htmlDaPrevia, SANDBOX_PREVIA, CSS_MINIATURA } from '../lib/previa.jsx'
 import { lembrar, PERSONALIDADES } from '../lib/mentes.js'
 import MenteAgente from './MenteAgente.jsx'
@@ -10,7 +10,17 @@ import MenteAgente from './MenteAgente.jsx'
 export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escolhido, onEscolher }) {
   const estado = usePipeline()
   const [abertos, setAbertos] = useState(true)
-  const propostas = useMemo(() => propostasDoCastor(dados, modelo, estado), [dados, modelo]) // eslint-disable-line react-hooks/exhaustive-deps
+  const locais = useMemo(() => propostasDoCastor(dados, modelo, estado), [dados, modelo]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Os 3 designs criados pela Groq (quando a chave existe); completa com a matriz do Castor se vierem menos de 3.
+  const [daIA, setDaIA] = useState(undefined) // undefined = pensando, null = sem IA
+  useEffect(() => {
+    let vivo = true
+    designsDaGroq(dados).then((r) => vivo && setDaIA(r && r.length ? r : null))
+    return () => {
+      vivo = false
+    }
+  }, [dados])
+  const propostas = useMemo(() => (daIA ? [...daIA, ...locais].slice(0, 3) : locais), [daIA, locais])
   const imagens = useMemo(
     () =>
       fotosUrl
@@ -26,7 +36,7 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
 
   function escolher(p) {
     onEscolher(p)
-    lembrar('castor', `${dados.negocio?.nome || 'Site'}: você escolheu "${p.titulo}"`, { tema: p.titulo === 'Direção de arte do Castor' ? 'castor' : p.tema, hero: p.hero, galeria: p.galeria, categoria: dados.negocio?.categoria })
+    lembrar('castor', `${dados.negocio?.nome || 'Site'}: você escolheu "${p.titulo}"${p.ia ? ' (design da Groq)' : ''}`, { tema: p.titulo === 'Direção de arte do Castor' || p.ia ? 'castor' : p.tema, hero: p.hero, galeria: p.galeria, categoria: dados.negocio?.categoria })
   }
 
   return (
@@ -34,7 +44,12 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-2xl" aria-hidden="true">{PERSONALIDADES.castor.emoji}</span>
         <div className="min-w-0 flex-1">
-          <div className="font-display font-semibold text-white">Castor: 3 modelos para você escolher</div>
+          <div className="flex flex-wrap items-center gap-2 font-display font-semibold text-white">
+            Castor: 3 modelos para você escolher
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-normal text-slate-300">
+              {daIA === undefined ? '🤖 Groq criando os designs…' : daIA ? '🤖 Designs criados pela Groq' : '📐 Matriz de design do Castor'}
+            </span>
+          </div>
           <p className="text-xs text-slate-400">
             Antes do Gato finalizar, o Castor desenhou o site de 3 jeitos diferentes, com base no estudo do Gato e no que você já escolheu
             antes. Escolha um e o Gato refina em cima dele.
