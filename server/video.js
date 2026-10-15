@@ -8,10 +8,10 @@
 //   ou "npx playwright-core install chromium".
 // Não roda no Vercel (lá não há navegador): a interface grava pelo navegador do usuário.
 
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { execFile } from 'node:child_process'
+import { mkdtemp, readFile, rm, mkdir, writeFile, access } from 'node:fs/promises'
+import { tmpdir, homedir } from 'node:os'
+import { join, resolve, dirname, sep } from 'node:path'
+import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 
 const exec = promisify(execFile)
@@ -140,4 +140,34 @@ export async function gravarVideo(html, { segundos = 20 } = {}) {
     await navegador.close().catch(() => {})
     await rm(pasta, { recursive: true, force: true }).catch(() => {})
   }
+}
+
+// Pasta dos vídeos no computador: Vídeos\Central de Agentes\<nicho>\<comércio>.mp4
+export const PASTA_VIDEOS = join(homedir(), 'Videos', 'Central de Agentes')
+const limpar = (t) =>
+  String(t || '').normalize('NFC').replace(/[<>:"/\\|?*\x00-\x1f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'sem-nome'
+
+export async function salvarNaPasta(buffer, tipo, { pasta, nome }) {
+  const dir = join(PASTA_VIDEOS, limpar(pasta))
+  await mkdir(dir, { recursive: true })
+  const arquivo = join(dir, `${limpar(nome)}.${tipo.includes('mp4') ? 'mp4' : 'webm'}`)
+  await writeFile(arquivo, buffer)
+  return arquivo
+}
+
+// Mostra o arquivo no Explorador (Windows), Finder (Mac) ou abre a pasta (Linux). Só aceita arquivos da pasta dos vídeos.
+export async function abrirPasta(arquivo) {
+  const alvo = resolve(String(arquivo || ''))
+  if (!alvo.startsWith(PASTA_VIDEOS + sep)) return false
+  try {
+    await access(alvo)
+  } catch {
+    return false
+  }
+  const [cmd, args] =
+    process.platform === 'win32' ? ['explorer.exe', [`/select,${alvo}`]] : process.platform === 'darwin' ? ['open', ['-R', alvo]] : ['xdg-open', [dirname(alvo)]]
+  const p = spawn(cmd, args, { detached: true, stdio: 'ignore' })
+  p.on('error', () => {})
+  p.unref()
+  return true
 }

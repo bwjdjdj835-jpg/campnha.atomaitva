@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ShieldCheck, CheckCircle2, Play, Inbox, Ban, Video, Upload, MonitorPlay, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink, Send } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
-import { videoDoSite, guardarVideo, negocioDoSite, rascunho, lerPacoteLeao } from '../services/agents.js'
+import { videoDoSite, guardarVideo, negocioDoSite, rascunho, lerPacoteLeao, gravarVideoPrevia, abrirPastaDoVideo } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { fotosEmDataUrl, htmlDaPrevia, SANDBOX_PREVIA, videoAceitoNoWhatsApp, CSS_GRAVACAO } from '../lib/previa.jsx'
 import { SELO_CONTATO } from '../lib/contato.js'
@@ -169,7 +169,7 @@ export default function Admin() {
               <Loader2 size={16} className="animate-spin" /> {preparando} cliente(s) sendo preparado(s) pelo automático (vídeo e mensagem)…
             </div>
           )}
-          {paraAprovar.map((s) => <CartaoAprovar key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} />)}
+          {paraAprovar.map((s) => <CartaoAprovar key={s.id} site={s} negocio={negocioDoSite(s, leads)} conversa={conversas[s.id]} videoServidor={videoServidor} />)}
         </div>
       )}
 
@@ -197,7 +197,7 @@ export default function Admin() {
   )
 }
 
-function CartaoAprovar({ site, negocio, conversa }) {
+function CartaoAprovar({ site, negocio, conversa, videoServidor }) {
   const [video, setVideo] = useState(null) // { blob, url }
   const [texto, setTexto] = useState(conversa?.rascunho || '')
   const [abriu, setAbriu] = useState(false)
@@ -283,6 +283,29 @@ function CartaoAprovar({ site, negocio, conversa }) {
     }
   }
 
+  // App rodando no notebook (iniciar-windows.bat): a Aranha grava sozinha, nítido, e salva em
+  // Vídeos\Central de Agentes\<nicho>\. Você não precisa abrir gravador nenhum.
+  const [gravando, setGravando] = useState(false)
+  const [erroVideo, setErroVideo] = useState(null)
+  async function gravarNoNotebook() {
+    setGravando(true)
+    setErroVideo(null)
+    try {
+      const p = await lerPacoteLeao(await lerZip(`${site.id}:final`))
+      const html = htmlDaPrevia(p.dados, await fotosEmDataUrl(p.fotos), CSS_GRAVACAO, { agua: false })
+      const blob = await gravarVideoPrevia(html, site.id, Number(lerOpcoes().duracao) || 20)
+      setVideo((v) => {
+        if (v?.url) URL.revokeObjectURL(v.url)
+        return { blob, url: URL.createObjectURL(blob) }
+      })
+    } catch (e) {
+      setErroVideo(e.message)
+    } finally {
+      setGravando(false)
+    }
+  }
+  const abrirPasta = () => abrirPastaDoVideo(site.videoArquivo).catch((e) => setErroVideo(e.message))
+
   // Vídeo que você gravou no notebook: fica guardado neste navegador junto com o cliente.
   async function enviarVideo(e) {
     const arquivo = e.target.files?.[0]
@@ -301,7 +324,8 @@ function CartaoAprovar({ site, negocio, conversa }) {
   // mensagem escrita — lá é só anexar o vídeo pelo 📎 (ou arrastar o arquivo para a conversa).
   const [direto, setDireto] = useState(false)
   function mandarDireto() {
-    salvarVideo()
+    if (site.videoArquivo && videoServidor) abrirPasta()
+    else salvarVideo()
     navigator.clipboard?.writeText(texto).catch(() => {})
     window.open(`https://wa.me/${fone}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
     setDireto(true)
@@ -365,6 +389,16 @@ function CartaoAprovar({ site, negocio, conversa }) {
           {!video && (
             <div className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 space-y-2">
               <div className="text-sm font-medium text-white">1️⃣ Grave o vídeo da prévia</div>
+              {videoServidor && (
+                <div className="space-y-1">
+                  <button className="btn-primary !py-2 !px-4 text-sm" onClick={gravarNoNotebook} disabled={gravando}>
+                    {gravando ? <Loader2 size={16} className="animate-spin" /> : <Video size={16} />}{' '}
+                    {gravando ? 'Gravando… (uns 30 s a 1 min)' : 'Gravar agora no notebook (nítido)'}
+                  </button>
+                  <p className="text-xs text-slate-500">A Aranha grava sozinha e salva em Vídeos → Central de Agentes → {negocio.categoria || 'nicho'}.</p>
+                </div>
+              )}
+              {erroVideo && <p className="text-xs text-rose-300">{erroVideo}</p>}
               <div className="flex flex-wrap gap-2">
                 <button className="btn-primary !py-2 !px-4 text-sm" onClick={abrirParaGravar}>
                   <MonitorPlay size={16} /> Abrir prévia para gravar
@@ -407,10 +441,18 @@ function CartaoAprovar({ site, negocio, conversa }) {
                   <input type="file" accept="video/*" className="hidden" onChange={enviarVideo} />
                 </label>
               </div>
+              {site.videoArquivo && videoServidor && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                  📁 Salvo em <span className="font-mono text-slate-400 break-all">{site.videoArquivo}</span>
+                  <button className="btn-ghost border border-white/10 !py-1 !px-2 text-xs" onClick={abrirPasta}>
+                    Abrir a pasta
+                  </button>
+                </div>
+              )}
               {direto && (
                 <div className="rounded-lg border border-neon/30 bg-neon/5 px-3 py-2 text-sm text-slate-200">
-                  ✅ A conversa de <strong>{site.nome}</strong> abriu com a mensagem escrita e o vídeo foi salvo em Downloads (
-                  <span className="font-mono text-xs">{nomeArquivo}</span>). Na conversa: clique no <strong>📎</strong> → Fotos e
+                  ✅ A conversa de <strong>{site.nome}</strong> abriu com a mensagem escrita e o vídeo {site.videoArquivo && videoServidor ? 'está na pasta que abriu' : 'foi salvo em Downloads'} (
+                  <span className="font-mono text-xs">{site.videoArquivo && videoServidor ? site.videoArquivo.split(/[\\/]/).pop() : nomeArquivo}</span>). Na conversa: clique no <strong>📎</strong> → Fotos e
                   vídeos → escolha o vídeo (ou arraste o arquivo para a conversa) e envie junto com a mensagem.
                 </div>
               )}

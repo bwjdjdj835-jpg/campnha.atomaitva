@@ -20,6 +20,7 @@ import { siteFiles } from '../lib/siteTemplate.js'
 import { temaSugerido } from '../lib/ClienteSite.jsx'
 import { conteudoSugerido } from '../lib/conteudoSugerido.js'
 import { salvarZip, lerZip } from '../lib/zipStore.js'
+import { lerPipeline, setPipeline } from '../store/pipeline.js'
 import { MODELOS, classificarPorPalavras, opcaoDeAtendente, respostaPorPalavras } from '../lib/tigreTextos.js'
 import { auditar } from '../lib/auditoria.js'
 import { tipoDoLink, acharLeadPorLink, nomeDoTitulo, recortarCapaDoMaps, linkBuscaMaps } from '../lib/links.js'
@@ -647,12 +648,17 @@ async function gato(inputs, log, { sites, leads = [] }) {
 
 // Grava o vídeo da prévia no servidor (Chromium + ffmpeg) e guarda no navegador para o Tigre.
 export async function gravarVideoPrevia(html, siteId, segundos = 20) {
+  // No notebook o servidor também salva o vídeo em Vídeos\Central de Agentes\<nicho>\<comércio>.mp4.
+  const { sites = [], leads = [] } = lerPipeline()
+  const site = sites.find((s) => s.id === siteId)
+  const lead = site && leads.find((l) => l.id === site.leadId)
+  const salvarComo = site ? { pasta: lead?.categoria || 'outros', nome: site.nome } : undefined
   let res
   try {
     res = await fetch('/api/gato/video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html, segundos }),
+      body: JSON.stringify({ html, segundos, salvarComo }),
     })
   } catch {
     throw new Error('Servidor fora do ar — a gravação precisa do app rodando no computador (npm run dev).')
@@ -664,7 +670,18 @@ export async function gravarVideoPrevia(html, siteId, segundos = 20) {
   }
   const blob = await res.blob()
   if (siteId) await salvarZip(`${siteId}:video`, blob)
+  const salvoEm = res.headers.get('x-salvo-em')
+  if (siteId && salvoEm) {
+    const videoArquivo = decodeURIComponent(salvoEm)
+    setPipeline((s) => ({ sites: s.sites.map((x) => (x.id === siteId ? { ...x, videoArquivo } : x)) }))
+  }
   return blob
+}
+
+// Abre a pasta do vídeo no notebook (Explorador de Arquivos).
+export async function abrirPastaDoVideo(arquivo) {
+  const res = await fetch('/api/gato/abrir-pasta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ arquivo }) })
+  if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'Não consegui abrir a pasta.')
 }
 
 export const videoDoSite = (siteId) => lerZip(`${siteId}:video`)
