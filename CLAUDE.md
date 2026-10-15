@@ -202,7 +202,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   para compartilhar a aba (`prepararInicio({ manual })`, `videoManualNasOpcoes()`); `finalizar` só escreve a mensagem e
   marca `revisar` com `videoManual: true` (`conferirProntos` não manda para "Falta o vídeo"). No cartão do Admin sem
   vídeo: "Abrir prévia para gravar" (janela 430×900 com a prévia sem água/granulado; gravar com Win + Alt + R) e
-  "Enviar o vídeo gravado" (`guardarVideo`); com vídeo: "Compartilhar vídeo + mensagem" (Web Share com arquivo + texto,
+  "Enviar o vídeo gravado" (`guardarVideo`); com vídeo: **"Mandar direto para o cliente"** (`mandarDireto`, principal:
+  salva o vídeo em Downloads + copia a mensagem + abre wa.me/55… do cliente com o texto — o compartilhar do sistema sempre
+  pede para escolher o contato; lá o usuário anexa pelo 📎), "Compartilhar vídeo + mensagem" (Web Share com arquivo + texto,
   e a mensagem vai antes para a área de transferência), "Só o vídeo", "Salvar vídeo", "Trocar o vídeo".
   'auto' = o app grava sozinho (como antes).
   **Rápido por padrão** (pedido do usuário: "só gravar o vídeo e mandar mensagem"): estudo do Gato de **1 minuto** só no

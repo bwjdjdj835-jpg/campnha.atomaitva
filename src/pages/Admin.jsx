@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ShieldCheck, CheckCircle2, Play, Inbox, Ban, Video, Upload, MonitorPlay, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink } from 'lucide-react'
+import { ShieldCheck, CheckCircle2, Play, Inbox, Ban, Video, Upload, MonitorPlay, Copy, Download, Share2, Eye, EyeOff, RefreshCw, Trash2, Loader2, MessageCircle, Bot, ExternalLink, Send } from 'lucide-react'
 import { usePipeline, setPipeline } from '../store/pipeline.js'
 import { videoDoSite, guardarVideo, negocioDoSite, rascunho, lerPacoteLeao } from '../services/agents.js'
 import { lerZip } from '../lib/zipStore.js'
@@ -284,6 +284,18 @@ function CartaoAprovar({ site, negocio, conversa }) {
     setVideoFeito(false)
   }
 
+  // Direto na conversa do cliente: o "compartilhar" do sistema sempre pede para escolher o contato, e o link do
+  // WhatsApp (wa.me) abre o cliente certo mas só leva texto. Então: salva o vídeo e abre a conversa DELE com a
+  // mensagem escrita — lá é só anexar o vídeo pelo 📎 (ou arrastar o arquivo para a conversa).
+  const [direto, setDireto] = useState(false)
+  function mandarDireto() {
+    salvarVideo()
+    navigator.clipboard?.writeText(texto).catch(() => {})
+    window.open(`https://wa.me/${fone}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
+    setDireto(true)
+    aprovar()
+  }
+
   // Vídeo + mensagem juntos (como você pediu). A mensagem vai também para a área de transferência: se o WhatsApp
   // ficar só com o vídeo, é só colar (Ctrl + V) na conversa.
   async function compartilharTudo() {
@@ -362,8 +374,11 @@ function CartaoAprovar({ site, negocio, conversa }) {
             <div className={`rounded-xl border px-4 py-3 space-y-2 ${videoFeito ? 'border-emerald-400/30 bg-emerald-400/5' : 'border-white/10'}`}>
               <div className="text-sm font-medium text-white">{videoFeito ? '✅' : '1️⃣'} Vídeo da prévia</div>
               <div className="flex flex-wrap gap-2">
+                <button className="btn-primary !py-2 !px-4 text-sm" onClick={mandarDireto} disabled={!texto.trim() || !fone}>
+                  <Send size={16} /> Mandar direto para o cliente
+                </button>
                 {podeCompartilhar && (
-                  <button className="btn-primary !py-2 !px-4 text-sm" onClick={compartilharTudo} disabled={!texto.trim()}>
+                  <button className="btn-ghost border border-white/10 text-sm" onClick={compartilharTudo} disabled={!texto.trim()}>
                     <Share2 size={16} /> Compartilhar vídeo + mensagem
                   </button>
                 )}
@@ -372,7 +387,7 @@ function CartaoAprovar({ site, negocio, conversa }) {
                     <Share2 size={16} /> Só o vídeo
                   </button>
                 )}
-                <button className={`${podeCompartilhar ? 'btn-ghost border border-white/10' : 'btn-primary !py-2 !px-4'} text-sm`} onClick={salvarVideo}>
+                <button className="btn-ghost border border-white/10 text-sm" onClick={salvarVideo}>
                   <Download size={16} /> Salvar vídeo {ext === 'mp4' ? '(MP4)' : '(WebM)'}
                 </button>
                 <label className="btn-ghost text-xs cursor-pointer">
@@ -380,7 +395,15 @@ function CartaoAprovar({ site, negocio, conversa }) {
                   <input type="file" accept="video/*" className="hidden" onChange={enviarVideo} />
                 </label>
               </div>
+              {direto && (
+                <div className="rounded-lg border border-neon/30 bg-neon/5 px-3 py-2 text-sm text-slate-200">
+                  ✅ A conversa de <strong>{site.nome}</strong> abriu com a mensagem escrita e o vídeo foi salvo em Downloads (
+                  <span className="font-mono text-xs">{nomeArquivo}</span>). Na conversa: clique no <strong>📎</strong> → Fotos e
+                  vídeos → escolha o vídeo (ou arraste o arquivo para a conversa) e envie junto com a mensagem.
+                </div>
+              )}
               <p className="text-xs text-slate-500">
+                <strong className="text-slate-300">"Mandar direto para o cliente"</strong> abre a conversa DELE (sem procurar contato).{' '}
                 {podeCompartilhar
                   ? '"Compartilhar vídeo + mensagem" abre o compartilhar: escolha o WhatsApp e o cliente. A mensagem também fica copiada — se só o vídeo chegar, cole (Ctrl + V) na conversa.'
                   : 'Salva na pasta Downloads. Na conversa do WhatsApp, clique no 📎 → Fotos e vídeos e escolha o arquivo (ou arraste para a conversa).'}
