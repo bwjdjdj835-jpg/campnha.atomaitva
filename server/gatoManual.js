@@ -72,4 +72,27 @@ export const MANUAL_DO_GATO = `MANUAL DE AGÊNCIA DO GATO NEGRO — sites para c
   carro brilhando, pet tosado) em vez de fachada vazia — sem inventar foto.
 - Contraste forte entre botão e fundo para o olho achar a ação.
 - Prova vem dos clientes: use a nota e as avaliações reais do Google perto da chamada principal.
+
+11. SITE PROFISSIONAL PASSO A PASSO (da Biblioteca do Gato — playlist "Como Criar um Site Profissional para sua Empresa",
+    Darlan Evandro: site do zero, site pelo celular, landing page, site de vendas e e-mail profissional)
+- Landing page = UMA página com UM objetivo. Para comércio local o objetivo é o contato (WhatsApp/agendar/visitar); corte o que
+  não leva a ele.
+- Site montado em BLOCOS (seções) que se reorganizam: cabeçalho → capa → sobre → serviços/produtos → fotos → avaliações →
+  contato com mapa → rodapé. Cada bloco com uma altura justa: no celular, nenhuma seção vazia ou alta demais.
+- Cabeçalho com o nome (ou logo real) à esquerda e menu curto de âncoras (Sobre, Serviços, Contato) que leva à seção certa.
+- Cada botão com o link do tipo certo: WhatsApp (https://wa.me/55…), telefone (tel:+55…), e-mail (mailto:, só se o comércio
+  tiver e-mail real), mapa ("Como chegar") ou âncora da própria página (#servicos). Botão sem link não existe.
+- Botão com estado de hover visível: a cor de destaque escurece (ou clareia) um tom e a transição é suave.
+- Imagem de fundo de seção sempre com camada de transparência/cor por cima para o texto ler bem.
+- Versão do celular revisada de propósito, não só "encolhida": texto nunca por cima de foto sem overlay, nada sobreposto,
+  botões ao alcance do polegar, fonte confortável.
+- Se o comércio VENDE PRODUTOS (loja, confeitaria, açaí, autopeças…): vitrine em cards com a foto real, nome e descrição curta;
+  preço só se veio nos dados; botão "Pedir pelo WhatsApp" em cada card. Organize por categorias quando houver muitas.
+- No <head>: <title> "Nome — ramo em Cidade", <meta name="description"> com 1 frase do que é + cidade, e as metas de
+  compartilhamento og:title, og:description e og:image="{{FOTO_1}}" (é a prévia que aparece quando mandam o link no WhatsApp).
+- Contato completo e real no rodapé: endereço, telefone/WhatsApp, horário (se veio nos dados) e o nome do comércio.
+- Antes de entregar, revise como um cliente: português sem erro, todo link/botão funcionando, todas as fotos aparecendo, nada
+  de texto de modelo esquecido ("Lorem ipsum", "Sua empresa", "Título aqui").
+- Profissionalismo vem de detalhe: domínio próprio (nome.com.br) e e-mail com o domínio (contato@nome.com.br) passam mais
+  confiança que @gmail/@hotmail — nunca escreva um e-mail ou domínio que o comércio não tem; se não houver, não mostre.
 `

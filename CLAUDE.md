@@ -352,6 +352,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   Fica em `pipeline.biblioteca` (`juntar` da nuvem: vence o `atualizado` mais novo; apagar = `removido`). Você marca/desmarca,
   escreve lições suas e apaga; `licoesAtivas` (máx. 40) vai em `gerarSiteDaImagem` → `licoesSeguras` → seção "10b" do manual no
   pedido ao Gemini/Groq. O manual ganhou a seção 10 "Texto que vende" (lições do e-book "Criando um site para ganhar dinheiro").
+  Seção 11 "Site profissional passo a passo" (pedido do usuário: transcrições da playlist do Darlan Evandro — site do zero,
+  pelo celular, landing page, site de vendas, e-mail profissional): blocos, links certos por botão (wa.me/tel:/mailto:), hover,
+  revisão do celular, vitrine de produtos com "Pedir pelo WhatsApp", `<title>`/description/og:image `{{FOTO_1}}`, revisão final;
+  a parte de Hostinger/cupom foi ignorada (propaganda).
 - **Time completo no menu e na tela inicial** (`src/data/equipe.js`, pedido do usuário): Pinguim → Leão → 🦫 Castor (abre o
   Gato) → Gato → Abelha → Tigre → 🕷️ Aranha (`/admin`) → 🦅 Águia (`/aguia`).
 - **🦅 Águia** (`src/pages/Aguia.jsx`, `src/lib/aguia.js`, `server/aguia.js`): números do processo (`numerosDaAguia`), o que
