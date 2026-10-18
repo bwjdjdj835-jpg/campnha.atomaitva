@@ -19,6 +19,9 @@ import { imagemDoCastor, temImagem } from './castorImagem.js'
 import { siteDaImagem, temSiteDaImagem } from './siteDaImagem.js'
 import { lerLink, licoesDe, licoesSeguras } from './biblioteca.js'
 import { temNuvem, codigoValido, lerDados, gravarDados } from './nuvem.js'
+import { buscadores, temBusca } from './buscaWeb.js'
+import { handleUpload } from '@vercel/blob/client'
+import { requisitosAuto, senhaCerta, assinaturaValida, lerConfig, gravarConfig, caixa, iniciarConversa, receberWebhook } from './tigreAuto.js'
 import { conectarZap, statusZap, enviarZap, lerConversaZap } from './zapWeb.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
@@ -38,6 +41,11 @@ apelido('AGUIA_EMAIL', /^(?!.*(git|vercel|npm|author|committer|claude)).*(mail|a
 apelido('APIFY_TOKEN', /ap[iy]f[iy]/i, /^apify_api_/) // "apify", "apyfi"…
 apelido('SERPAPI_KEY', /serp/i, /^[0-9a-f]{64}$/)
 apelido('BLOB_READ_WRITE_TOKEN', /blob/i, /^vercel_blob_rw_/)
+// 🔎 Buscadores extras da fila do Pinguim (sem crédito no Firecrawl, o próximo confere).
+apelido('TAVILY_API_KEY', /./, /^tvly-[\w-]{10,}$/) // qualquer nome: a chave do Tavily começa com tvly-
+apelido('EXA_API_KEY', /exa/i, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+apelido('SERPER_API_KEY', /serper/i, /^[0-9a-f]{40}$/)
+apelido('BRAVE_API_KEY', /brave/i, /^BSA[\w-]{10,}$/)
 
 // Corpo do pedido sempre como objeto: JSON quebrado, `null`, lista ou texto viram {} (antes `null` derrubava a rota com 500).
 async function corpoDe(c) {
@@ -52,6 +60,7 @@ const keys = () => ({
   serpapi: Boolean(process.env.SERPAPI_KEY),
   apify: Boolean(process.env.APIFY_TOKEN),
   firecrawl: Boolean(process.env.FIRECRAWL_API_KEY),
+  buscadores: buscadores(), // fila de busca na web: firecrawl, tavily, exa, serper, brave
   claude: Boolean(process.env.ANTHROPIC_API_KEY),
   groq: Boolean(process.env.GROQ_API_KEY),
   whatsapp: Boolean(provedorWhatsApp()),
@@ -86,12 +95,12 @@ app.post('/pinguim/conferir', async (c) => {
   const { nome: nomeBruto, cidade, telefone } = await corpoDe(c)
   const nome = typeof nomeBruto === 'string' ? nomeBruto : ''
   if (!nome.trim()) return c.json({ error: 'Faltou o nome do negócio.' }, 400)
-  if (!keys().firecrawl) return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
+  if (!temBusca()) return c.json({ error: 'Nenhum buscador configurado (Firecrawl, Tavily, Exa, Serper ou Brave).', code: 'NO_KEY' }, 503)
   try {
     return c.json(await conferirSite({ nome: nome.trim(), cidade, telefone }))
   } catch (e) {
     if (/limite de pedidos/.test(e.message)) return c.json({ error: e.message, code: 'LIMITE' }, 429)
-    if (erroDeCredito(e.message)) return c.json({ error: 'Acabaram os créditos do Firecrawl.', code: 'SEM_CREDITO' }, 402)
+    if (erroDeCredito(e.message)) return c.json({ error: 'Acabaram os créditos de todos os buscadores configurados.', code: 'SEM_CREDITO' }, 402)
     throw e
   }
 })
@@ -374,6 +383,74 @@ app.post('/tigre/publicar', async (c) => {
   if (!Array.isArray(arquivos) || !arquivos.length) return c.json({ error: 'Nenhum arquivo para publicar.' }, 400)
   const slug = String(nome || 'site').toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 90)
   return c.json(await publicarVercel({ nome: slug, arquivos }))
+})
+
+// 🐯 Tigre automático (API oficial da Meta). Webhook: a Meta confere o endereço (GET) e manda as respostas (POST assinado).
+app.get('/tigre/webhook', (c) => {
+  const q = c.req.query()
+  const token = process.env.WHATSAPP_VERIFY_TOKEN
+  if (q['hub.mode'] === 'subscribe' && token && q['hub.verify_token'] === token) return c.text(q['hub.challenge'] || '')
+  return c.text('proibido', 403)
+})
+app.post('/tigre/webhook', async (c) => {
+  const cru = await c.req.text()
+  if (!assinaturaValida(cru, c.req.header('x-hub-signature-256'))) return c.text('assinatura inválida', 401)
+  if (!temNuvem()) return c.json({ ok: false, error: 'Ligue a nuvem (Upstash Redis) para o Tigre guardar as conversas.' })
+  let corpo = {}
+  try {
+    corpo = JSON.parse(cru)
+  } catch {
+    return c.json({ ok: true })
+  }
+  return c.json({ ok: true, feitos: await receberWebhook(corpo) })
+})
+
+// O resto do Tigre automático só com a TIGRE_SENHA (preço, Pix e conversas dos clientes).
+const tigreSenha = (c) => {
+  if (!process.env.TIGRE_SENHA) return c.json({ error: 'Crie a variável TIGRE_SENHA no Vercel (uma senha só sua).', code: 'NO_KEY' }, 503)
+  if (!senhaCerta(c.req.header('x-tigre-senha'))) return c.json({ error: 'Senha do Tigre errada.', code: 'SENHA' }, 401)
+  if (!temNuvem()) return c.json({ error: 'Ligue a nuvem (Upstash Redis) — o Tigre guarda as conversas nela.', code: 'NO_KEY' }, 503)
+  return null
+}
+app.get('/tigre/auto', async (c) => {
+  const requisitos = requisitosAuto()
+  const nega = tigreSenha(c)
+  if (nega) return c.json({ requisitos, config: null, motivo: (await nega.json()).error })
+  return c.json({ requisitos, config: await lerConfig() })
+})
+app.put('/tigre/auto', async (c) => {
+  const nega = tigreSenha(c)
+  if (nega) return nega
+  return c.json({ config: await gravarConfig(await corpoDe(c)) })
+})
+app.get('/tigre/auto/caixa', async (c) => tigreSenha(c) || c.json({ conversas: await caixa() }))
+app.post('/tigre/auto/iniciar', async (c) => {
+  const nega = tigreSenha(c)
+  if (nega) return nega
+  try {
+    return c.json({ conversa: await iniciarConversa(await corpoDe(c)) })
+  } catch (e) {
+    return c.json({ error: e.message }, 400)
+  }
+})
+// Vídeo da prévia direto do navegador para a pasta online (sem o limite de ~4,5 MB da função), para o Tigre mandar por link.
+app.post('/tigre/auto/video', async (c) => {
+  const nega = tigreSenha(c)
+  if (nega) return nega
+  if (!temPasta()) return c.json({ error: 'Conecte o Blob Store (pasta online) no Vercel.', code: 'NO_KEY' }, 503)
+  try {
+    const r = await handleUpload({
+      body: await corpoDe(c),
+      request: c.req.raw,
+      onBeforeGenerateToken: async (pathname) => {
+        if (!/^tigre\/videos\/[\w-]+\.(mp4|webm)$/.test(pathname)) throw new Error('Caminho de vídeo inválido.')
+        return { allowedContentTypes: ['video/mp4', 'video/webm'], maximumSizeInBytes: 16 * 1024 * 1024, addRandomSuffix: true }
+      },
+    })
+    return c.json(r)
+  } catch (e) {
+    return c.json({ error: e.message }, 400)
+  }
 })
 
 app.post('/abelha/enriquecer', async (c) => {

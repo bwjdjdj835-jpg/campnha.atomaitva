@@ -17,6 +17,7 @@ import AbelhaPainel from '../components/AbelhaPainel.jsx'
 import FilaAprovacao from '../components/FilaAprovacao.jsx'
 import TigreArquivo from '../components/TigreArquivo.jsx'
 import MenteAgente from '../components/MenteAgente.jsx'
+import { textoBuscadores } from '../lib/buscadores.js'
 
 // Cada agente começa com a página zerada (sem logs nem prévias do agente anterior).
 export default function AgentPageRota() {
@@ -218,7 +219,7 @@ function AgentPage() {
                   ? `Conectado · Firecrawl ${keys.firecrawl ? '✓ (pesquisa sites profissionais)' : '✗ (sem pesquisa de referências — usa os padrões base)'} · pasta online ${keys.pasta ? '✓' : '✗'}`
                   : agent.id === 'leao'
                   ? `Conectado · fotos do Google ${keys.googlePlaces ? '✓' : '✗'} · prints ${keys.firecrawl ? '✓' : '✗ (precisa do Firecrawl)'} · pasta online ${keys.pasta ? '✓' : '✗ (conecte um Blob Store no Vercel)'}`
-                  : `Conectado · fonte: ${keys.apify ? 'Google Maps (via Apify)' : keys.serpapi ? 'Google Maps (via SerpApi)' : keys.firecrawl ? 'Google Maps (via Firecrawl)' : keys.googlePlaces ? 'Google Places' : 'OpenStreetMap (grátis)'} · confirmação de domínio ${keys.firecrawl ? '✓' : '✗'}${keys.creditos ? ` · Firecrawl: ${keys.creditos.restantes > 0 ? `${keys.creditos.restantes} créditos` : '❌ SEM CRÉDITOS'}` : ''}`}
+                  : `Conectado · fonte: ${keys.apify ? 'Google Maps (via Apify)' : keys.serpapi ? 'Google Maps (via SerpApi)' : keys.firecrawl ? 'Google Maps (via Firecrawl)' : keys.googlePlaces ? 'Google Places' : 'OpenStreetMap (grátis)'} · ${textoBuscadores(keys)}`}
           </p>
         </section>
 

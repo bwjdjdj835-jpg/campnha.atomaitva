@@ -8,6 +8,8 @@ export const SELO_CONTATO = {
   duvida: { texto: '💬 Fez uma pergunta', cor: 'bg-amber-400/10 text-amber-300' },
   bot: { texto: '🤖 Respondeu um robô', cor: 'bg-violet-400/10 text-violet-300' },
   interessado: { texto: '🔥 Interessado', cor: 'bg-emerald-400/10 text-emerald-300' },
+  fechando: { texto: '🤝 Quer fechar', cor: 'bg-emerald-400/15 text-emerald-200' },
+  pagou: { texto: '💸 Disse que pagou (confira)', cor: 'bg-amber-400/15 text-amber-200' },
   recusou: { texto: '🙅 Não quer site ainda', cor: 'bg-orange-400/10 text-orange-300' },
   nao_contatar: { texto: '⛔ Não contatar', cor: 'bg-rose-400/10 text-rose-300' },
   vendido: { texto: '💰 Pagou', cor: 'bg-emerald-400/15 text-emerald-200' },

@@ -11,7 +11,7 @@ export const temNuvem = () => Boolean(url() && token())
 const chave = (codigo) => 'central-agentes:' + createHash('sha256').update(String(codigo)).digest('hex')
 export const codigoValido = (c) => /^[A-Za-z0-9-]{12,64}$/.test(String(c || ''))
 
-async function redis(comando) {
+export async function redis(comando) {
   const res = await fetch(url(), { method: 'POST', headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' }, body: JSON.stringify(comando) })
   const json = await res.json().catch(() => ({}))
   if (!res.ok || json.error) throw new Error(`Nuvem: ${json.error || res.statusText}`)

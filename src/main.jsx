@@ -10,6 +10,8 @@ import { iniciarVigia } from './services/tigreVigia.js'
 iniciarNuvem()
 // 🐯 No notebook, o Tigre vigia o WhatsApp Web a cada 5 minutos (respostas, prévia pedida, "sua vez").
 iniciarVigia()
+// 🐯 Tigre automático (API oficial): com a senha do Tigre neste aparelho, puxa as conversas a cada minuto para a Aranha.
+import('./services/tigreAuto.js').then((m) => m.senhaDoTigre() && m.iniciarCaixa())
 
 // Build de demonstração (npm run build:demo) usa rotas com # para funcionar em hospedagem estática.
 const Router = import.meta.env.VITE_HASH_ROUTER ? HashRouter : BrowserRouter

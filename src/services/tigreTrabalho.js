@@ -12,6 +12,7 @@ import { gravarNaNuvem } from './videoNuvem.js'
 import { enviarPeloZap, lerConversaNoZap } from './zapWeb.js'
 import { lerResposta } from './tigreConversa.js'
 import { lerZip } from '../lib/zipStore.js'
+import { autoPronto, subirVideo, iniciarAuto } from './tigreAuto.js'
 import { htmlDaPrevia, fotosEmDataUrl, CSS_GRAVACAO } from '../lib/previa.jsx'
 
 const MAX_DIARIO = 60
@@ -98,6 +99,27 @@ export async function tigreExecutar(siteId, { texto, keys, segundos = 20 }) {
   const fone = telefoneDe(negocio)
   if (!fone) throw new Error('Este comércio não tem telefone.')
   anotar(siteId, site.nome, '✅ aprovado por você na Aranha')
+  // 🐯 Tigre automático (API oficial): 1ª mensagem pelo modelo aprovado; o vídeo sobe para a pasta online e vai por link
+  // quando o cliente pedir; daí em diante o servidor conversa sozinho.
+  if (await autoPronto()) {
+    let video = null
+    let videoUrl = null
+    try {
+      video = await videoGarantido(site, keys, segundos)
+      if (video) {
+        anotar(siteId, site.nome, '☁️ subindo o vídeo da prévia para a pasta online')
+        videoUrl = await subirVideo(siteId, video)
+      }
+    } catch (e) {
+      anotar(siteId, site.nome, `🎬 vídeo não ficou pronto (${e.message}) — se pedirem, eu te aviso`, false)
+    }
+    const { conversa } = await iniciarAuto({ telefone: fone, siteId, nome: site.nome, negocio, videoUrl })
+    registrarPrimeiroEnvio(siteId, conversa.mensagens[0].texto, false, 'api-oficial')
+    atualizarConversa(siteId, () => ({ tigreAuto: true, previaPendente: true }))
+    anotar(siteId, site.nome, '📨 1ª mensagem enviada pela API oficial — agora eu converso sozinho e te aviso')
+    lembrar('tigre', `Mandei para ${site.nome} pela API oficial; sigo a conversa sozinho até fechar`)
+    return { modo: 'enviado', video }
+  }
   const junto = estrategiaDoTigre() === 'junto' || !keys?.videoServidor // sem WhatsApp Web não dá para mandar o vídeo depois sozinho
   let video = null
   try {

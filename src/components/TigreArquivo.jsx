@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { estrategiaDoTigre, definirEstrategia, tigreVigiando, definirVigia, tigreVigiar } from '../services/tigreTrabalho.js'
 import { vigia } from '../services/tigreVigia.js'
 import ListaEnvioMassa from './ListaEnvioMassa.jsx'
+import TigreAutoPainel from './TigreAutoPainel.jsx'
 import { Link } from 'react-router-dom'
 import { Archive, Download, Eye, MessageCircle, Search, Layers } from 'lucide-react'
 import { usePipeline } from '../store/pipeline.js'
@@ -16,7 +17,7 @@ import { lerOpcoes } from '../pages/Automatico.jsx'
 
 const GRUPOS = [
   { id: 'recusou', titulo: '🙅 Não querem agora — sites guardados', status: ['recusou'], dica: 'O site e o vídeo continuam guardados aqui. Dá para oferecer de novo daqui a um tempo.' },
-  { id: 'respondeu', titulo: '🔥 Responderam / interessados', status: ['interessado', 'duvida', 'bot'] },
+  { id: 'respondeu', titulo: '🔥 Responderam / interessados', status: ['interessado', 'duvida', 'bot', 'fechando', 'pagou'] },
   { id: 'aguardando', titulo: '⏳ Aguardando resposta', status: ['contatado'] },
   { id: 'vendido', titulo: '💰 Vendidos', status: ['vendido', 'publicado'] },
   { id: 'nao_contatar', titulo: '⛔ Não contatar', status: ['nao_contatar'] },
@@ -88,6 +89,7 @@ export default function TigreArquivo() {
         </div>
       </div>
 
+      <TigreAutoPainel />
       <ListaEnvioMassa />
 
       <ComoTrabalha />
