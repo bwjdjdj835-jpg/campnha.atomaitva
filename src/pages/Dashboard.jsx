@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, Play, Bot, Loader2 } from 'lucide-react'
-import { prepararInicio, videoManualNasOpcoes } from '../services/automatico.js'
 import { agents } from '../data/agents.js'
 import { equipe } from '../data/equipe.js'
 import OrchestraHub from '../components/OrchestraHub.jsx'
@@ -18,12 +17,18 @@ const opcoesAuto = () => {
   }
 }
 
+let automatico
+const carregarAutomatico = () => (automatico ||= import('../services/automatico.js'))
+
 export default function Dashboard() {
   const { leads, sites } = usePipeline()
   const navigate = useNavigate()
   const [iniciando, setIniciando] = useState(false)
   const [videoServidor, setVideoServidor] = useState(false)
   useEffect(() => {
+    // O automático (Leão, Gato, ZIP…) baixa depois que a tela aparece — no clique já está pronto e o navegador
+    // ainda aceita pedir a gravação da aba.
+    carregarAutomatico()
     fetch('/api/status')
       .then((r) => r.json())
       .then((d) => setVideoServidor(Boolean(d.keys?.videoServidor)))
@@ -36,6 +41,7 @@ export default function Dashboard() {
   // que começa sozinho e no fim leva para a Aranha Administradora.
   async function iniciarAutomatico() {
     setIniciando(true)
+    const { prepararInicio, videoManualNasOpcoes } = await carregarAutomatico()
     await prepararInicio({ videoServidor, manual: videoManualNasOpcoes() })
     navigate('/automatico?iniciar=1')
   }

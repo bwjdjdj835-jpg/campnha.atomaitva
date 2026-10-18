@@ -1,6 +1,5 @@
 // 🐯 Vigia do Tigre: com o app rodando no notebook (WhatsApp Web), lê as respostas a cada 5 minutos sozinho.
 import { lerPipeline } from '../store/pipeline.js'
-import { tigreVigiar, tigreVigiando } from './tigreTrabalho.js'
 
 export const vigia = { ultima: null, rodando: false, ligada: false }
 
@@ -16,7 +15,10 @@ export async function iniciarVigia() {
   const rodar = async () => {
     const { conversas = {} } = lerPipeline()
     const temQuemVigiar = Object.values(conversas).some((c) => c.mensagens?.some((m) => m.de === 'nos') && c.status !== 'nao_contatar')
-    if (!tigreVigiando() || !temQuemVigiar || vigia.rodando) return
+    if (!temQuemVigiar || vigia.rodando) return
+    // O Tigre (vídeo, WhatsApp Web…) só baixa no notebook e na hora de vigiar, não na abertura do app.
+    const { tigreVigiar, tigreVigiando } = await import('./tigreTrabalho.js')
+    if (!tigreVigiando()) return
     vigia.rodando = true
     try {
       await tigreVigiar(() => {}, keys)
