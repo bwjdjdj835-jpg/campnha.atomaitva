@@ -424,6 +424,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   (`min-w-[10rem]`–`[14rem]`) para o botão descer de linha; `listarPastas` sempre devolve lista (antes, resposta estranha
   derrubava a página do Gato); "Mente da Aranha/Abelha/Águia"; envio em massa tira a cidade do endereço (`cidadeDe`) em vez
   de "aqui em na cidade".
+  Ciclo 2 (site do cliente, 5 temas em 390 px): `[data-contar]` não zera mais o número ao abrir — o valor real fica escrito
+  até contar e volta no fim (miniatura, print ou aba parada mostravam "0,0 ★"); o Sobre só usa foto própria (`fotoSobre`)
+  quando sobram 2+ para a galeria (antes a 2ª foto aparecia no Sobre e de novo na galeria); telefone do Contato vira link
+  `tel:+55…`.
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.

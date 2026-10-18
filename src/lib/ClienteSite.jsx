@@ -181,7 +181,10 @@ export default function Site({ dados }) {
     .map((p) => ({ antes: fotoPor(p.antes), depois: fotoPor(p.depois), legenda: p.legenda }))
     .filter((p) => p.antes && p.depois && p.antes !== p.depois)
   const noPar = (img) => pares.some((p) => p.antes === img || p.depois === img)
-  const galeria = imagens.slice(1).filter((img) => !noPar(img))
+  // Nenhuma foto aparece duas vezes: o Sobre só ganha foto própria se ainda sobrarem 2+ para a galeria.
+  const resto = imagens.slice(1).filter((img) => !noPar(img))
+  const fotoSobre = conteudo.sobre && resto.length >= 3 ? resto[0] : null
+  const galeria = fotoSobre ? resto.slice(1) : resto
   // Agendamento online: link real do comércio (Calendly / Cal.com viram agenda na página; outros, um botão).
   const agenda = linkDeAgenda(dados.agendamento)
   const telefone = negocio.telefone && negocio.telefone !== '—' ? negocio.telefone : null
@@ -354,9 +357,9 @@ export default function Site({ dados }) {
               <p className={rotulo}>Sobre</p>
               <p className="mt-6 text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">{conteudo.sobre}</p>
             </div>
-            {imagens[1] && (
+            {fotoSobre && (
               <div className="overflow-hidden rounded-3xl lg:col-span-5">
-                <img src={imagens[1].arquivo} alt="" {...fx({ 'data-parallax': '' })} className="aspect-[4/5] w-full object-cover" />
+                <img src={fotoSobre.arquivo} alt="" {...fx({ 'data-parallax': '' })} className="aspect-[4/5] w-full object-cover" />
               </div>
             )}
           </section>
@@ -584,7 +587,13 @@ export default function Site({ dados }) {
             <ul className={'space-y-4 text-lg ' + t.texto}>
               {negocio.endereco && <li>{negocio.endereco}</li>}
               {conteudo.horarios && <li>Horário: {conteudo.horarios}</li>}
-              {telefone && <li>{telefone}</li>}
+              {telefone && (
+                <li>
+                  <a href={'tel:+55' + telefone.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '')} target="_self" className="underline-offset-4 hover:underline">
+                    📞 {telefone}
+                  </a>
+                </li>
+              )}
               <li className="flex flex-wrap gap-5 pt-2">
                 {negocio.instagram && (
                   <a className={'font-semibold underline-offset-4 hover:underline ' + t.link} href={negocio.instagram}>
