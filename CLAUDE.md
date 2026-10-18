@@ -428,6 +428,9 @@ e "Leão Dourado" foi unificado como **Leão**.
   até contar e volta no fim (miniatura, print ou aba parada mostravam "0,0 ★"); o Sobre só usa foto própria (`fotoSobre`)
   quando sobram 2+ para a galeria (antes a 2ª foto aparecia no Sobre e de novo na galeria); telefone do Contato vira link
   `tel:+55…`.
+  Ciclo 3 (Tigre sem IA, 35 respostas típicas de WhatsApp): `RECUSA` passou a pegar "Não, obrigado", "não precisa",
+  "valeu, mas não", "dispenso" (antes viravam "outro" e o rascunho dizia "Eu que agradeço! já deixo pronto…" — insistia
+  depois de um não); `INTERESSE` pega "manda aí", "pode ser", "claro", "opa"; `DUVIDA` pega "não entendi". 35/35.
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.

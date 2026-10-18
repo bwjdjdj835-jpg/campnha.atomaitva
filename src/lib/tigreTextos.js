@@ -31,15 +31,17 @@ export function opcaoDeAtendente(texto) {
 const OPT_OUT = /(n[aã]o (me )?(mand|envi|cham|contat|perturb|incomod)|\bpar[ae]r? de (me )?(mand|envi|cham|contat|perturb|incomod)|pare de|parar de|sair da lista|descadastr|bloque|n[aã]o (quero|tenho interesse em) (mais )?receber|n[aã]o quero mais (mensage|contato)|me (tira|remove)|stop\b)/i
 // Resposta automática, menu ou assistente virtual do WhatsApp Business.
 const BOT = /(mensagem autom[aá]tica|resposta autom[aá]tica|atendimento autom[aá]tico|assistente virtual|sou (o|a) (bot|rob[oô]|assistente)|\bchatbot\b|digite (o n[uú]mero|a op[cç][aã]o|\d)|(selecione|escolha|informe) (uma|a) op[cç][aã]o|op[cç][aã]o desejada|menu (principal|de op)|em breve (retornaremos|responderemos|entraremos|daremos)|retornaremos (o mais breve|em breve|assim que)|retornamos (em breve|o mais breve|assim que)|(nosso|fora do) hor[aá]rio de atendimento|atendimento (de|das) (segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo)|agrade[cç](o|emos) (o |o seu |seu |pelo |a sua |sua )?contato|obrigad[oa] (por|pelo) (entrar em )?contato|obrigad[oa] (pela|por sua|pela sua) mensagem|recebemos sua mensagem|podemos demorar|aguarde (um momento|que (j[aá] )?(vamos|iremos))|seja (muito )?bem[- ]?vind[oa]|baixe (o|nosso) app|para agendar(,)? (clique|acesse|baixe)|em que (posso|podemos) (te |lhe )?ajudar)/i
-const RECUSA = /(n[aã]o (quero|preciso|tenho interesse)|sem interesse|j[aá] tenho site|obrigad[oa],? mas|agora n[aã]o|no momento|por enquanto|mais (pra|para) frente|fica pra (pr[oó]xima|depois))/i
-const INTERESSE = /(\bsim\b|quero|tenho interesse|interessad|pode mandar|manda a pr[eé]via|quanto (custa|fica|é)|valor|pre[cç]o|gostei|bora|fechado|vamos)/i
+// "Não, obrigado" / "não precisa" / "valeu, mas não" / "dispenso" também são recusa (antes caíam em "outro" e o Tigre insistia).
+const RECUSA = /(n[aã]o (quero|preciso|precisa|tenho interesse)|sem interesse|j[aá] tenho site|obrigad[oa],? mas|agora n[aã]o|no momento|por enquanto|mais (pra|para) frente|fica pra (pr[oó]xima|depois)|^\s*n[aã]o+\b[\s,.!]*((muito )?obrigad|brigad|valeu|vlw|precisa|$)|mas n[aã]o\b|\bdispens[oa]\b)/i
+const INTERESSE = /(\bsim\b|quero|tenho interesse|interessad|pode mandar|\bmand[ae]\b|pode ser|^\s*(claro|opa|ok|beleza|blz)\b|quanto (custa|fica|é)|valor|pre[cç]o|gostei|bora|fechado|vamos)/i
+const DUVIDA = /(n[aã]o entendi|como funciona|o que (é|e) isso|explica)/i
 
 export function classificarPorPalavras(texto) {
   if (OPT_OUT.test(texto)) return { intencao: 'nao_contatar', resumo: 'Pediu para não receber mais mensagens.' }
   if (BOT.test(texto)) return { intencao: 'bot', resumo: 'Quem respondeu foi um atendimento automático (robô).', opcao: opcaoDeAtendente(texto) }
   if (RECUSA.test(texto)) return { intencao: 'recusa', resumo: 'Não demonstrou interesse.' }
   if (INTERESSE.test(texto)) return { intencao: 'interesse', resumo: 'Demonstrou interesse.' }
-  if (texto.includes('?')) return { intencao: 'duvida', resumo: 'Fez uma pergunta.' }
+  if (texto.includes('?') || DUVIDA.test(texto)) return { intencao: 'duvida', resumo: 'Fez uma pergunta.' }
   return { intencao: 'outro', resumo: 'Resposta sem intenção clara.' }
 }
 
