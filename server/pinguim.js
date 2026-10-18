@@ -288,6 +288,8 @@ export async function buscarNegocios({ categoria, cidade }) {
       rating: c.rating,
       avaliacoes: c.avaliacoes,
       fotos: c.fotos,
+      horarios: c.horarios || null,
+      geo: c.geo || null,
       confianca: 'Médio',
       conferencia: { status: comFirecrawl ? 'pendente' : 'sem_firecrawl' },
       observacao: [`Sem site no ${fonte}`, c.telefone ? null : 'sem telefone cadastrado'].filter(Boolean).join(' + '),

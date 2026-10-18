@@ -1,3 +1,4 @@
+import { lerHorarios } from '../src/lib/horarios.js'
 // Google Maps via Apify — ator "Google Maps Scraper" (compass/crawler-google-places, id nwua9Gu5YrADL7ZDj).
 // https://apify.com/compass/crawler-google-places — a partir de US$ 1,50 por 1.000 lugares; precisa de APIFY_TOKEN.
 // Usa a API HTTP "run-sync-get-dataset-items": roda o ator e já devolve os lugares (até ~5 min).
@@ -58,6 +59,8 @@ export function candidatoDoApify(p) {
     avaliacoes: p.reviewsCount ?? 0,
     categorias: p.categories || (p.categoryName ? [p.categoryName] : []),
     fotos: p.imageUrl ? [fotoGrande(p.imageUrl)] : [],
+    horarios: lerHorarios(p.openingHours), // 🕘 "Aberto agora" no site do cliente
+    geo: p.location?.lat != null ? { lat: p.location.lat, lng: p.location.lng } : null,
   }
 }
 

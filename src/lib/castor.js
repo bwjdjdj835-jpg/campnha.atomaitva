@@ -2,23 +2,36 @@
 // com base no estudo do Gato (estilo do ramo / seu site modelo), no ramo do comércio e no que você já escolheu antes.
 // Você escolhe um e o Gato refina em cima dele.
 
-import { temaSugerido } from './ClienteSite.jsx'
+import { temaSugerido, acaoDoNicho } from './ClienteSite.jsx'
 import { estiloPreferido } from './mentes.js'
 
 const TODOS = ['noite', 'claro', 'studio', 'vibrante']
 
 const norm = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-// Matriz de identidade visual por nicho (prompts/06-castor.md). Escuro e imponente para nichos masculinos/rústicos;
-// claro e acolhedor para saúde, estética, salões e pet shops (decisão do usuário: pet shop = claro).
+// Matriz de identidade visual por nicho (prompts/06-castor.md + pesquisa de out/2026 em docs/estudo-nichos/). Escuro e
+// imponente para nichos masculinos/rústicos; claro e acolhedor para saúde, estética, salões, comida e pet shops (decisão do
+// usuário: pet shop = claro). Os mais específicos vêm antes (estética automotiva antes de estética).
 const MATRIZ = [
+  { teste: /estetica automotiv|polimento|vitrifica|insulfilm/, grupo: 'rustico', destaque: '#22D3EE', nomeDestaque: 'ciano (brilho de carro)' },
+  { teste: /borrach/, grupo: 'rustico', destaque: '#FFD000', nomeDestaque: 'amarelo de sinalização' },
+  { teste: /oficina|mecanic|auto ?pec|auto ?eletr|funilar/, grupo: 'rustico', destaque: '#F26A1B', nomeDestaque: 'laranja de oficina' },
+  { teste: /academia|crossfit|luta|muay|jiu/, grupo: 'rustico', destaque: '#C6F432', nomeDestaque: 'verde-limão' },
   { teste: /barbe/, grupo: 'rustico', destaque: '#C9A227', nomeDestaque: 'dourado envelhecido' },
-  { teste: /hamburg|burger|lanch|churras|espeto/, grupo: 'rustico', destaque: '#D9631E', nomeDestaque: 'laranja queimado' },
-  { teste: /oficina|mecanic|auto ?pec|borrach|academia|tatu|pub|bar\b|choper/, grupo: 'rustico', destaque: '#7A8B3C', nomeDestaque: 'verde musgo' },
-  { teste: /salao|cabele|manicure|unha|estetic|beleza|sobrancel|cilio|depila|spa/, grupo: 'acolhedor', destaque: '#B9767E', nomeDestaque: 'rosé' },
+  { teste: /hamburg|burger|lanch|churras|espet/, grupo: 'rustico', destaque: '#FFB000', nomeDestaque: 'mostarda' },
+  { teste: /tatu|pub|\bbar\b|choper|boteco/, grupo: 'rustico', destaque: '#7A8B3C', nomeDestaque: 'verde musgo' },
+  { teste: /lava ?jato|lavagem/, grupo: 'acolhedor', destaque: '#1F3B2D', nomeDestaque: 'verde garrafa' },
+  { teste: /manicure|unha|nail/, grupo: 'acolhedor', destaque: '#765378', nomeDestaque: 'ameixa' },
+  { teste: /salao|cabele|estetic|beleza|sobrancel|cilio|depila|spa/, grupo: 'acolhedor', destaque: '#B9767E', nomeDestaque: 'rosé' },
   { teste: /pet|veterin|banho e tosa/, grupo: 'acolhedor', destaque: '#5F7F6B', nomeDestaque: 'verde sutil' },
   { teste: /clinic|odont|dent|fisio|saude|psico|nutri|medic|farma/, grupo: 'acolhedor', destaque: '#5F7F6B', nomeDestaque: 'verde sutil' },
-  { teste: /padaria|confeit|doce|cafe|acai|sorvet|pizza|restaur/, grupo: 'acolhedor', destaque: '#8B6B4E', nomeDestaque: 'marrom elegante' },
+  { teste: /pizz/, grupo: 'acolhedor', destaque: '#CE2A1E', nomeDestaque: 'vermelho tomate' },
+  { teste: /acai/, grupo: 'acolhedor', destaque: '#7D5393', nomeDestaque: 'roxo açaí' },
+  { teste: /padaria|confeit|doce|bolo/, grupo: 'acolhedor', destaque: '#A8651A', nomeDestaque: 'caramelo' },
+  { teste: /otica/, grupo: 'acolhedor', destaque: '#DB4D11', nomeDestaque: 'laranja queimado' },
+  { teste: /flor/, grupo: 'acolhedor', destaque: '#607369', nomeDestaque: 'sálvia' },
+  { teste: /roupa|moda|boutique|loja/, grupo: 'acolhedor', destaque: '#926E6E', nomeDestaque: 'rosa-terroso' },
+  { teste: /cafe|sorvet|restaur|marmit|comida/, grupo: 'acolhedor', destaque: '#8B6B4E', nomeDestaque: 'marrom elegante' },
 ]
 
 // 🦫 Design system direcionador do Castor (Diretor de Arte): o Gato só traduz em Tailwind.
@@ -32,7 +45,7 @@ export function designDoCastor(dados) {
   const fonte = escuro ? 'Outfit' : 'Plus Jakarta Sans'
   const fotoCapa = dados?.imagens?.[0]?.arquivo || null
   const estrutura_secoes = [
-    { secao: 'hero', estilo: `Tela cheia com a foto real ${fotoCapa ? `(${fotoCapa})` : '(sem foto: fundo na cor de destaque)'} e overlay gradiente escuro por cima; headline enorme em negrito com tracking-tight; frase curta de valor; CTA grande "Agendar pelo WhatsApp".` },
+    { secao: 'hero', estilo: `Tela cheia com a foto real ${fotoCapa ? `(${fotoCapa})` : '(sem foto: fundo na cor de destaque)'} e overlay gradiente escuro por cima; headline enorme em negrito com tracking-tight; frase curta de valor; CTA grande "${acaoDoNicho(dados?.negocio?.categoria).longo}".` },
     { secao: 'numeros', estilo: 'Nota e número de avaliações reais do Google, cidade e horário — contadores grandes.' },
     { secao: 'sobre', estilo: 'Texto editorial grande ao lado de uma foto vertical arredondada.' },
     { secao: 'diferenciais', estilo: 'Faixa de fundo alternado; cards flutuantes de vidro (rounded-2xl, border-white/10, backdrop-blur).' },

@@ -9,7 +9,7 @@
     "dev:api": "node --watch server/index.js",
     "start": "node server/index.js",
     "build": "vite build",
-    "test": "node testes/tigre-respostas.mjs && node testes/tigre-auto.mjs && node testes/buscadores.mjs",
+    "test": "node testes/tigre-respostas.mjs && node testes/tigre-auto.mjs && node testes/buscadores.mjs && node testes/horarios.mjs && node testes/site-cliente.mjs && node testes/castor.mjs",
     "preview": "vite preview",
     "build:demo": "VITE_HASH_ROUTER=1 vite build --base ./ --outDir dist-demo"
   },

@@ -1,3 +1,4 @@
+import { lerHorarios } from '../src/lib/horarios.js'
 // Google Maps via SerpApi (https://serpapi.com/google-maps-api) — API de terceiros dedicada ao Maps.
 // Plano grátis: 250 buscas/mês. Cada busca devolve até 20 lugares com telefone, site, nota e foto.
 
@@ -41,5 +42,7 @@ export function candidatoDaSerpApi(r) {
     categorias: r.types || (r.type ? [r.type] : []),
     // A foto de capa do Maps (googleusercontent.com); o Leão baixa pelo servidor.
     fotos: r.thumbnail ? [fotoGrande(r.thumbnail)] : [],
+    horarios: lerHorarios(r.operating_hours),
+    geo: r.gps_coordinates?.latitude != null ? { lat: r.gps_coordinates.latitude, lng: r.gps_coordinates.longitude } : null,
   }
 }

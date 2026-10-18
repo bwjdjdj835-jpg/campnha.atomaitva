@@ -11,7 +11,8 @@
 //   [data-carrossel] depoimentos que passam sozinhos (botões [data-carrossel-ant] / [data-carrossel-prox])
 //   [data-antes-depois] comparação Antes e Depois: arraste a linha (mouse, dedo ou teclado ← →)
 //   [data-esqueleto] foto com brilho de "carregando" até chegar; depois aparece suave
-// Antes e Depois e esqueletos funcionam sempre (são parte do site, não enfeite).
+//   [data-aberto]   selo "Aberto agora / Fechado" (data-horarios do Google Maps + data-fuso), na hora da visita
+// Antes e Depois, esqueletos e o selo de aberto funcionam sempre (são parte do site, não enfeite).
 // Respeita "reduzir movimento".
 
 export function iniciarEfeitos(raiz, tentativas) {
@@ -19,7 +20,7 @@ export function iniciarEfeitos(raiz, tentativas) {
   tentativas = tentativas === undefined ? 30 : tentativas
   if (typeof window === 'undefined') return
   const alvos = raiz.querySelectorAll(
-    '[data-revelar],[data-brilho],[data-magnetico],[data-parallax],[data-parallax-hero],[data-progresso],[data-contar],[data-carrossel],[data-antes-depois],[data-esqueleto]',
+    '[data-revelar],[data-brilho],[data-magnetico],[data-parallax],[data-parallax-hero],[data-progresso],[data-contar],[data-carrossel],[data-antes-depois],[data-esqueleto],[data-aberto]',
   )
   // No site em React a página pode ainda não estar na tela: tenta de novo por alguns instantes.
   if (!alvos.length && tentativas > 0) {
@@ -53,6 +54,19 @@ export function iniciarEfeitos(raiz, tentativas) {
     )
     revelar.forEach((el) => observador.observe(el))
   }
+  // Selo "Aberto agora / Fechado" (site feito pela imagem; o ClienteSite calcula o dele na hora de desenhar).
+  raiz.querySelectorAll('[data-aberto][data-horarios]').forEach((el) => {
+    let dias
+    try {
+      dias = JSON.parse(el.getAttribute('data-horarios'))
+    } catch (e) {
+      return
+    }
+    const s = statusAberto(dias, el.getAttribute('data-fuso'))
+    if (!s) return el.remove()
+    el.textContent = s.texto
+    el.classList.add('selo-aberto', s.aberto ? 'selo-aberto-sim' : 'selo-aberto-nao')
+  })
   // Esqueletos: a foto mostra um brilho até carregar e aparece com fade (o site nunca parece travado).
   raiz.querySelectorAll('[data-esqueleto]').forEach((el) => {
     const img = el.tagName === 'IMG' ? el : el.querySelector('img,iframe')
@@ -226,4 +240,38 @@ export function iniciarEfeitos(raiz, tentativas) {
     window.addEventListener('scroll', () => pedido || (pedido = requestAnimationFrame(mover)), { passive: true })
     mover()
   }
+}
+
+// Mesma conta do abertoAgora do ClienteSite (os dois são testados juntos em testes/site-cliente.mjs).
+// dias: { 0: [["09:00","19:00"]], ... } (0 = domingo; [] = fechado; dia sem informação = não mostra nada).
+const DIA_NOME = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
+export function statusAberto(dias, fuso, agora) {
+  if (!dias) return null
+  let partes
+  try {
+    partes = {}
+    new Intl.DateTimeFormat('en-GB', { timeZone: fuso || 'America/Sao_Paulo', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
+      .formatToParts(agora || new Date())
+      .forEach((x) => (partes[x.type] = x.value))
+  } catch (e) {
+    return null
+  }
+  const hoje = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(partes.weekday)
+  const min = (h) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5))
+  const curta = (h) => h.replace(/^0(?=\d)/, '').replace(':00', 'h').replace(':', 'h')
+  const aHora = (h) => (h === '24:00' || h === '00:00' ? 'à meia-noite' : 'às ' + curta(h))
+  const abre = (f) => (f[0] === '00:00' && f[1] === '24:00' ? '(24 horas)' : aHora(f[0]))
+  const agoraMin = (Number(partes.hour) % 24) * 60 + Number(partes.minute)
+  if (!dias[hoje]) return null
+  const deOntem = (dias[(hoje + 6) % 7] || []).find((f) => min(f[1]) < min(f[0]) && agoraMin < min(f[1]))
+  if (deOntem) return { aberto: true, texto: 'Aberto agora · fecha ' + aHora(deOntem[1]) }
+  const atual = dias[hoje].find((f) => agoraMin >= min(f[0]) && (min(f[1]) < min(f[0]) || agoraMin < min(f[1])))
+  if (atual) return { aberto: true, texto: atual[0] === '00:00' && atual[1] === '24:00' ? 'Aberto 24 horas' : 'Aberto agora · fecha ' + aHora(atual[1]) }
+  const maisTarde = dias[hoje].find((f) => min(f[0]) > agoraMin)
+  if (maisTarde) return { aberto: false, texto: 'Fechado agora · abre ' + abre(maisTarde) }
+  for (let i = 1; i <= 7; i++) {
+    const d = (hoje + i) % 7
+    if (dias[d] && dias[d].length) return { aberto: false, texto: 'Fechado agora · abre ' + (i === 1 ? 'amanhã' : DIA_NOME[d]) + ' ' + abre(dias[d][0]) }
+  }
+  return { aberto: false, texto: 'Fechado agora' }
 }

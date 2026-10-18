@@ -7,6 +7,7 @@ import siteSource from './ClienteSite.jsx?raw'
 import animacoesCss from './clienteAnimacoes.css?raw'
 import aguaSource from './clienteAgua.js?raw'
 import efeitosSource from './clienteEfeitos.js?raw'
+import { horariosSchema } from './horarios.js'
 
 const json = (v) => JSON.stringify(v, null, 2) + '\n'
 
@@ -14,21 +15,39 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
 }
 
+// Subtipo do schema.org pelo ramo (o Google entende melhor "BarberShop" que "LocalBusiness").
+const TIPOS = [
+  [/barbear/, 'BarberShop'], [/sal[aã]o|cabel|cabeleir/, 'HairSalon'], [/manicur|unha|nail/, 'NailSalon'], [/est[eé]tic|sobrancel|c[ií]lios|depila|spa\b/, 'BeautySalon'],
+  [/pizz/, 'Restaurant'], [/lanch|hamburg|burger|pastel/, 'FastFoodRestaurant'], [/a[cç]a[ií]|sorvet/, 'IceCreamShop'], [/padar|confeit|bolo|doce/, 'Bakery'],
+  [/caf[eé]/, 'CafeOrCoffeeShop'], [/restaurant|marmit|churrasc|sushi|comida/, 'Restaurant'], [/\bbar\b|boteco|adega/, 'BarOrPub'],
+  [/oficin|mec[aâ]nic|funilar|auto ?el[eé]tr|borrachar/, 'AutoRepair'], [/lava ?jato|lavagem/, 'AutoWash'], [/pet ?shop|\bpet\b|banho e tosa/, 'PetStore'],
+  [/veterin/, 'VeterinaryCare'], [/academ|crossfit|pilates/, 'ExerciseGym'], [/[oó]tica/, 'Optician'], [/dent|odonto/, 'Dentist'], [/flor/, 'Florist'],
+]
+const tipoDoNegocio = (categoria) => {
+  const c = String(categoria || '').toLowerCase()
+  return TIPOS.find(([re]) => re.test(c))?.[1] || 'LocalBusiness'
+}
+const telefoneComDdi = (t) => {
+  const d = String(t || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '')
+  return d.length === 10 || d.length === 11 ? `+55 ${d.slice(0, 2)} ${d.slice(2)}` : undefined
+}
+
 // Dados estruturados (schema.org) para o Google entender o negócio. Só usa o que existe em dados.json.
+// Sem `aggregateRating` do próprio negócio: o Google não mostra e trata como autoavaliação.
 function jsonLd(dados) {
   const { negocio, conteudo = {} } = dados
+  const geo = negocio.geo
   const ld = {
     '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
+    '@type': tipoDoNegocio(negocio.categoria),
     name: negocio.nome,
     address: negocio.endereco || undefined,
-    telephone: negocio.telefone && negocio.telefone !== '—' ? negocio.telefone : undefined,
+    telephone: telefoneComDdi(negocio.telefone),
     description: conteudo.sobre || undefined,
-    openingHours: conteudo.horarios || undefined,
+    openingHoursSpecification: horariosSchema(negocio.horarios),
+    geo: geo?.lat != null ? { '@type': 'GeoCoordinates', latitude: Number(geo.lat.toFixed(5)), longitude: Number(geo.lng.toFixed(5)) } : undefined,
+    hasMap: negocio.maps || undefined,
     sameAs: [negocio.instagram, negocio.maps].filter(Boolean),
-    aggregateRating: negocio.rating
-      ? { '@type': 'AggregateRating', ratingValue: negocio.rating, reviewCount: negocio.avaliacoes || 0 }
-      : undefined,
   }
   return JSON.stringify(ld, null, 2).replace(/</g, '\\u003c')
 }

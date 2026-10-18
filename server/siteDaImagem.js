@@ -25,7 +25,8 @@ function pedido({ negocio = {}, conteudo = {}, fotos = 0, antesDepois = [], agen
     conteudo.sobre && `Sobre: ${conteudo.sobre}`,
     lista(conteudo.servicos) && `Serviços: ${lista(conteudo.servicos)}`,
     lista(conteudo.diferenciais) && `Diferenciais: ${lista(conteudo.diferenciais)}`,
-    conteudo.horario && `Horário: ${typeof conteudo.horario === 'string' ? conteudo.horario : JSON.stringify(conteudo.horario)}`,
+    (conteudo.horarios || negocio.horarioTexto) && `Horário (real): ${String(conteudo.horarios || negocio.horarioTexto).slice(0, 200)}`,
+    negocio.acao?.botao && `acao — rótulo do botão principal: "${String(negocio.acao.longo || negocio.acao.botao).slice(0, 40)}"; mensagem pronta do WhatsApp: "${String(negocio.acao.msg || '').slice(0, 120)}"`,
     Array.isArray(conteudo.depoimentos) && conteudo.depoimentos.length &&
       `Avaliações reais do Google (pode usar como depoimentos): ${conteudo.depoimentos.map((d) => `"${d.texto}" — ${d.autor || 'cliente'}`).join(' | ')}`,
   ].filter(Boolean)

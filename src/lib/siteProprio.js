@@ -2,7 +2,7 @@
 // e viram o arquivo da foto (no ZIP) ou a foto embutida (na prévia).
 import animacoesCss from './clienteAnimacoes.css?raw'
 import efeitosSource from './clienteEfeitos.js?raw'
-import { linkDeAgenda } from './ClienteSite.jsx'
+import { linkDeAgenda, acaoDoNicho } from './ClienteSite.jsx'
 import { licoesAtivas } from './biblioteca.js'
 
 const efeitosScript = efeitosSource.replace(/^export /gm, '').replace(/<\/script/gi, '<\\/script')
@@ -27,6 +27,10 @@ export function montarSiteProprio(dados, caminho, { cabeca = '', fim = '' } = {}
   let html = trocarFotos(dados.htmlProprio, dados.imagens, caminho)
   const agenda = agendaHtml(dados)
   html = html.includes('<!--AGENDA-->') ? html.replace('<!--AGENDA-->', agenda) : html.replace(/<\/body>/i, agenda + '</body>')
+  // 🟢 "Aberto agora": o selo que a IA marcou com data-aberto ganha o horário do Maps; o efeitos.js calcula na hora da visita.
+  const neg = dados.negocio || {}
+  const horarios = neg.horarios ? ` data-horarios='${JSON.stringify(neg.horarios)}' data-fuso="${neg.fuso || 'America/Sao_Paulo'}"` : ''
+  html = html.replace(/<span([^>]*)\sdata-aberto(?:=(?:"[^"]*"|'[^']*'))?([^>]*)>[^<]*<\/span>/gi, (_, a, b) => (horarios ? `<span${a} data-aberto${horarios}${b}></span>` : ''))
   const topo = `<style>${animacoesCss}${CSS_BIBLIOTECA}</style>${cabeca}`
   html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (h) => h + topo) : topo + html
   const rodape = `<script>${efeitosScript}\niniciarEfeitos(document)</script>${fim}`
@@ -47,7 +51,11 @@ export async function gerarSiteDaImagem(imagem, dados, conteudo) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       imagem,
-      negocio: { nome: n.nome, categoria: n.categoria, endereco: n.endereco, telefone: n.telefone, whatsapp: n.whatsapp, maps: n.maps, rating: n.rating, avaliacoes: n.avaliacoes },
+      negocio: {
+        nome: n.nome, categoria: n.categoria, endereco: n.endereco, telefone: n.telefone, whatsapp: n.whatsapp, maps: n.maps, rating: n.rating, avaliacoes: n.avaliacoes,
+        horarioTexto: n.horarioTexto,
+        acao: (({ botao, longo, msg }) => ({ botao, longo, msg }))(acaoDoNicho(n.categoria)),
+      },
       conteudo: { ...conteudo, sugerido: undefined },
       fotos: (dados.imagens || []).length,
       // Biblioteca do Gato: pares de Antes e Depois (números das fotos) e se há agenda online.
