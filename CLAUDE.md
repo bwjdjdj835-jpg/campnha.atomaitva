@@ -431,6 +431,11 @@ e "Leão Dourado" foi unificado como **Leão**.
   Ciclo 3 (Tigre sem IA, 35 respostas típicas de WhatsApp): `RECUSA` passou a pegar "Não, obrigado", "não precisa",
   "valeu, mas não", "dispenso" (antes viravam "outro" e o rascunho dizia "Eu que agradeço! já deixo pronto…" — insistia
   depois de um não); `INTERESSE` pega "manda aí", "pode ser", "claro", "opa"; `DUVIDA` pega "não entendi". 35/35.
+  Ciclo 4 (ZIP final: `npm install` + `npm run build` + site compilado em 390 px): compila e funciona igual à prévia.
+  `metasDeCompartilhar` (`siteTemplate.js`, também no `index.html` do site feito pela imagem) põe og:image = foto de capa,
+  og:type/locale, twitter:card e ícone da aba com a inicial (SVG embutido; antes, 404 do favicon); o `vite.config.js` do ZIP
+  completa o og:image com `https://` + `VERCEL_PROJECT_PRODUCTION_URL`/`VERCEL_URL` no build — o link do site mandado no
+  WhatsApp mostra a foto.
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.

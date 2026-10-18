@@ -39,6 +39,24 @@ function fonteDoModelo(dados) {
   return `\n    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(fonte).replace(/%20/g, '+')}:wght@400;600;700;800&display=swap" />`
 }
 
+// Ícone da aba: a inicial do comércio num quadrado escuro (SVG embutido, sem arquivo e sem 404).
+function iconeDaInicial(nome) {
+  const letra = (String(nome || '').trim().match(/[\p{L}\p{N}]/u)?.[0] || '•').toUpperCase()
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#111"/><text x="32" y="44" font-family="Arial,sans-serif" font-size="36" font-weight="700" text-anchor="middle" fill="#fff">${letra}</text></svg>`
+  return 'data:image/svg+xml,' + encodeURIComponent(svg)
+}
+
+// Prévia do link no WhatsApp/Facebook (foto de capa; o vite.config completa o endereço na Vercel) + ícone da aba.
+export function metasDeCompartilhar(dados) {
+  const capa = /^\/fotos\/[\w.-]+$/.test(dados.imagens?.[0]?.arquivo || '') ? dados.imagens[0].arquivo : ''
+  return `
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />${capa ? `
+    <meta property="og:image" content="${escapeHtml(capa)}" />
+    <meta name="twitter:card" content="summary_large_image" />` : ''}
+    <link rel="icon" href="${iconeDaInicial(dados.negocio?.nome)}" />`
+}
+
 export function siteFiles(dados) {
   const { negocio, conteudo = {} } = dados
   const descricao = conteudo.sobre || [negocio.categoria, negocio.endereco].filter(Boolean).join(' — ')
@@ -58,10 +76,17 @@ export function siteFiles(dados) {
         vite: '^5.4.11',
       },
     }),
+    // Na Vercel o endereço do site existe na hora do build: a imagem de compartilhamento (WhatsApp/Facebook) precisa de link completo.
     'vite.config.js': `import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({ plugins: [react()] })
+const dominio = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL
+const linkCompleto = {
+  name: 'link-completo',
+  transformIndexHtml: (html) => (dominio ? html.replace(/content="\\/(fotos\\/[^"]+)"/g, \`content="https://\${dominio}/$1"\`) : html),
+}
+
+export default defineConfig({ plugins: [react(), linkCompleto] })
 `,
     'tailwind.config.js': `/** @type {import('tailwindcss').Config} */
 export default {
@@ -80,7 +105,8 @@ export default {
     <title>${escapeHtml(negocio.nome)}</title>
     <meta name="description" content="${escapeHtml(descricao)}" />
     <meta property="og:title" content="${escapeHtml(negocio.nome)}" />
-    <meta property="og:description" content="${escapeHtml(descricao)}" />${fonteDoModelo(dados)}
+    <meta property="og:description" content="${escapeHtml(descricao)}" />
+${metasDeCompartilhar(dados)}${fonteDoModelo(dados)}
     <script type="application/ld+json">
 ${jsonLd(dados)}
     </script>
