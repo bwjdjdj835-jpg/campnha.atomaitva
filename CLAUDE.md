@@ -436,6 +436,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   og:type/locale, twitter:card e ícone da aba com a inicial (SVG embutido; antes, 404 do favicon); o `vite.config.js` do ZIP
   completa o og:image com `https://` + `VERCEL_PROJECT_PRODUCTION_URL`/`VERCEL_URL` no build — o link do site mandado no
   WhatsApp mostra a foto.
+  Ciclo 5 (velocidade): páginas com `React.lazy` no `App.jsx` (Dashboard fica no pacote principal); a tela inicial
+  importa `services/automatico.js` por `import()` (`carregarAutomatico`, começa a baixar ao abrir a tela para o clique de
+  "Iniciar" ainda poder pedir a gravação da aba) e o vigia do Tigre importa `tigreTrabalho.js` só na hora de vigiar.
+  Pacote de abertura: 825 KB → 309 KB (gzip 260 → 102 KB).
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.
