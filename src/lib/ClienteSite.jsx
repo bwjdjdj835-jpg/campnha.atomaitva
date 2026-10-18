@@ -163,15 +163,15 @@ export function fonteDoSite(dados) {
 export function acaoDoNicho(categoria) {
   const c = String(categoria || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   if (/pizz|lanch|hamburg|burger|restaurant|acai|sorvet|padar|confeit|doce|bolo|marmit|\bbar\b|boteco|cafe|delivery|adega|distribuid|mercad|hortifrut|acougue|pastel|espetinh|churras|sushi|japones|comida|floricult/.test(c)) {
-    return { botao: 'Fazer pedido', longo: 'Fazer pedido pelo WhatsApp', final: 'Peça já', item: 'Pedir', msg: 'Olá! Vi o site de vocês e quero fazer um pedido.', sobre: (n) => 'Olá! Vi no site e quero pedir: ' + n + '.' }
+    return { tipo: 'pedido', botao: 'Fazer pedido', longo: 'Fazer pedido pelo WhatsApp', final: 'Peça já', item: 'Pedir', msg: 'Olá! Vi o site de vocês e quero fazer um pedido.', sobre: (n) => 'Olá! Vi no site e quero pedir: ' + n + '.' }
   }
   if (/oficin|mecanic|borrachar|funilar|auto ?eletr|vidrac|serralher|marcenar|grafic|construc|eletric|encanad|refrigerac|ar condicionado|assistencia|conserto|reform|pintur|lava ?jato|chaveir|instalac|dedetiz|limpeza|otica/.test(c)) {
-    return { botao: 'Orçamento', longo: 'Pedir orçamento pelo WhatsApp', final: 'Orçamento', item: 'Orçamento', msg: 'Olá! Vi o site de vocês e quero um orçamento.', sobre: (n) => 'Olá! Vi no site e quero um orçamento de ' + n + '.' }
+    return { tipo: 'orcamento', socorro: /borrachar|guincho|reboque/.test(c), carro: /oficin|mecanic|borrachar|funilar|auto ?eletr|lava ?jato/.test(c), otica: /otica/.test(c), botao: 'Orçamento', longo: 'Pedir orçamento pelo WhatsApp', final: 'Orçamento', item: 'Orçamento', msg: 'Olá! Vi o site de vocês e quero um orçamento.', sobre: (n) => 'Olá! Vi no site e quero um orçamento de ' + n + '.' }
   }
   if (/barbear|salao|cabel|manicur|unha|estetic|sobrancel|depil|cilios|maqui|clinic|dent|odonto|fisio|massag|psicolog|nutri|tatu|\bpet\b|pet ?shop|veterin|banho|tosa|academ|pilates|crossfit|spa\b|podolog|terapi|personal/.test(c)) {
-    return { botao: 'Agendar', longo: 'Agendar pelo WhatsApp', final: 'Agende', item: 'Agendar', msg: 'Olá! Vi o site de vocês e quero agendar um horário.', sobre: (n) => 'Olá! Vi no site e quero agendar: ' + n + '.' }
+    return { tipo: 'agendar', botao: 'Agendar', longo: 'Agendar pelo WhatsApp', final: 'Agende', item: 'Agendar', msg: 'Olá! Vi o site de vocês e quero agendar um horário.', sobre: (n) => 'Olá! Vi no site e quero agendar: ' + n + '.' }
   }
-  return { botao: 'WhatsApp', longo: 'Chamar no WhatsApp', final: 'Chame', item: 'Saiba mais', msg: 'Olá! Vi o site de vocês e quero mais informações.', sobre: (n) => 'Olá! Vi no site e quero saber mais sobre ' + n + '.' }
+  return { tipo: 'conversa', botao: 'WhatsApp', longo: 'Chamar no WhatsApp', final: 'Chame', item: 'Saiba mais', msg: 'Olá! Vi o site de vocês e quero mais informações.', sobre: (n) => 'Olá! Vi no site e quero saber mais sobre ' + n + '.' }
 }
 
 // 🟢 Aberto agora / 🔴 Fechado — calculado na hora da visita, no fuso da cidade do comércio, com o horário do Google Maps.
@@ -260,6 +260,7 @@ export default function Site({ dados }) {
     galeria.length && ['#fotos', 'Fotos'],
     (depoimentos.length || nota) && ['#avaliacoes', 'Avaliações'],
     agenda && ['#agendar', 'Agendar'],
+    negocio.whatsapp && acao.tipo !== 'conversa' && ['#pedir', acao.tipo === 'pedido' ? 'Pedir' : acao.tipo === 'agendar' ? 'Horário' : 'Orçamento'],
     ['#contato', 'Contato'],
   ].filter(Boolean)
   const rotulo = 'text-xs font-semibold uppercase tracking-[0.3em] ' + t.acento
@@ -482,6 +483,107 @@ export default function Site({ dados }) {
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {/* Assistente do ramo (Fase 2 da pesquisa de nichos): o cliente monta o pedido / pede horário / pede orçamento e
+            o WhatsApp abre com a mensagem pronta. Nada de preço ou horário inventado: tudo é confirmado na conversa.
+            O comportamento está em efeitos.js ([data-assistente]); sem JavaScript o botão manda a mensagem geral. */}
+        {negocio.whatsapp && acao.tipo !== 'conversa' && (
+          <section id="pedir" {...fx({ 'data-revelar': '' })} data-assistente={acao.tipo} data-whats={negocio.whatsapp}>
+            <p className={rotulo}>{acao.tipo === 'pedido' ? 'Pedido rápido' : acao.tipo === 'agendar' ? 'Agendamento rápido' : 'Orçamento rápido'}</p>
+            <h2 className="mt-3 mb-3 text-4xl font-bold tracking-tight sm:text-5xl">
+              {acao.tipo === 'pedido' ? 'Monte seu pedido' : acao.tipo === 'agendar' ? 'Peça seu horário' : 'Peça seu orçamento'}
+            </h2>
+            <p className={'mb-8 max-w-2xl ' + t.texto}>
+              {acao.tipo === 'pedido'
+                ? 'Escolha os itens e a gente confirma valores e disponibilidade pelo WhatsApp.'
+                : acao.tipo === 'agendar'
+                  ? 'Escolha o serviço e o melhor momento — o horário é confirmado pelo WhatsApp.'
+                  : 'Conte o que precisa e receba o orçamento pelo WhatsApp, sem compromisso.'}
+            </p>
+            <div className={'grid gap-8 p-6 sm:p-8 ' + cartaoVidro + t.cartao}>
+              {acao.socorro && (
+                <button type="button" data-socorro="" className="micro rounded-2xl bg-red-600 px-6 py-4 text-left text-lg font-bold text-white shadow-lg">
+                  🆘 Pneu furou ou carro parado? Pedir socorro com minha localização
+                </button>
+              )}
+              {servicos.length > 0 && (
+                <div>
+                  <p className="mb-3 font-semibold">{acao.tipo === 'pedido' ? '1. O que vai querer?' : '1. Qual serviço?'}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {servicos.slice(0, 12).map((x) =>
+                      acao.tipo === 'pedido' ? (
+                        <span key={nomeDe(x)} data-item={nomeDe(x)} className={'inline-flex items-center gap-2 rounded-full border py-1 pl-4 pr-1 ' + t.cartao}>
+                          {nomeDe(x)}
+                          <button type="button" data-menos="" aria-label={'Tirar ' + nomeDe(x)} className="grid h-9 w-9 place-items-center rounded-full border text-lg">−</button>
+                          <span data-qtd="" aria-live="polite" className="w-5 text-center font-semibold">0</span>
+                          <button type="button" data-mais="" aria-label={'Pôr ' + nomeDe(x)} className={'grid h-9 w-9 place-items-center rounded-full text-lg font-bold ' + t.botao}>+</button>
+                        </span>
+                      ) : (
+                        <button key={nomeDe(x)} type="button" data-opcao="" data-grupo="servico" data-valor={nomeDe(x)} aria-pressed="false" className={'micro rounded-full border px-4 py-2 ' + t.cartao}>
+                          {nomeDe(x)}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )}
+              {acao.tipo === 'agendar' &&
+                [
+                  ['quando', '2. Quando?', ['Hoje', 'Amanhã', 'Esta semana', 'Próxima semana']],
+                  ['periodo', '3. Melhor período', ['Manhã', 'Tarde', 'Noite']],
+                ].map(([grupo, titulo, opcoes]) => (
+                  <div key={grupo}>
+                    <p className="mb-3 font-semibold">{servicos.length ? titulo : titulo.slice(3)}</p>
+                    <div className="flex flex-wrap gap-2" data-unico="">
+                      {opcoes.map((o) => (
+                        <button key={o} type="button" data-opcao="" data-grupo={grupo} data-valor={o} aria-pressed="false" className={'micro rounded-full border px-4 py-2 ' + t.cartao}>
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              {acao.tipo === 'pedido' && (
+                <div>
+                  <p className="mb-3 font-semibold">2. Como prefere receber?</p>
+                  <div className="flex flex-wrap gap-2" data-unico="">
+                    {['Vou buscar', 'Quero saber da entrega'].map((o) => (
+                      <button key={o} type="button" data-opcao="" data-grupo="receber" data-valor={o} aria-pressed="false" className={'micro rounded-full border px-4 py-2 ' + t.cartao}>
+                        {o}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <label className="block">
+                <span className="mb-3 block font-semibold">
+                  {acao.tipo === 'agendar' ? 'Seu nome (opcional)' : acao.tipo === 'pedido' ? 'Observação (opcional)' : 'Conte o que precisa'}
+                </span>
+                {acao.tipo === 'agendar' ? (
+                  <input data-campo="nome" className={'w-full rounded-xl border bg-transparent px-4 py-3 ' + t.cartao} placeholder="Como podemos te chamar?" />
+                ) : (
+                  <textarea
+                    data-campo="texto"
+                    rows={3}
+                    className={'w-full rounded-xl border bg-transparent px-4 py-3 ' + t.cartao}
+                    placeholder={
+                      acao.tipo === 'pedido'
+                        ? 'Ex.: sem cebola, troco para 50…'
+                        : acao.otica
+                          ? 'Ex.: quero lentes para a minha receita (mando a foto dela no WhatsApp)'
+                          : acao.carro
+                            ? 'Ex.: modelo e ano do carro e o que está acontecendo'
+                            : 'Ex.: o que você precisa, tamanho, prazo…'
+                    }
+                  />
+                )}
+              </label>
+              <a data-enviar="" href={zap(acao.msg)} className={'micro inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-lg sm:w-auto ' + t.botao}>
+                {acao.tipo === 'pedido' ? 'Enviar pedido no WhatsApp' : acao.tipo === 'agendar' ? 'Pedir horário no WhatsApp' : 'Pedir orçamento no WhatsApp'} →
+              </a>
+            </div>
           </section>
         )}
 

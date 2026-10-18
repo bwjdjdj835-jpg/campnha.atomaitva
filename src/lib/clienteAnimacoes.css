@@ -229,3 +229,10 @@ img[data-esqueleto].esqueleto-pronto {
 .selo-aberto { display: inline-flex; align-items: center; gap: 0.5em; }
 .selo-aberto::before { content: ''; width: 0.55em; height: 0.55em; border-radius: 999px; background: #f43f5e; }
 .selo-aberto-sim::before { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); }
+
+/* Assistente do ramo: opção escolhida com contorno e ✓; item do pedido com quantidade fica destacado. */
+[data-opcao] { cursor: pointer; transition: transform 0.2s, outline-color 0.2s; }
+[data-opcao][aria-pressed='true'] { outline: 2px solid currentColor; outline-offset: 2px; font-weight: 600; }
+[data-opcao][aria-pressed='true']::before { content: '✓ '; }
+[data-item].item-escolhido { outline: 2px solid currentColor; outline-offset: 2px; font-weight: 600; }
+[data-assistente] input:focus, [data-assistente] textarea:focus { outline: 2px solid currentColor; outline-offset: 2px; }

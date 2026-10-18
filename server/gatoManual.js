@@ -59,6 +59,13 @@ export const MANUAL_DO_GATO = `MANUAL DE AGÊNCIA DO GATO NEGRO — sites para c
     <div data-ad-linha role="slider" tabindex="0" aria-label="Comparar antes e depois" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"></div>
   </div>
   (dê à .ad-caixa uma proporção, ex. aspect-ratio:4/3, e cantos arredondados; o app cuida do arraste.)
+- Pedido / horário / orçamento rápido (quando houver WhatsApp e o ramo não for "conversa"): uma seção
+  <section data-assistente="pedido|agendar|orcamento" data-whats="LINK_DO_WHATSAPP"> com: opções
+  <button data-opcao data-grupo="servico" data-valor="NOME" aria-pressed="false">NOME</button> (serviços reais da lista);
+  no agendar, grupos "quando" (Hoje, Amanhã, Esta semana) e "periodo" (Manhã, Tarde, Noite) dentro de <div data-unico>;
+  no pedido, cada item <span data-item="NOME">NOME <button data-menos>−</button><span data-qtd>0</span><button data-mais>+</button></span>;
+  campo <input data-campo="nome"> (agendar) ou <textarea data-campo="texto">; e o botão <a data-enviar href="LINK_DO_WHATSAPP">.
+  Borracharia: <button data-socorro>🆘 Pedir socorro com minha localização</button>. O app monta a mensagem; nada de preço.
 - Agendamento online (só quando informado): escreva exatamente <!--AGENDA--> no lugar da seção; o app coloca a agenda real.
   Estilize a classe .agenda-botao com a cor de destaque.
 
