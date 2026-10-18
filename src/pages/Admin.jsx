@@ -77,7 +77,7 @@ export default function Admin() {
   const numeros = [
     ['Para aprovar', paraAprovar.length, 'text-neon'],
     ['Aguardando resposta', conta('contatado', 'bot', 'duvida'), 'text-sky-300'],
-    ['Interessados', conta('interessado'), 'text-emerald-300'],
+    ['Interessados', conta('interessado', 'fechando', 'pagou'), 'text-emerald-300'],
     ['Não querem agora', conta('recusou'), 'text-orange-300'],
     ['Vendas', conta('vendido', 'publicado'), 'text-emerald-200'],
   ]

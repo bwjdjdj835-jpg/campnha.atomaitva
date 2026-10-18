@@ -43,7 +43,7 @@ scraping do Google/DuckDuckGo sem API (quebra os termos e bloqueia), Jina (grát
 ## 3. Testar sem gastar crédito
 
 A rede da sessão na nuvem costuma bloquear essas APIs; teste com `fetch` falso (modelo em
-`.claude/skills/buscadores-gratis/teste-fila.mjs`): só o novo com chave, o anterior sem crédito (402) → o novo,
+`testes/buscadores.mjs` (roda com `npm test`)): só o novo com chave, o anterior sem crédito (402) → o novo,
 limite por minuto (429), todos sem crédito (o erro tem que casar com `erroDeCredito` para virar `SEM_CREDITO`), e
 `conferirSite` achando o domínio pelo novo. Depois `npm run build`.
 

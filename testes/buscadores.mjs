@@ -1,7 +1,7 @@
-// Teste da fila de buscadores com fetch falso (não gasta crédito): node .claude/skills/buscadores-gratis/teste-fila.mjs
-import { buscarNaWeb, _zerarForaDeUso, buscadores } from '../../../server/buscaWeb.js'
-import { conferirSite } from '../../../server/pinguim.js'
-import { erroDeCredito } from '../../../server/firecrawlCreditos.js'
+// 🧪 Fila de buscadores do Pinguim com fetch falso (não gasta crédito). Rodar: npm test
+import { buscarNaWeb, _zerarForaDeUso, buscadores } from '../server/buscaWeb.js'
+import { conferirSite } from '../server/pinguim.js'
+import { erroDeCredito } from '../server/firecrawlCreditos.js'
 const chamadas = []
 let modo = {}
 globalThis.fetch = async (url, o) => {
@@ -18,7 +18,7 @@ globalThis.fetch = async (url, o) => {
   if (host === 'api.search.brave.com') { console.log('  brave url:', url.slice(0, 90)); return r(200, { web: { results: [{ url: 'https://brave.com/x', title: 'B', description: 'd' }] } }) }
 }
 const env = (o) => { for (const k of ['FIRECRAWL_API_KEY','TAVILY_API_KEY','EXA_API_KEY','SERPER_API_KEY','BRAVE_API_KEY']) delete process.env[k]; Object.assign(process.env, o); _zerarForaDeUso(); modo = {}; chamadas.length = 0 }
-const ver = (nome, cond) => console.log(cond ? 'OK  ' : 'FALHA', nome)
+const ver = (nome, cond) => { console.log(cond ? 'OK  ' : 'FALHA', nome); if (!cond) process.exitCode = 1 }
 
 env({ TAVILY_API_KEY: 'tvly-x' }); let r = await buscarNaWeb('a'); ver('só Tavily', r.fonte === 'Tavily' && r.resultados[0].description === 'Cacoal')
 env({ FIRECRAWL_API_KEY: 'fc', TAVILY_API_KEY: 'tvly-x' }); modo['api.firecrawl.dev'] = 402; r = await buscarNaWeb('a'); ver('Firecrawl sem crédito → Tavily', r.fonte === 'Tavily')

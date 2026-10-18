@@ -401,6 +401,28 @@ e "Leão Dourado" foi unificado como **Leão**.
   Águia (se ligada). `src/services/tigreVigia.js` (`iniciarVigia` no `main.jsx`) roda a cada 5 min no notebook
   (`central-agentes:tigre-vigiar`). Painel "Como o Tigre faz o 1º contato" no Arquivo do Tigre (opção + "Vigiar agora").
   `registrarEnviada` limpa `suaVez`.
+- **🤖 Tigre automático pela API oficial** (pedido do usuário: "o Tigre manda mensagem e troca ideia até fechar"; escolha dele:
+  **faz tudo sozinho**, com o preço que ele preenche no app). `server/tigreAuto.js` + rotas em `server/app.js`:
+  `GET/POST /api/tigre/webhook` (Meta confere com `WHATSAPP_VERIFY_TOKEN`; POST só com `X-Hub-Signature-256` válido por
+  `WHATSAPP_APP_SECRET`, `assinaturaValida`); `GET/PUT /api/tigre/auto` (requisitos + config `{ligado, preco, condicoes,
+  pagamento, templateTexto}`), `GET /tigre/auto/caixa`, `POST /tigre/auto/iniciar` (1ª mensagem pelo modelo
+  `WHATSAPP_TEMPLATE`, `{{1}}` = nome; não repete número) e `POST /tigre/auto/video` (`handleUpload` do Vercel Blob: o
+  navegador sobe o vídeo direto, até 16 MB, `tigre/videos/*`) — **todas com `TIGRE_SENHA`** no header `x-tigre-senha` (sem
+  ela qualquer um trocaria o Pix). Conversas no Redis da nuvem (`central-agentes:tigre:conv:<DDD+8 dígitos>`), dedupe da
+  Meta por id (`SET NX`). `decidir()`: parar → `parado` e nunca mais escreve; robô → `MODELOS.pessoa`; "paguei" → agradece,
+  status `pagou`, avisa (quem confirma e publica é o usuário); recusa → `olhada` uma vez, depois `despedida` e para; "pode
+  mandar" → vídeo por link (`videoUrl` só do Blob) ou avisa; desconto → "vou ver com o responsável" + aviso; quer fechar →
+  a forma de pagamento do dono + aviso; resto → `gerarMensagem` (`extra` = `regrasDoDono`), e resposta da IA com valor que
+  não está no preço/condições/pagamento (`valoresInventados`) vira texto pronto. Avisos vão para `conv.avisos` e e-mail da
+  Águia (`AGUIA_EMAIL`). Cliente: `src/services/tigreAuto.js` (senha no localStorage `central-agentes:tigre-senha`,
+  `autoPronto`, `subirVideo`, `iniciarAuto`, `sincronizarCaixa` a cada 60 s via `main.jsx` → `conversas[siteId]` com
+  `tigreAuto`, `suaVez` nos avisos novos), `TigreAutoPainel.jsx` no Arquivo do Tigre (senha, checklist do que falta, URL do
+  webhook, preço/condições/Pix/texto do modelo, ligar/desligar). `tigreExecutar` usa a API oficial quando `autoPronto()`.
+  Selos novos `fechando` (🤝 Quer fechar) e `pagou` (💸 Disse que pagou). Passo a passo: `docs/tigre-automatico.md`.
+  `RECUSA` ganhou "não aceito", "claro/acho que não"; `FECHAR` não pega "não aceito".
+- **🧪 `npm test`** (`testes/`): `tigre-respostas.mjs` (38 respostas de WhatsApp), `tigre-auto.mjs` (20 casos: webhook,
+  assinatura, senha, preço, Pix, desconto, pagou, parar, dedupe, IA inventando valor) e `buscadores.mjs` (fila, 11 casos) —
+  tudo com fetch falso, sem gastar crédito.
 - **📋 Lista para envio em massa** (pedido do usuário: mandar pelo Premium Sender; `src/components/ListaEnvioMassa.jsx`, no
   Arquivo do Tigre): por nicho, leads reais sem site (fora `tem`/`provavel`), com WhatsApp, sem selo de contato (`contatoDoLead`
   nulo ou `site_feito`), sem número repetido; mensagem com `{nome}`, `{empresa}` (padrão "Carmesin"), `{nicho}`, `{cidade}`
@@ -459,7 +481,7 @@ e "Leão Dourado" foi unificado como **Leão**.
 3. ~~Gato Negro~~ — feito.
 4. ~~Abelha~~ — feito.
 4b. ~~Fonte de Maps~~ — página do Maps via scrape do Firecrawl (sem API de Maps). Falta testar com a chave real do usuário.
-5. ~~Tigre~~ — feito. Falta: webhook do WhatsApp para receber respostas automaticamente (hoje o usuário cola).
+5. ~~Tigre~~ — feito, com webhook da API oficial (Tigre automático). Falta: testar com a conta real da Meta do usuário.
 6. Trocar os emojis em `AgentBadge.jsx` por logos vetoriais (SVG) de cada animal.
 7. Persistência real (Supabase) no lugar do localStorage.
 

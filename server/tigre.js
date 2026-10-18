@@ -64,7 +64,7 @@ function textoDa(resposta) {
     .trim()
 }
 
-export async function gerarMensagem({ tipo, negocio, historico = [], url }) {
+export async function gerarMensagem({ tipo, negocio, historico = [], url, extra = '' }) {
   if (tipo === 'link') return { texto: MODELOS.link(negocio, url), fonte: 'modelo' }
   // Opção de "falar com atendente" no menu do robô (ex.: "3"), vinda da última mensagem dele.
   const ultimaDoCliente = [...historico].reverse().find((m) => m.de === 'cliente')?.texto || ''
@@ -97,7 +97,8 @@ export async function gerarMensagem({ tipo, negocio, historico = [], url }) {
       '"',
   }[tipo]
   const conversa = historico.map((m) => `${m.de === 'cliente' ? 'Cliente' : 'Nós'}: ${m.texto}`).join('\n')
-  const conteudo = `Dados do negócio (JSON): ${JSON.stringify(negocio)}\n\nConversa até agora:\n${conversa || '(nenhuma mensagem ainda)'}\n\n${pedido || MODELOS.primeiro(negocio)}\nResponda só com o texto da mensagem.`
+  // `extra`: regras do dono (preço, pagamento) no Tigre automático — valem mais que o pedido.
+  const conteudo = `Dados do negócio (JSON): ${JSON.stringify(negocio)}\n\nConversa até agora:\n${conversa || '(nenhuma mensagem ainda)'}\n\n${pedido || MODELOS.primeiro(negocio)}${extra ? `\n\n${extra}` : ''}\nResponda só com o texto da mensagem.`
   if (ia === 'groq') {
     try {
       return { texto: await groq({ system: SISTEMA, user: conteudo }), fonte: 'groq' }
