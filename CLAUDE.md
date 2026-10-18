@@ -447,6 +447,16 @@ e "Leão Dourado" foi unificado como **Leão**.
   (`navigator.geolocation` → link do Maps; sem permissão, manda sem). `conversa` (lojas etc.) não tem assistente. Nada de
   preço/disponibilidade: "confirmado pelo WhatsApp". Teste de navegador: `testes/navegador/assistente.mjs` (precisa do
   `npm run dev`).
+- **📁 Pasta dos clientes no notebook** (pedido do usuário: "salva o vídeo e a mensagem numa pasta no meu notebook e eu pego e
+  mando"): `src/lib/pastaClientes.js` (File System Access API do Chrome/Edge: `escolherPasta` uma vez, handle guardado no
+  IndexedDB `central-agentes-pasta`; `pastaEscolhida({pedir})`; `salvarPacote` numa **fila** — o mesmo arquivo aberto duas
+  vezes ao mesmo tempo falhava) grava `<pasta>/<nicho>/<comércio>/` com `1 - Mensagem.txt`, `2 - Video da previa.mp4` e
+  `3 - Abrir conversa no WhatsApp.url` (atalho `wa.me/55…?text=`). **Nome de arquivo sem acento** (gravar "Vídeo.mp4" travou o
+  Chrome no teste; pastas com acento funcionam). Sem a API (celular/Firefox), os 3 vão para Downloads, só num clique.
+  `src/services/pacoteCliente.js` (`salvarPacoteDoSite` → `site.pastaLocal {onde, caminho, video, at}`). O **automático** salva
+  sozinho cada cliente pronto quando a pasta está liberada (`salvarNaPastaDosClientes`, também no modo "eu gravo"; o vídeo
+  entra quando você envia a gravação na Aranha). Aranha: `BarraPastaClientes` (escolher/trocar/liberar + "Salvar todos") e
+  `SalvarNaPasta` em cada cartão (`src/components/PastaClientes.jsx`). Teste: `testes/navegador/pasta-clientes.mjs`.
 - **🧪 `npm test`** (`testes/`): `horarios.mjs`, `site-cliente.mjs` (Aberto agora + ação por ramo; transforma o JSX com o esbuild do Vite), `castor.mjs`, `tigre-respostas.mjs` (38 respostas de WhatsApp), `tigre-auto.mjs` (20 casos: webhook,
   assinatura, senha, preço, Pix, desconto, pagou, parar, dedupe, IA inventando valor) e `buscadores.mjs` (fila, 11 casos) —
   tudo com fetch falso, sem gastar crédito.

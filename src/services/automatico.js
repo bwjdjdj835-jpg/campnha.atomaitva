@@ -5,6 +5,7 @@
 // Pula quem já tem site, quem é "possível site", quem não tem telefone e quem você já procurou (selo de contato).
 
 import { propostasDoCastor, designsDaGroq } from '../lib/castor.js'
+import { salvarPacoteDoSite } from './pacoteCliente.js'
 import { runAgent, conferirSite, gerarZipFinal, gerarColmeia, lerPacoteLeao, guardarVideo, videoDoSite, rascunho, negocioDoSite, encerrarEstudo } from './agents.js'
 import { lerZip } from '../lib/zipStore.js'
 import { lerPipeline, setPipeline } from '../store/pipeline.js'
@@ -358,6 +359,7 @@ async function finalizar({ siteId, nome }, { nicho }, ui) {
     await escreverMensagem(siteId, nome, nicho, etapa)
     marcarSite(siteId, { status: 'revisar', videoManual: true })
     log('ok', `✅ ${nome}: site e mensagem prontos — grave o vídeo da prévia e aprove na Aranha Administradora`)
+    await salvarNaPastaDosClientes(siteId, nome, log) // a mensagem e o atalho já vão; o vídeo entra quando você enviar
     return true
   }
   etapa({ nicho, comercio: nome, passo: '🎬 Gravando o vídeo da prévia' })
@@ -383,7 +385,18 @@ async function finalizar({ siteId, nome }, { nicho }, ui) {
   }
   marcarSite(siteId, { status: 'revisar' })
   log('ok', `✅ ${nome}: vídeo e mensagem prontos — aguardando sua aprovação na Aranha Administradora`)
+  await salvarNaPastaDosClientes(siteId, nome, log)
   return true
+}
+
+// 📁 Com a pasta dos clientes liberada neste navegador, o vídeo + a mensagem já vão para o notebook.
+async function salvarNaPastaDosClientes(siteId, nome, log) {
+  try {
+    const salvo = await salvarPacoteDoSite(siteId)
+    if (salvo) log('ok', `📁 ${nome}: ${salvo.video ? 'vídeo + ' : ''}mensagem salvos em ${salvo.caminho}`)
+  } catch (e) {
+    log('warn', `📁 ${nome}: não salvei na pasta (${e.message})`)
+  }
 }
 
 async function escreverMensagem(siteId, nome, nicho, etapa) {

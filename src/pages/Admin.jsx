@@ -13,6 +13,8 @@ import { lerResposta, registrarEnviada, outraSugestao, esperandoVoce, marcarVend
 import { NICHOS_PADRAO, proximoNicho, prepararInicio, conferirProntos, nichoEmAndamento, videoManualNasOpcoes } from '../services/automatico.js'
 import { lerOpcoes } from './Automatico.jsx'
 import MenteAgente from '../components/MenteAgente.jsx'
+import { BarraPastaClientes, SalvarNaPasta } from '../components/PastaClientes.jsx'
+import { salvarPacoteDoSite } from '../services/pacoteCliente.js'
 import { lembrar } from '../lib/mentes.js'
 
 // 🛡️ Aranha Administradora: tudo o que a IA fez no modo automático passa por aqui.
@@ -129,6 +131,7 @@ export default function Admin() {
       {aba === 'aprovar' && (
         <div className="space-y-4">
           <RelatorioRodada />
+          <BarraPastaClientes prontos={paraAprovar} />
           {semVideo.length > 0 && (
             <div className="glass border-amber-400/30 p-5 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -326,6 +329,8 @@ function CartaoAprovar({ site, negocio, conversa, videoServidor, videoNuvem }) {
     e.target.value = ''
     if (!arquivo) return
     await guardarVideo(site.id, arquivo)
+    // Pasta dos clientes já liberada: o vídeo que você gravou vai junto com a mensagem para lá.
+    salvarPacoteDoSite(site.id, { texto }).catch(() => {})
     setVideo((v) => {
       if (v?.url) URL.revokeObjectURL(v.url)
       return { blob: arquivo, url: URL.createObjectURL(arquivo) }
@@ -414,6 +419,7 @@ function CartaoAprovar({ site, negocio, conversa, videoServidor, videoNuvem }) {
               mandarDireto()
             }}
           />
+          <SalvarNaPasta site={site} texto={texto} />
 
           <details className="rounded-xl border border-white/10 px-4 py-2">
             <summary className="cursor-pointer text-sm text-slate-300">Fazer eu mesmo (gravar, salvar, mandar à mão)</summary>
