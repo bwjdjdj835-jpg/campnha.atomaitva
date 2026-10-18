@@ -17,6 +17,7 @@
 import JSZip from 'jszip'
 import { waLink, zipName } from '../lib/whatsapp.js'
 import { siteFiles, metasDeCompartilhar } from '../lib/siteTemplate.js'
+import { textoDosHorarios, fusoDoEndereco } from '../lib/horarios.js'
 import { montarSiteProprio } from '../lib/siteProprio.js'
 import { temaSugerido } from '../lib/ClienteSite.jsx'
 import { conteudoSugerido } from '../lib/conteudoSugerido.js'
@@ -184,6 +185,8 @@ async function leadDoLeao(inputs, log, leads) {
       instagram: null,
       whatsapp: lugar.telefone ? waLink(lugar.telefone) : null,
       fotos: lugar.fotos || [],
+      horarios: lugar.horarios || null,
+      geo: lugar.geo || null,
       fotosCompletas: true,
       confianca: 'Médio',
       observacao: 'Criado a partir de um link colado no Leão — confira telefone e endereço',
@@ -230,10 +233,12 @@ async function leao(inputs, log, { leads }) {
   }
 
   // A busca do Pinguim traz só a 1ª foto da ficha: pega as outras fotos do lugar no Maps pelo Apify.
+  let doLugar = {} // horário e localização que vieram junto com as fotos (lead antigo, sem esses dados)
   if (!lead.demo && lead.maps && !lead.fotosCompletas && fotos.length < MIN_FOTOS) {
     try {
       log('info', 'Buscando mais fotos do lugar no Google Maps (Apify)')
       const lugar = await api('/leao/lugar', { url: lead.maps })
+      doLugar = { horarios: lugar.horarios || null, geo: lugar.geo || null }
       const base = (u) => String(u).replace(/=[^/=]*$/, '')
       const tem = new Set((lead.fotos || []).map(base))
       const novas = (lugar.fotos || []).filter((u) => !tem.has(base(u))).slice(0, MAX_FOTOS_LEAO - fotos.length)
@@ -313,6 +318,9 @@ async function leao(inputs, log, { leads }) {
       rating: lead.rating ?? null,
       avaliacoes: lead.avaliacoes ?? 0,
       placeId: lead.demo ? null : lead.id,
+      // 🕘 Horário do Google Maps → "Aberto agora" no site (calculado na hora, no fuso da cidade) e JSON-LD.
+      ...horarioDoNegocio(lead.horarios || doLugar.horarios, lead.endereco),
+      geo: lead.geo || doLugar.geo || null,
     },
     imagens,
     prints: printsDados,
@@ -733,6 +741,11 @@ export async function gravarVideoPrevia(html, siteId, segundos = 20) {
 export async function abrirPastaDoVideo(arquivo) {
   const res = await fetch('/api/gato/abrir-pasta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ arquivo }) })
   if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'Não consegui abrir a pasta.')
+}
+
+function horarioDoNegocio(horarios, endereco) {
+  if (!horarios) return {}
+  return { horarios, horarioTexto: textoDosHorarios(horarios), fuso: fusoDoEndereco(endereco) }
 }
 
 export const videoDoSite = (siteId) => lerZip(`${siteId}:video`)

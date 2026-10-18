@@ -72,4 +72,40 @@ export const MANUAL_DO_GATO = `MANUAL DE AGÊNCIA DO GATO NEGRO — sites para c
   carro brilhando, pet tosado) em vez de fachada vazia — sem inventar foto.
 - Contraste forte entre botão e fundo para o olho achar a ação.
 - Prova vem dos clientes: use a nota e as avaliações reais do Google perto da chamada principal.
+
+11. RECEITAS POR NICHO (pesquisa de out/2026 em sites reais; docs/estudo-nichos/). Use a do ramo como ponto de partida — a imagem
+escolhida pelo dono manda mais. Paletas: fundo / destaque / apoio. Fontes: título + texto (Google Fonts).
+- Barbearia clássica: escuro #080908 / #96885F / #D7D3C8 · Barlow Condensed + Montserrat · capa com o salão e película escura ·
+  serviços numerados, equipe, nota do Google, rota.  Barbearia moderna: claro #FBF8F2 / #EE4037 / #000 · Archivo + Inter · foto P&B.
+- Salão de beleza: claro #FFFAF8 / #B3272B / #F8DDD8 · Cormorant Garamond (itálico) + Montserrat · trabalhos por especialidade,
+  comodidades, FAQ. Acolhedor: #FFFFFF / #F6AFA1 / #292145 · Cormorant Infant + Onest · galeria bento, pílulas arredondadas.
+- Manicure / nail: claro #FFFFFF / #765378 / #D3B8EB · Playfair Display + Raleway · close das mãos, preço + duração, higiene.
+- Estética: claro #FAF8F5 / #9A734B / #E1D0BB · Playfair Display + Inter · profissionais com registro, antes e depois com aviso,
+  muito respiro (nunca prometa resultado).
+- Pizzaria: creme #FFF9EE / vermelho tomate #CE2A1E / amarelo #FDB912 (botão verde manjericão #316131) · cardápio em abas, sabor
+  em destaque, "Fazer pedido".  Hamburgueria/lanchonete: escuro #1D3012 / mostarda #FFB000 ou branco + verde #418613 · combos.
+- Restaurante: quente #FDB913 / marrom #4D2F29 (regional) ou claro neutro · prato do dia, horário de almoço, como chegar.
+- Açaí: creme #F5EEE0 / roxo #4A1F60 / amarelo #FFBB33 (ou noturno #1E0B2B + verde-limão #B6E36B) · monte seu copo.
+- Padaria/confeitaria: branco #FFFFFF / caramelo #C87E1E ou creme #F8F5F0 / terracota #DE7D58 · fornadas, encomendas de bolo.
+- Pet shop: claro quente · Fredoka + Nunito · azul bebê #95B3EC ou coral #FF6B5A · agendar banho e tosa por porte do pet.
+- Academia: escuro · Anton ou Bebas Neue + Inter · lima #C6F432 ou laranja #FF5A1F · planos, "aula experimental" no WhatsApp.
+- Ótica: claro neutro · Outfit + Inter · laranja queimado #DB4D11 · "mande sua receita" no WhatsApp, marcas e armações.
+- Floricultura: creme · Cormorant Garamond + Lora · sálvia #607369 ou rosé #F2B8C6 · buquês, horário-limite de entrega.
+- Oficina: ardósia #1E2A33 / laranja #F26A1B / claro #F4F2EE · Barlow Condensed + Inter · orçamento (carro + problema).
+- Estética automotiva: escuro #0B0F12 + ciano #22D3EE · Saira Condensed + Inter · antes e depois, valor por porte do carro.
+- Lava jato: claro #F7F5EF / verde #1F3B2D / amarelo #FFC83D · Outfit + Inter · pacotes, "Agendar lavagem", como chegar.
+- Borracharia: preto #111111 / amarelo #FFD000 (+ vermelho #E11D2E no socorro) · Anton + Inter · "Aberto agora" e socorro com
+  localização no WhatsApp bem no topo.
+- Loja de roupas: off-white #FBF9F6 / rosa-terroso #926E6E / vermelho #C52838 · Cormorant Garamond + Figtree · lookbook, "Separar
+  para provar".
+
+12. REGRAS DE CONVERSÃO (todo site)
+- O botão diz a ação do ramo: "Agendar" (beleza, saúde, pet, academia), "Fazer pedido" (comida), "Pedir orçamento" (oficina e
+  serviços) ou "Chamar no WhatsApp" (o resto). Use o rótulo e a mensagem que vierem em "acao" nos dados.
+- Cada botão do WhatsApp com mensagem pronta: href="LINK_DO_WHATSAPP?text=" + texto codificado (encodeURIComponent). Na capa e no
+  fim a mensagem geral; em cada serviço, "Olá! Vi no site e quero … <nome do serviço>."
+- Horário perto do topo quando vier nos dados ("horario"); nunca invente horário. Escreva <span data-aberto></span> ao lado do botão
+  da capa: o app troca pelo selo "Aberto agora / Fechado" calculado na hora.
+- "Como chegar" com Google Maps; Waze e Uber quando vierem os links nos dados.
+- Nota e número de avaliações só se vierem nos dados (do Google). Nada de estrelas inventadas.
 `

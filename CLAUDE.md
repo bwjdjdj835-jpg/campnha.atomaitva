@@ -420,7 +420,26 @@ e "Leão Dourado" foi unificado como **Leão**.
   webhook, preço/condições/Pix/texto do modelo, ligar/desligar). `tigreExecutar` usa a API oficial quando `autoPronto()`.
   Selos novos `fechando` (🤝 Quer fechar) e `pagou` (💸 Disse que pagou). Passo a passo: `docs/tigre-automatico.md`.
   `RECUSA` ganhou "não aceito", "claro/acho que não"; `FECHAR` não pega "não aceito".
-- **🧪 `npm test`** (`testes/`): `tigre-respostas.mjs` (38 respostas de WhatsApp), `tigre-auto.mjs` (20 casos: webhook,
+- **Fase 1 da pesquisa de nichos no site do cliente** (pedido do usuário: "o Gato criando sites interativos top profissional"):
+  - **Botão por ramo** (`acaoDoNicho` no `ClienteSite`): Agendar (beleza, saúde, pet, academia) / Fazer pedido (comida) /
+    Orçamento (oficina e serviços) / Chamar no WhatsApp; **cada botão do WhatsApp com mensagem pronta** (`zap(texto)`:
+    capa/nav/fim/flutuante = mensagem geral, cada serviço = "quero agendar: <serviço>"). Antes tudo era "Agendar" e sem texto.
+  - **🕘 Horário do Google Maps**: `src/lib/horarios.js` (`lerHorarios` aceita Apify `openingHours` [{day,hours}], SerpApi
+    `operating_hours`, pt/en, "9 AM to 7 PM", "9h às 18h30", "Fechado", "24 horas"; texto estranho = sem informação, nunca
+    chuta; `textoDosHorarios` "Seg a Sex 09:00–19:00 · Sáb …"; `horariosSchema`; `fusoDoEndereco` pela UF). Apify/SerpApi →
+    lead `horarios` + `geo` → Leão `negocio.horarios`/`horarioTexto`/`fuso`/`geo` (`horarioDoNegocio`, também pelo
+    `/leao/lugar`). **🟢 Aberto agora** (`abertoAgora` no `ClienteSite`, calculado na hora da visita no fuso da cidade; faixa
+    depois da meia-noite; "à meia-noite"; "(24 horas)") na capa, nos números e no contato; no site feito pela imagem a IA põe
+    `<span data-aberto>` e `montarSiteProprio` passa `data-horarios`/`data-fuso` para `statusAberto` (`clienteEfeitos.js`, mesma
+    conta — o teste compara as duas em 2.016 horários). O pedido ao Gemini/Groq agora leva o horário (antes lia
+    `conteudo.horario`, que não existe) e a `acao` do ramo.
+  - **Como chegar**: Google Maps + **Waze** (ponto exato ou endereço) + **Uber** (só com o ponto exato).
+  - **JSON-LD** (`siteTemplate.js`): subtipo pelo ramo (`BarberShop`, `Restaurant`, `AutoRepair`…), telefone `+55`,
+    `openingHoursSpecification`, `geo` com 5 casas, `hasMap`; **sem `aggregateRating`** (o Google trata como autoavaliação).
+  - Manual do Gato: seções **11 Receitas por nicho** (19 nichos: paleta, fontes, peça-chave) e **12 Regras de conversão**.
+    Castor: `MATRIZ` com as cores da pesquisa (pizzaria tomate, açaí roxo, academia lima, borracharia amarelo, oficina laranja,
+    estética automotiva ciano, lava jato, ótica, floricultura, moda…; específicos antes dos gerais) e CTA do ramo.
+- **🧪 `npm test`** (`testes/`): `horarios.mjs`, `site-cliente.mjs` (Aberto agora + ação por ramo; transforma o JSX com o esbuild do Vite), `castor.mjs`, `tigre-respostas.mjs` (38 respostas de WhatsApp), `tigre-auto.mjs` (20 casos: webhook,
   assinatura, senha, preço, Pix, desconto, pagou, parar, dedupe, IA inventando valor) e `buscadores.mjs` (fila, 11 casos) —
   tudo com fetch falso, sem gastar crédito.
 - **📋 Lista para envio em massa** (pedido do usuário: mandar pelo Premium Sender; `src/components/ListaEnvioMassa.jsx`, no

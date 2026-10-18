@@ -158,6 +158,61 @@ export function fonteDoSite(dados) {
   return /^[\w -]{2,40}$/.test(fonte) ? fonte : 'Plus Jakarta Sans'
 }
 
+// O que o botão faz depende do comércio: agendar (beleza, saúde, pet), pedir (comida), orçamento (serviços) ou conversar.
+// A mensagem pronta do WhatsApp muda em cada botão — o dono sabe de onde veio o cliente.
+export function acaoDoNicho(categoria) {
+  const c = String(categoria || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  if (/pizz|lanch|hamburg|burger|restaurant|acai|sorvet|padar|confeit|doce|bolo|marmit|\bbar\b|boteco|cafe|delivery|adega|distribuid|mercad|hortifrut|acougue|pastel|espetinh|churras|sushi|japones|comida|floricult/.test(c)) {
+    return { botao: 'Fazer pedido', longo: 'Fazer pedido pelo WhatsApp', final: 'Peça já', item: 'Pedir', msg: 'Olá! Vi o site de vocês e quero fazer um pedido.', sobre: (n) => 'Olá! Vi no site e quero pedir: ' + n + '.' }
+  }
+  if (/oficin|mecanic|borrachar|funilar|auto ?eletr|vidrac|serralher|marcenar|grafic|construc|eletric|encanad|refrigerac|ar condicionado|assistencia|conserto|reform|pintur|lava ?jato|chaveir|instalac|dedetiz|limpeza|otica/.test(c)) {
+    return { botao: 'Orçamento', longo: 'Pedir orçamento pelo WhatsApp', final: 'Orçamento', item: 'Orçamento', msg: 'Olá! Vi o site de vocês e quero um orçamento.', sobre: (n) => 'Olá! Vi no site e quero um orçamento de ' + n + '.' }
+  }
+  if (/barbear|salao|cabel|manicur|unha|estetic|sobrancel|depil|cilios|maqui|clinic|dent|odonto|fisio|massag|psicolog|nutri|tatu|\bpet\b|pet ?shop|veterin|banho|tosa|academ|pilates|crossfit|spa\b|podolog|terapi|personal/.test(c)) {
+    return { botao: 'Agendar', longo: 'Agendar pelo WhatsApp', final: 'Agende', item: 'Agendar', msg: 'Olá! Vi o site de vocês e quero agendar um horário.', sobre: (n) => 'Olá! Vi no site e quero agendar: ' + n + '.' }
+  }
+  return { botao: 'WhatsApp', longo: 'Chamar no WhatsApp', final: 'Chame', item: 'Saiba mais', msg: 'Olá! Vi o site de vocês e quero mais informações.', sobre: (n) => 'Olá! Vi no site e quero saber mais sobre ' + n + '.' }
+}
+
+// 🟢 Aberto agora / 🔴 Fechado — calculado na hora da visita, no fuso da cidade do comércio, com o horário do Google Maps.
+// dias: { 0: [["09:00","19:00"]], ... } (0 = domingo; [] = fechado; dia sem informação = não mostra nada).
+const DIA_NOME = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
+const horaCurta = (h) => h.replace(/^0(?=\d)/, '').replace(':00', 'h').replace(':', 'h')
+// "às 19h" / "à meia-noite"
+const aHora = (h) => (h === '24:00' || h === '00:00' ? 'à meia-noite' : 'às ' + horaCurta(h))
+// Quando volta a abrir: "às 9h", "à meia-noite" ou "(24 horas)".
+const abre = (faixa) => (faixa[0] === '00:00' && faixa[1] === '24:00' ? '(24 horas)' : aHora(faixa[0]))
+export function abertoAgora(dias, fuso, agora = new Date()) {
+  if (!dias) return null
+  let partes
+  try {
+    partes = Object.fromEntries(
+      new Intl.DateTimeFormat('en-GB', { timeZone: fuso || 'America/Sao_Paulo', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
+        .formatToParts(agora)
+        .map((x) => [x.type, x.value]),
+    )
+  } catch {
+    return null
+  }
+  const hoje = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(partes.weekday)
+  const min = (h) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5))
+  const agoraMin = (Number(partes.hour) % 24) * 60 + Number(partes.minute)
+  if (!dias[hoje]) return null
+  const ontem = dias[(hoje + 6) % 7] || []
+  // Faixa que passa da meia-noite (ex.: 18:00–02:00) ainda vale na madrugada seguinte.
+  const deOntem = ontem.find(([a, f]) => min(f) < min(a) && agoraMin < min(f))
+  if (deOntem) return { aberto: true, texto: 'Aberto agora · fecha ' + aHora(deOntem[1]) }
+  const atual = dias[hoje].find(([a, f]) => agoraMin >= min(a) && (min(f) < min(a) || agoraMin < min(f)))
+  if (atual) return { aberto: true, texto: atual[1] === '24:00' && atual[0] === '00:00' ? 'Aberto 24 horas' : 'Aberto agora · fecha ' + aHora(atual[1]) }
+  const maisTarde = dias[hoje].find(([a]) => min(a) > agoraMin)
+  if (maisTarde) return { aberto: false, texto: 'Fechado agora · abre ' + abre(maisTarde) }
+  for (let i = 1; i <= 7; i++) {
+    const d = (hoje + i) % 7
+    if (dias[d]?.length) return { aberto: false, texto: 'Fechado agora · abre ' + (i === 1 ? 'amanhã' : DIA_NOME[d]) + ' ' + abre(dias[d][0]) }
+  }
+  return { aberto: false, texto: 'Fechado agora' }
+}
+
 export default function Site({ dados }) {
   const { negocio, imagens = [], conteudo = {} } = dados
   const nomeDe = (x) => (typeof x === 'string' ? x : (x && (x.nome || x.titulo)) || '')
@@ -170,6 +225,12 @@ export default function Site({ dados }) {
   // Efeitos interativos (src/efeitos.js): o Gato liga/desliga na prévia. Só põe os atributos quando ligado.
   const efeitos = dados.efeitos !== false
   const fx = (attrs) => (efeitos ? attrs : {})
+  // Botões do WhatsApp com a ação do ramo (agendar / pedir / orçamento) e mensagem pronta em cada um.
+  const acao = acaoDoNicho(negocio.categoria)
+  const zap = (texto) => (negocio.whatsapp ? negocio.whatsapp + (negocio.whatsapp.includes('?') ? '&' : '?') + 'text=' + encodeURIComponent(texto) : null)
+  // Horário: o texto que a Abelha achou (ou você editou) ou o do Google Maps; "Aberto agora" sai do horário do Maps.
+  const horarioTexto = conteudo.horarios || negocio.horarioTexto || ''
+  const status = abertoAgora(negocio.horarios, negocio.fuso)
   const heroParallax = dados.hero === 'parallax' // senão: foto com efeito de água
   const bento = dados.galeria === 'bento' // senão: grade uniforme
   const doModelo = dados.tema === 'modelo' && dados.modelo
@@ -207,6 +268,16 @@ export default function Site({ dados }) {
     'relative isolate py-16 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:content-[""] ' + t.alternada
   const linkMaps =
     negocio.maps || (negocio.endereco ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(negocio.nome + ', ' + negocio.endereco) : null)
+  // Waze pelo ponto exato (ou pelo endereço); Uber só com o ponto exato (o Google Maps manda a localização).
+  const geo = negocio.geo && negocio.geo.lat != null ? negocio.geo : null
+  const linkWaze = geo
+    ? 'https://waze.com/ul?ll=' + geo.lat + ',' + geo.lng + '&navigate=yes'
+    : negocio.endereco
+      ? 'https://waze.com/ul?q=' + encodeURIComponent(negocio.endereco) + '&navigate=yes'
+      : null
+  const linkUber = geo
+    ? 'https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=' + geo.lat + '&dropoff[longitude]=' + geo.lng + '&dropoff[nickname]=' + encodeURIComponent(negocio.nome)
+    : null
   const cartaoVidro = 'rounded-2xl border shadow-[0_10px_40px_-20px_rgba(0,0,0,0.5)] '
   const estrelas = (n) => '★★★★★'.slice(0, Math.max(0, Math.min(5, Math.round(n || 5))))
 
@@ -231,8 +302,8 @@ export default function Site({ dados }) {
           ))}
         </div>
         {negocio.whatsapp && (
-          <a href={negocio.whatsapp} {...fx({ 'data-magnetico': '' })} className={'micro ml-auto shrink-0 rounded-full px-4 py-2 text-sm font-semibold sm:ml-0 ' + t.botao}>
-            Agendar
+          <a href={zap(acao.msg)} {...fx({ 'data-magnetico': '' })} className={'micro ml-auto shrink-0 rounded-full px-4 py-2 text-sm font-semibold sm:ml-0 ' + t.botao}>
+            {acao.botao}
           </a>
         )}
       </nav>
@@ -272,9 +343,15 @@ export default function Site({ dados }) {
           {conteudo.slogan && <p className="anim-subir anim-atraso-2 mt-5 max-w-2xl text-xl text-white/90 sm:text-2xl">{conteudo.slogan}</p>}
           <div className="anim-subir anim-atraso-3 mt-8 flex flex-wrap items-center gap-3">
             {negocio.whatsapp && (
-              <a href={negocio.whatsapp} {...fx({ 'data-magnetico': '' })} className={'micro inline-flex items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-lg ' + t.botao}>
-                Agendar pelo WhatsApp →
+              <a href={zap(acao.msg)} {...fx({ 'data-magnetico': '' })} className={'micro inline-flex items-center gap-2 rounded-full px-8 py-4 text-lg font-semibold shadow-lg ' + t.botao}>
+                {acao.longo} →
               </a>
+            )}
+            {status && (
+              <span className={'inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-sm font-medium backdrop-blur ' + (status.aberto ? 'text-emerald-300' : 'text-white/85')}>
+                <span className={'h-2 w-2 rounded-full ' + (status.aberto ? 'bg-emerald-400' : 'bg-rose-400')} aria-hidden="true" />
+                {status.texto}
+              </span>
             )}
             {(nota || cidade) && (
               <span className="text-sm text-white/85">
@@ -307,7 +384,7 @@ export default function Site({ dados }) {
       )}
 
       {/* Números com contador animado (só dados reais) */}
-      {(nota || avaliacoes > 0 || cidade || conteudo.horarios) && (
+      {(nota || avaliacoes > 0 || cidade || horarioTexto) && (
         <section {...fx({ 'data-revelar': '' })} className="mx-auto grid max-w-6xl gap-px overflow-hidden px-6 pt-20 sm:grid-cols-2 lg:grid-cols-4">
           {nota && (
             <div {...fx({ 'data-cascata': '' })} className="py-6">
@@ -333,16 +410,16 @@ export default function Site({ dados }) {
               <p className={'mt-2 text-sm ' + t.texto}>onde estamos</p>
             </div>
           )}
-          {conteudo.horarios ? (
+          {horarioTexto ? (
             <div {...fx({ 'data-cascata': '' })} className="py-6">
-              <p className="text-2xl font-bold leading-tight sm:text-3xl">{conteudo.horarios}</p>
-              <p className={'mt-2 text-sm ' + t.texto}>horário</p>
+              <p className="text-xl font-bold leading-snug sm:text-2xl">{horarioTexto}</p>
+              <p className={'mt-2 text-sm ' + t.texto}>horário{status ? ' · ' + status.texto.split(' · ')[0].toLowerCase() : ''}</p>
             </div>
           ) : (
             negocio.whatsapp && (
               <div {...fx({ 'data-cascata': '' })} className="py-6">
                 <p className="text-2xl font-bold leading-tight sm:text-3xl">WhatsApp</p>
-                <p className={'mt-2 text-sm ' + t.texto}>atendimento e agendamento</p>
+                <p className={'mt-2 text-sm ' + t.texto}>{acao.botao === 'Agendar' ? 'atendimento e agendamento' : acao.botao === 'Fazer pedido' ? 'pedidos e atendimento' : 'atendimento'}</p>
               </div>
             )
           )}
@@ -390,7 +467,7 @@ export default function Site({ dados }) {
               {servicos.map((x, i) => (
                 <li key={nomeDe(x)} {...fx({ 'data-cascata': '', 'data-brilho': '' })}>
                   <a
-                    href={negocio.whatsapp || '#contato'}
+                    href={zap(acao.sobre(nomeDe(x))) || '#contato'}
                     target={negocio.whatsapp ? '_blank' : '_self'}
                     className={'group flex h-full flex-col p-6 transition duration-300 hover:-translate-y-1 ' + cartaoVidro + t.cartao}
                   >
@@ -398,7 +475,7 @@ export default function Site({ dados }) {
                     <span className="mt-4 text-2xl font-semibold tracking-tight">{nomeDe(x)}</span>
                     {typeof x === 'object' && x.descricao && <span className={'mt-2 text-sm leading-relaxed ' + t.texto}>{x.descricao}</span>}
                     <span className="mt-auto flex items-center justify-between pt-6 text-sm font-semibold">
-                      {typeof x === 'object' && x.preco ? <span>{x.preco}</span> : <span className={t.texto}>{negocio.whatsapp ? 'Agendar' : 'Saiba mais'}</span>}
+                      {typeof x === 'object' && x.preco ? <span>{x.preco}</span> : <span className={t.texto}>{negocio.whatsapp ? acao.item : 'Saiba mais'}</span>}
                       <span className={'transition duration-300 group-hover:translate-x-1 ' + t.acento}>→</span>
                     </span>
                   </a>
@@ -576,8 +653,8 @@ export default function Site({ dados }) {
         <div className="mx-auto max-w-6xl px-6 py-24">
           <p className={rotulo}>Contato</p>
           {negocio.whatsapp ? (
-            <a href={negocio.whatsapp} className="group mt-6 inline-flex items-baseline gap-4 text-7xl font-extrabold tracking-tight sm:text-9xl">
-              Agende
+            <a href={zap(acao.msg)} className="group mt-6 inline-flex items-baseline gap-4 text-7xl font-extrabold tracking-tight sm:text-9xl">
+              {acao.final}
               <span className={'transition duration-300 group-hover:translate-x-4 ' + t.acento}>→</span>
             </a>
           ) : (
@@ -586,7 +663,12 @@ export default function Site({ dados }) {
           <div className="mt-14 grid gap-10 lg:grid-cols-2">
             <ul className={'space-y-4 text-lg ' + t.texto}>
               {negocio.endereco && <li>{negocio.endereco}</li>}
-              {conteudo.horarios && <li>Horário: {conteudo.horarios}</li>}
+              {horarioTexto && (
+                <li>
+                  Horário: {horarioTexto}
+                  {status && <span className={'ml-2 text-sm font-semibold ' + t.acento}>({status.texto.split(' · ')[0].toLowerCase()})</span>}
+                </li>
+              )}
               {telefone && (
                 <li>
                   <a href={'tel:+55' + telefone.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '')} target="_self" className="underline-offset-4 hover:underline">
@@ -603,6 +685,16 @@ export default function Site({ dados }) {
                 {linkMaps && (
                   <a className={'micro inline-flex items-center gap-2 rounded-full px-6 py-3 text-base font-semibold ' + t.botao} href={linkMaps}>
                     📍 Como chegar (Google Maps)
+                  </a>
+                )}
+                {linkWaze && (
+                  <a className={'micro inline-flex items-center gap-2 rounded-full border px-5 py-3 text-base font-semibold ' + t.cartao} href={linkWaze}>
+                    🚗 Waze
+                  </a>
+                )}
+                {linkUber && (
+                  <a className={'micro inline-flex items-center gap-2 rounded-full border px-5 py-3 text-base font-semibold ' + t.cartao} href={linkUber}>
+                    🚕 Uber
                   </a>
                 )}
               </li>
@@ -625,8 +717,8 @@ export default function Site({ dados }) {
 
       {negocio.whatsapp && (
         <a
-          href={negocio.whatsapp}
-          aria-label="WhatsApp"
+          href={zap(acao.msg)}
+          aria-label="Chamar no WhatsApp"
           className="anim-pulso fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-green-500 text-white shadow-xl transition hover:scale-110"
         >
           <svg viewBox="0 0 24 24" className="h-7 w-7 fill-current" aria-hidden="true">

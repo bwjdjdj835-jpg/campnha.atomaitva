@@ -224,3 +224,8 @@ img[data-esqueleto].esqueleto-pronto {
   [data-esqueleto] { animation: none; }
   .micro, .micro:hover, .micro:active { transform: none; }
 }
+
+/* Selo "Aberto agora / Fechado" (site feito pela imagem): bolinha verde ou vermelha antes do texto. */
+.selo-aberto { display: inline-flex; align-items: center; gap: 0.5em; }
+.selo-aberto::before { content: ''; width: 0.55em; height: 0.55em; border-radius: 999px; background: #f43f5e; }
+.selo-aberto-sim::before { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); }
