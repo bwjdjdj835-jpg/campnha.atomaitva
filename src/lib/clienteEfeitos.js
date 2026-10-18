@@ -141,17 +141,21 @@ export function iniciarEfeitos(raiz, tentativas) {
   // Números contando quando aparecem na tela.
   const numeros = raiz.querySelectorAll('[data-contar]')
   if (numeros.length && 'IntersectionObserver' in window) {
+    // O valor real fica escrito até a hora de contar (miniatura, print ou aba parada nunca mostram "0,0"),
+    // e no fim volta sempre ao texto original.
     const contar = (el) => {
+      const original = el.textContent
       const alvo = parseFloat(el.getAttribute('data-contar')) || 0
       const casas = parseInt(el.getAttribute('data-casas') || '0', 10)
       const inicio = performance.now()
       const passo = (agora) => {
         const p = Math.min(1, (agora - inicio) / 1600)
         const v = alvo * (1 - Math.pow(1 - p, 3))
-        el.textContent = v.toFixed(casas).replace('.', ',')
+        el.textContent = p < 1 ? v.toFixed(casas).replace('.', ',') : original
         if (p < 1) requestAnimationFrame(passo)
       }
       requestAnimationFrame(passo)
+      setTimeout(() => (el.textContent = original), 2000)
     }
     const obs = new IntersectionObserver((entradas) => {
       entradas.forEach((e) => {
@@ -160,10 +164,7 @@ export function iniciarEfeitos(raiz, tentativas) {
         contar(e.target)
       })
     }, { threshold: 0.6 })
-    numeros.forEach((el) => {
-      el.textContent = (0).toFixed(parseInt(el.getAttribute('data-casas') || '0', 10)).replace('.', ',')
-      obs.observe(el)
-    })
+    numeros.forEach((el) => obs.observe(el))
   }
 
   // Carrossel de depoimentos: passa sozinho a cada 5 s (para quando o cursor está em cima).

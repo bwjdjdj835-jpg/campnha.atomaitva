@@ -221,7 +221,7 @@ export default function LeadsTable({ leads }) {
           return (
             <li key={l.id} className="border-t border-white/5 first:border-t-0 px-5 py-4 space-y-3">
               <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[10rem] flex-1">
                   <div className="text-white font-medium flex flex-wrap items-center gap-2">
                     {l.nome}
                     {l.demo && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-300">DEMO</span>}
