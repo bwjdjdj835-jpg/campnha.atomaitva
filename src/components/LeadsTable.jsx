@@ -88,7 +88,7 @@ const SELO = {
   pendente: { texto: 'Na fila para conferir', cor: 'bg-white/5 text-slate-400' },
   conferindo: { texto: 'Conferindo…', cor: 'bg-sky-400/10 text-sky-300' },
   erro: { texto: 'Não deu para conferir', cor: 'bg-white/5 text-slate-400' },
-  sem_firecrawl: { texto: 'Sem site no Maps (não conferido)', cor: 'bg-white/5 text-slate-400', dica: 'Configure o Firecrawl para conferir domínio e telefone' },
+  sem_firecrawl: { texto: 'Sem site no Maps (não conferido)', cor: 'bg-white/5 text-slate-400', dica: 'Configure um buscador (Firecrawl, Tavily, Exa, Serper ou Brave) para conferir domínio e telefone' },
 }
 
 function Selo({ c }) {

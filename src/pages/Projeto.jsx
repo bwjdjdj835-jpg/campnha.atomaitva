@@ -7,6 +7,10 @@ const groups = [
     items: [
       { name: 'Google Places API (New)', url: 'https://developers.google.com/maps/documentation/places/web-service/text-search', uso: 'Pinguim — busca de negócios' },
       { name: 'Firecrawl', url: 'https://www.firecrawl.dev', uso: 'Pinguim, Gato, Abelha — busca e scraping' },
+      { name: 'Tavily', url: 'https://app.tavily.com', uso: 'Pinguim — reserva de busca (1.000/mês grátis, sem cartão)' },
+      { name: 'Exa', url: 'https://dashboard.exa.ai', uso: 'Pinguim — reserva de busca (US$ 10/mês grátis, sem cartão)' },
+      { name: 'Serper', url: 'https://serper.dev', uso: 'Pinguim — reserva de busca no Google (2.500 grátis, uma vez)' },
+      { name: 'Brave Search', url: 'https://api-dashboard.search.brave.com', uso: 'Pinguim — reserva de busca (US$ 5/mês, pede cartão)' },
     ],
   },
   {

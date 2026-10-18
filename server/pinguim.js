@@ -11,12 +11,12 @@ import { buscarMapsFirecrawl } from './maps.js'
 import { buscarSerpApi } from './serpapi.js'
 import { buscarApify } from './apify.js'
 import { buscarMapsPagina } from './mapsPagina.js'
+import { buscarNaWeb, temBuscaExtra } from './buscaWeb.js'
 import { creditosFirecrawl, semCredito, erroDeCredito, avisoSemCredito } from './firecrawlCreditos.js'
 
 const MAX_VERIFICAR = 25 // leads mostrados por busca
 
 const PLACES_URL = 'https://places.googleapis.com/v1/places:searchText'
-const FIRECRAWL_URL = 'https://api.firecrawl.dev/v2/search'
 
 const FIELD_MASK = [
   'places.id',
@@ -74,23 +74,6 @@ async function placesSearch(textQuery) {
   return data.places || []
 }
 
-async function firecrawlSearch(query) {
-  const res = await fetch(FIRECRAWL_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
-    },
-    body: JSON.stringify({ query, limit: 8, country: 'BR' }),
-  })
-  const data = await res.json().catch(() => ({}))
-  if (res.status === 429) {
-    throw new Error('limite de pedidos por minuto do plano do Firecrawl atingido (libera em 1 minuto)')
-  }
-  if (!res.ok) throw new Error(`Firecrawl: ${data.error || res.statusText}`)
-  return data.data?.web || []
-}
-
 const digitos = (t) => String(t || '').replace(/\D/g, '')
 
 // Telefone no formato que aparece nos sites: "(69) 99282-0330".
@@ -137,14 +120,21 @@ export async function conferirSite({ nome, cidade, telefone }) {
     }
   }
 
+  // Fila de buscadores (Firecrawl → Tavily → Exa → Serper → Brave): sem crédito em um, o próximo confere.
+  const fontes = new Set()
+  const buscar = async (q) => {
+    const { resultados, fonte } = await buscarNaWeb(q)
+    fontes.add(fonte)
+    return resultados
+  }
   pedidos++
-  olhar(await firecrawlSearch(`"${nome}" ${cidade || ''}`.trim()), 'nome')
+  olhar(await buscar(`"${nome}" ${cidade || ''}`.trim()), 'nome')
   if (!site && fone) {
     pedidos++
-    olhar(await firecrawlSearch(`"${fone}"`), 'telefone')
+    olhar(await buscar(`"${fone}"`), 'telefone')
   }
   const veredito = site ? 'tem' : evidencias.length ? 'provavel' : 'nao'
-  return { veredito, site: site || evidencias[0]?.url || null, instagram, evidencias: evidencias.slice(0, 3), pedidos }
+  return { veredito, site: site || evidencias[0]?.url || null, instagram, evidencias: evidencias.slice(0, 3), pedidos, fonte: [...fontes].join(' + ') }
 }
 
 // Google Places → formato comum de candidato.
@@ -275,7 +265,8 @@ export async function buscarNegocios({ categoria, cidade }) {
   log('info', `${comSite.length} já têm site no ${fonte} — ${semSite.length} sem site cadastrado`)
 
   // 3. A conferência no Firecrawl (domínio e telefone em outros sites) roda depois, na lista de leads.
-  const comFirecrawl = firecrawlOk
+  // Dá para conferir com o Firecrawl ou com outro buscador (Tavily, Exa, Serper, Brave).
+  const comFirecrawl = firecrawlOk || temBuscaExtra()
   if (!process.env.FIRECRAWL_API_KEY) log('warn', 'FIRECRAWL_API_KEY ausente — não dá para conferir se têm site em outro lugar; confiança fica "Médio"')
   else if (semSite.length) log('info', 'Agora o Firecrawl confere cada um (domínio e telefone em outros sites) — acompanhe na lista abaixo')
 

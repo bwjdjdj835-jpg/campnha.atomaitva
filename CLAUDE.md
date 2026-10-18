@@ -46,6 +46,14 @@ e "Leão Dourado" foi unificado como **Leão**.
     (`amenity=fast_food` estruturado + `q=[tipo]` com `viewbox` da cidade e `bounded=1`) — nunca o nome do nicho na query). Depois (`server/pinguim.js`): site do Maps que é
     Instagram/WhatsApp/agregador não conta como site; quem tem site no Maps (ou é outra unidade com o mesmo telefone)
     volta em `comSite` (lista "Já têm site"); os outros voltam como leads com `conferencia: { status: 'pendente' }`.
+  - **🔎 Fila de buscadores** (`server/buscaWeb.js`, `buscarNaWeb`, pedido do usuário: "quando acabar o crédito, usa outra
+    API de busca grátis"): Firecrawl → **Tavily** (`TAVILY_API_KEY`, apelido por valor `tvly-`, 1.000/mês sem cartão) →
+    **Exa** (`EXA_API_KEY`, US$ 10/mês) → **Serper** (`SERPER_API_KEY`, 2.500 uma vez, Google) → **Brave** (`BRAVE_API_KEY`,
+    pede cartão). Só entra quem tem chave; erro passa para o próximo; sem crédito (402/432/"credit") fica fora 1 h. Todos
+    falharam → lança o 1º erro (mantém `LIMITE`/`SEM_CREDITO`). `keys.buscadores`, `temBuscaExtra()` (com eles os leads
+    saem `pendente` mesmo sem crédito no Firecrawl), `textoBuscadores` (`src/lib/buscadores.js`) no Pinguim e no Automático.
+    Skill do projeto `.claude/skills/buscadores-gratis/` (pesquisar planos grátis, ligar um buscador novo, teste com fetch
+    falso `teste-fila.mjs`).
   - `POST /api/pinguim/conferir` (`conferirSite`) — um negócio por vez: busca `"nome" cidade` (domínio com o nome =
     `tem`) e, se nada, `"(DD) NNNNN-NNNN"` (outro site não-diretório com o telefone = `provavel`); senão `nao`. Devolve
     evidências (links) e quantos pedidos usou. O `LeadsTable` roda a fila sozinho com no máx. 8 pedidos/min (plano

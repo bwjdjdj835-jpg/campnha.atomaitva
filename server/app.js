@@ -19,6 +19,7 @@ import { imagemDoCastor, temImagem } from './castorImagem.js'
 import { siteDaImagem, temSiteDaImagem } from './siteDaImagem.js'
 import { lerLink, licoesDe, licoesSeguras } from './biblioteca.js'
 import { temNuvem, codigoValido, lerDados, gravarDados } from './nuvem.js'
+import { buscadores, temBusca } from './buscaWeb.js'
 import { conectarZap, statusZap, enviarZap, lerConversaZap } from './zapWeb.js'
 import { gerarMensagem, classificarResposta, enviarWhatsApp, enviarVideoZapi, publicarVercel, provedorWhatsApp } from './tigre.js'
 
@@ -38,6 +39,11 @@ apelido('AGUIA_EMAIL', /^(?!.*(git|vercel|npm|author|committer|claude)).*(mail|a
 apelido('APIFY_TOKEN', /ap[iy]f[iy]/i, /^apify_api_/) // "apify", "apyfi"…
 apelido('SERPAPI_KEY', /serp/i, /^[0-9a-f]{64}$/)
 apelido('BLOB_READ_WRITE_TOKEN', /blob/i, /^vercel_blob_rw_/)
+// 🔎 Buscadores extras da fila do Pinguim (sem crédito no Firecrawl, o próximo confere).
+apelido('TAVILY_API_KEY', /./, /^tvly-[\w-]{10,}$/) // qualquer nome: a chave do Tavily começa com tvly-
+apelido('EXA_API_KEY', /exa/i, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+apelido('SERPER_API_KEY', /serper/i, /^[0-9a-f]{40}$/)
+apelido('BRAVE_API_KEY', /brave/i, /^BSA[\w-]{10,}$/)
 
 // Corpo do pedido sempre como objeto: JSON quebrado, `null`, lista ou texto viram {} (antes `null` derrubava a rota com 500).
 async function corpoDe(c) {
@@ -52,6 +58,7 @@ const keys = () => ({
   serpapi: Boolean(process.env.SERPAPI_KEY),
   apify: Boolean(process.env.APIFY_TOKEN),
   firecrawl: Boolean(process.env.FIRECRAWL_API_KEY),
+  buscadores: buscadores(), // fila de busca na web: firecrawl, tavily, exa, serper, brave
   claude: Boolean(process.env.ANTHROPIC_API_KEY),
   groq: Boolean(process.env.GROQ_API_KEY),
   whatsapp: Boolean(provedorWhatsApp()),
@@ -86,12 +93,12 @@ app.post('/pinguim/conferir', async (c) => {
   const { nome: nomeBruto, cidade, telefone } = await corpoDe(c)
   const nome = typeof nomeBruto === 'string' ? nomeBruto : ''
   if (!nome.trim()) return c.json({ error: 'Faltou o nome do negócio.' }, 400)
-  if (!keys().firecrawl) return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
+  if (!temBusca()) return c.json({ error: 'Nenhum buscador configurado (Firecrawl, Tavily, Exa, Serper ou Brave).', code: 'NO_KEY' }, 503)
   try {
     return c.json(await conferirSite({ nome: nome.trim(), cidade, telefone }))
   } catch (e) {
     if (/limite de pedidos/.test(e.message)) return c.json({ error: e.message, code: 'LIMITE' }, 429)
-    if (erroDeCredito(e.message)) return c.json({ error: 'Acabaram os créditos do Firecrawl.', code: 'SEM_CREDITO' }, 402)
+    if (erroDeCredito(e.message)) return c.json({ error: 'Acabaram os créditos de todos os buscadores configurados.', code: 'SEM_CREDITO' }, 402)
     throw e
   }
 })

@@ -33,5 +33,5 @@ export const erroDeCredito = (msg) => /402|payment required|insufficient credits
 
 export function avisoSemCredito(c) {
   const data = c?.renovaEm ? new Date(c.renovaEm).toLocaleDateString('pt-BR', { timeZone: 'America/Porto_Velho' }) : null
-  return `Acabaram os créditos do Firecrawl${data ? ` (renova em ${data})` : ''} — sem eles o Pinguim não lê o Google Maps nem confere os sites. Coloque a SERPAPI_KEY (grátis, 250 buscas/mês) no Vercel ou recarregue o Firecrawl.`
+  return `Acabaram os créditos do Firecrawl${data ? ` (renova em ${data})` : ''} — o Pinguim confere os sites pelos outros buscadores (Tavily, Exa, Serper, Brave) se tiver a chave de algum. Grátis: TAVILY_API_KEY (1.000 buscas/mês) e SERPAPI_KEY (Maps, 250/mês) no Vercel.`
 }

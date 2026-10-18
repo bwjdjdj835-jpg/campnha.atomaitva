@@ -9,6 +9,7 @@ import { gravarVideoPrevia } from '../services/agents.js'
 import { gravarNaNuvem } from '../services/videoNuvem.js'
 import { enviarRelatorioAguia } from '../lib/aguia.js'
 import { pedirGravacaoDaAba, gravarComFluxo, SANDBOX_PREVIA } from '../lib/previa.jsx'
+import { textoBuscadores } from '../lib/buscadores.js'
 
 const CHAVE = 'central-agentes:automatico'
 export const lerOpcoes = () => {
@@ -299,7 +300,7 @@ export default function Automatico() {
             {keys === null
               ? 'Backend não encontrado — o automático precisa do servidor.'
               : keys
-                ? `Fonte: ${keys.apify ? 'Apify' : keys.serpapi ? 'SerpApi' : keys.firecrawl ? 'Google Maps via Firecrawl' : keys.googlePlaces ? 'Google Places' : 'OpenStreetMap'} · Firecrawl ${textoCreditos(keys)} · IA ${keys.groq ? 'Groq ✓' : keys.claude ? 'Claude ✓' : '✗ (textos prontos)'} · vídeo ${keys.videoServidor ? 'pelo servidor' : 'pelo navegador'}`
+                ? `Fonte: ${keys.apify ? 'Apify' : keys.serpapi ? 'SerpApi' : keys.firecrawl ? 'Google Maps via Firecrawl' : keys.googlePlaces ? 'Google Places' : 'OpenStreetMap'} · ${textoBuscadores(keys)} · IA ${keys.groq ? 'Groq ✓' : keys.claude ? 'Claude ✓' : '✗ (textos prontos)'} · vídeo ${keys.videoServidor ? 'pelo servidor' : 'pelo navegador'}`
                 : 'Verificando backend…'}
           </p>
         </section>
@@ -362,13 +363,6 @@ export default function Automatico() {
       )}
     </div>
   )
-}
-
-// Firecrawl ✓ (N créditos) — sem crédito o Pinguim não lê o Google Maps nem confere os sites.
-function textoCreditos(keys) {
-  if (!keys.firecrawl) return '✗'
-  if (!keys.creditos) return '✓'
-  return keys.creditos.restantes > 0 ? `✓ (${keys.creditos.restantes} créditos)` : '❌ SEM CRÉDITOS'
 }
 
 function useStatus() {
