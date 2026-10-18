@@ -418,6 +418,13 @@ e "Leão Dourado" foi unificado como **Leão**.
   `.loop/estado.json` (crédito acabou = pausa e retoma dali), troca de fonte de busca (Apify → SerpApi → Firecrawl → OSM)
   e relatório final em `.loop/RELATORIO.md`. Nunca manda mensagem para cliente, nunca faz merge, nunca cria conta.
 
+- **Loop de melhorar o app** (pedido do usuário): ciclos de teste com Playwright em 390 px e 1280 px em todas as telas
+  (vazio e com uma rodada do automático simulada). Ciclo 1: texto espremido no celular quando um bloco `flex-1 min-w-0`
+  divide a linha com botão/selo num `flex-wrap` (Aranha, Pinguim, Fotos do site, Arquivo do Tigre, Castor) → largura mínima
+  (`min-w-[10rem]`–`[14rem]`) para o botão descer de linha; `listarPastas` sempre devolve lista (antes, resposta estranha
+  derrubava a página do Gato); "Mente da Aranha/Abelha/Águia"; envio em massa tira a cidade do endereço (`cidadeDe`) em vez
+  de "aqui em na cidade".
+
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.
 2. ~~Leão~~ — feito, com fotos hospedadas no Vercel Blob (pasta online).

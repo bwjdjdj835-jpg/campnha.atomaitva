@@ -89,7 +89,7 @@ export default function FotosDoSite({ preview, onMudar }) {
   return (
     <div className="space-y-3 border-b border-white/5 px-5 py-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[12rem] flex-1">
           <div className="font-display font-semibold text-white">📸 Fotos e peças do site ({preview.fotos.length} fotos)</div>
           <p className="text-xs text-slate-400">
             {preview.fotos.length < 4

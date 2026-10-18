@@ -17,7 +17,7 @@ export default function MenteAgente({ agente }) {
     <section className="glass overflow-hidden">
       <button className="flex w-full items-center gap-3 px-5 py-3 text-left" onClick={() => setAberta(!aberta)}>
         <Brain size={18} className="text-neon" />
-        <span className="font-display font-semibold text-white">Mente do {p.nome}</span>
+        <span className="font-display font-semibold text-white">Mente {['Abelha Central', 'Aranha Administradora', 'Águia'].includes(p.nome) ? 'da' : 'do'} {p.nome}</span>
         <span className="min-w-0 flex-1 truncate text-xs text-slate-400">{ideias[0]}</span>
         <ChevronDown size={16} className={`text-slate-400 transition ${aberta ? 'rotate-180' : ''}`} />
       </button>

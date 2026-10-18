@@ -87,7 +87,7 @@ export default function Admin() {
       <section className="glass circuit-bg p-6 sm:p-8">
         <div className="flex flex-wrap items-center gap-4">
           <span className="text-5xl leading-none" aria-hidden="true">🕷️</span>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-[14rem]">
             <div className="text-xs font-mono tracking-[0.3em] text-neon">🕷️ ARANHA ADMINISTRADORA · ÚLTIMO AGENTE</div>
             <h1 className="mt-1 font-display text-2xl sm:text-3xl font-bold text-white">Confirme o que os agentes fizeram</h1>
             <p className="mt-1 text-sm text-slate-400">
@@ -155,7 +155,7 @@ export default function Admin() {
           )}
           {preparando === 0 && paraAprovar.length === 0 && semVideo.length === 0 && proximo && (
             <div className="glass flex flex-wrap items-center gap-4 border-neon/30 p-5">
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-[14rem]">
                 <div className="font-display text-lg font-semibold text-white">Tudo aprovado! ✅</div>
                 <p className="text-sm text-slate-400">{nichoEmAndamento(proximo) ? 'Ainda tem comércios sem site em' : 'Próximo nicho da lista:'} <strong className="text-white">{proximo}</strong>. O Chrome vai pedir para compartilhar esta aba (para gravar os vídeos).</p>
               </div>

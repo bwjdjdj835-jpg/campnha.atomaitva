@@ -31,7 +31,11 @@ const numero = (l) => {
   const d = String(l.whatsapp || l.telefone || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '')
   return d.length === 10 || d.length === 11 ? `55${d}` : null
 }
-const cidadeDe = (l) => String(l.cidade || '').split(/\s*[-,/]\s*/)[0] || 'na cidade'
+// Sem cidade no lead, tira do endereço ("…, Cacoal - RO, 76960-000"); senão "sua cidade" (o modelo diz "aqui em {cidade}").
+const cidadeDe = (l) =>
+  String(l.cidade || '').split(/\s*[-,/]\s*/)[0] ||
+  String(l.endereco || '').match(/(?:^|,)\s*([^,\d][^,]*?)\s*-\s*[A-Z]{2}\b/)?.[1] ||
+  'sua cidade'
 const csv = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
 export default function ListaEnvioMassa() {

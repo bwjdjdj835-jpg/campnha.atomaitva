@@ -135,7 +135,7 @@ export default function TigreArquivo() {
               const base = s.nome.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')
               return (
                 <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-[12rem] flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-white">{s.nome}</span>
                       <span className={`rounded-full px-2 py-0.5 text-xs ${selo.cor}`}>{selo.texto}</span>

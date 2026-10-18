@@ -132,7 +132,7 @@ export default function CastorModelos({ dados, fotosUrl, modelo, conteudo, escol
       </div>
       {abertos && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/5 px-3 py-2 text-xs text-slate-300">
-          <span className="min-w-0 flex-1">
+          <span className="min-w-[12rem] flex-1">
             📤 <strong className="text-white">Fez imagens de site no Gemini?</strong> Mande aqui: o Castor lê cada uma, dá nota, escolhe a melhor e o
             Gato aplica as cores, a fonte e o estilo dela no site real.
           </span>

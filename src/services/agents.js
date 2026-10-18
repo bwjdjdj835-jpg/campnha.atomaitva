@@ -421,7 +421,8 @@ export function conferirSite(lead) {
 export async function listarPastas() {
   try {
     const r = await fetch('/api/leao/pastas')
-    return r.ok ? (await r.json()).pastas : []
+    const pastas = r.ok ? (await r.json()).pastas : []
+    return Array.isArray(pastas) ? pastas : []
   } catch {
     return []
   }
