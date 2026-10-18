@@ -11,8 +11,9 @@
 //   [data-carrossel] depoimentos que passam sozinhos (botões [data-carrossel-ant] / [data-carrossel-prox])
 //   [data-antes-depois] comparação Antes e Depois: arraste a linha (mouse, dedo ou teclado ← →)
 //   [data-esqueleto] foto com brilho de "carregando" até chegar; depois aparece suave
+//   [data-assistente] pedido / horário / orçamento montado na página → WhatsApp com a mensagem pronta ([data-socorro]: localização)
 //   [data-aberto]   selo "Aberto agora / Fechado" (data-horarios do Google Maps + data-fuso), na hora da visita
-// Antes e Depois, esqueletos e o selo de aberto funcionam sempre (são parte do site, não enfeite).
+// Antes e Depois, esqueletos, o assistente e o selo de aberto funcionam sempre (são parte do site, não enfeite).
 // Respeita "reduzir movimento".
 
 export function iniciarEfeitos(raiz, tentativas) {
@@ -20,7 +21,7 @@ export function iniciarEfeitos(raiz, tentativas) {
   tentativas = tentativas === undefined ? 30 : tentativas
   if (typeof window === 'undefined') return
   const alvos = raiz.querySelectorAll(
-    '[data-revelar],[data-brilho],[data-magnetico],[data-parallax],[data-parallax-hero],[data-progresso],[data-contar],[data-carrossel],[data-antes-depois],[data-esqueleto],[data-aberto]',
+    '[data-revelar],[data-brilho],[data-magnetico],[data-parallax],[data-parallax-hero],[data-progresso],[data-contar],[data-carrossel],[data-antes-depois],[data-esqueleto],[data-aberto],[data-assistente]',
   )
   // No site em React a página pode ainda não estar na tela: tenta de novo por alguns instantes.
   if (!alvos.length && tentativas > 0) {
@@ -54,6 +55,45 @@ export function iniciarEfeitos(raiz, tentativas) {
     )
     revelar.forEach((el) => observador.observe(el))
   }
+  // Assistente do ramo: o que o cliente escolhe vira a mensagem do WhatsApp (sem preço nem horário inventado).
+  raiz.querySelectorAll('[data-assistente]').forEach((sec) => {
+    const tipo = sec.getAttribute('data-assistente')
+    const base = sec.getAttribute('data-whats') || ''
+    const enviar = sec.querySelector('[data-enviar]')
+    const link = (texto) => base + (base.indexOf('?') >= 0 ? '&' : '?') + 'text=' + encodeURIComponent(texto)
+    const escolhidos = (g) =>
+      Array.prototype.map.call(sec.querySelectorAll('[data-opcao][data-grupo="' + g + '"][aria-pressed="true"]'), (b) => b.getAttribute('data-valor'))
+    const campo = (n) => {
+      const c = sec.querySelector('[data-campo="' + n + '"]')
+      return c ? c.value.trim().slice(0, 400) : ''
+    }
+    const atualizar = () => {
+      if (enviar) enviar.href = link(mensagemDoAssistente(tipo, sec, escolhidos, campo))
+    }
+    sec.addEventListener('click', (e) => {
+      const op = e.target.closest('[data-opcao]')
+      if (op) {
+        const ligado = op.getAttribute('aria-pressed') === 'true'
+        if (op.parentElement.hasAttribute('data-unico')) op.parentElement.querySelectorAll('[data-opcao]').forEach((b) => b.setAttribute('aria-pressed', 'false'))
+        op.setAttribute('aria-pressed', ligado ? 'false' : 'true')
+        atualizar()
+      }
+      const conta = e.target.closest('[data-mais],[data-menos]')
+      if (conta) {
+        const item = conta.closest('[data-item]')
+        const q = item.querySelector('[data-qtd]')
+        const n = Math.max(0, Math.min(20, (Number(q.textContent) || 0) + (conta.hasAttribute('data-mais') ? 1 : -1)))
+        q.textContent = String(n)
+        item.classList.toggle('item-escolhido', n > 0)
+        atualizar()
+      }
+      const socorro = e.target.closest('[data-socorro]')
+      if (socorro) pedirSocorro(socorro, link)
+    })
+    sec.addEventListener('input', atualizar)
+    atualizar()
+  })
+
   // Selo "Aberto agora / Fechado" (site feito pela imagem; o ClienteSite calcula o dele na hora de desenhar).
   raiz.querySelectorAll('[data-aberto][data-horarios]').forEach((el) => {
     let dias
@@ -274,4 +314,54 @@ export function statusAberto(dias, fuso, agora) {
     if (dias[d] && dias[d].length) return { aberto: false, texto: 'Fechado agora · abre ' + (i === 1 ? 'amanhã' : DIA_NOME[d]) + ' ' + abre(dias[d][0]) }
   }
   return { aberto: false, texto: 'Fechado agora' }
+}
+
+// Mensagem do assistente do ramo (pedido / agendar / orçamento) com o que a pessoa escolheu.
+const PERIODO = { Manhã: 'de manhã', Tarde: 'à tarde', Noite: 'à noite' }
+export function mensagemDoAssistente(tipo, sec, escolhidos, campo) {
+  const linhas = []
+  if (tipo === 'pedido') {
+    const itens = Array.prototype.map
+      .call(sec.querySelectorAll('[data-item]'), (i) => [i.getAttribute('data-item'), Number(i.querySelector('[data-qtd]').textContent) || 0])
+      .filter((x) => x[1] > 0)
+    linhas.push('Olá! Vi o site e quero fazer um pedido' + (itens.length ? ':' : '.'))
+    itens.forEach((x) => linhas.push('• ' + x[1] + 'x ' + x[0]))
+    const receber = escolhidos('receber')[0]
+    if (receber) linhas.push(receber === 'Vou buscar' ? 'Vou buscar no local.' : 'Queria saber da entrega.')
+    if (campo('texto')) linhas.push('Obs.: ' + campo('texto'))
+  } else if (tipo === 'agendar') {
+    const serv = escolhidos('servico')
+    linhas.push('Olá! Vi o site e quero agendar' + (serv.length ? ': ' + serv.join(', ') : ' um horário') + '.')
+    const quando = escolhidos('quando')[0]
+    const periodo = escolhidos('periodo')[0]
+    if (quando || periodo) linhas.push('Quando: ' + [quando && quando.toLowerCase(), periodo && PERIODO[periodo]].filter(Boolean).join(', ') + '.')
+    if (campo('nome')) linhas.push('Meu nome é ' + campo('nome') + '.')
+  } else {
+    const serv = escolhidos('servico')
+    linhas.push('Olá! Vi o site e quero um orçamento' + (serv.length ? ' de ' + serv.join(', ') : '') + '.')
+    if (campo('texto')) linhas.push(campo('texto'))
+  }
+  return linhas.join('\n')
+}
+
+// 🆘 Socorro (borracharia): manda a localização da pessoa pelo WhatsApp; sem permissão, manda o pedido sem ela.
+function pedirSocorro(botao, link) {
+  const abrir = (texto) => {
+    window.location.href = link(texto)
+  }
+  const semLocal = '🆘 Preciso de socorro! Vi o site de vocês. Já te mando minha localização aqui.'
+  if (!navigator.geolocation) return abrir(semLocal)
+  const antes = botao.textContent
+  botao.textContent = '📍 Pegando sua localização…'
+  navigator.geolocation.getCurrentPosition(
+    (p) => {
+      botao.textContent = antes
+      abrir('🆘 Preciso de socorro! Estou aqui: https://maps.google.com/?q=' + p.coords.latitude.toFixed(5) + ',' + p.coords.longitude.toFixed(5))
+    },
+    () => {
+      botao.textContent = antes
+      abrir(semLocal)
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+  )
 }

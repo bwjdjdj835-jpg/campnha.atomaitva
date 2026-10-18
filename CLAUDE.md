@@ -439,6 +439,14 @@ e "Leão Dourado" foi unificado como **Leão**.
   - Manual do Gato: seções **11 Receitas por nicho** (19 nichos: paleta, fontes, peça-chave) e **12 Regras de conversão**.
     Castor: `MATRIZ` com as cores da pesquisa (pizzaria tomate, açaí roxo, academia lima, borracharia amarelo, oficina laranja,
     estética automotiva ciano, lava jato, ótica, floricultura, moda…; específicos antes dos gerais) e CTA do ramo.
+- **Fase 2: assistente do ramo** (`#pedir` no `ClienteSite`, `[data-assistente]` + `mensagemDoAssistente` + `pedirSocorro`
+  em `clienteEfeitos.js`, CSS das opções em `clienteAnimacoes.css`; funciona na prévia estática, no ZIP e no site feito pela
+  imagem — manual §9): `acaoDoNicho().tipo` = **agendar** (serviço → Hoje/Amanhã/… → Manhã/Tarde/Noite → nome → "Pedir horário
+  no WhatsApp"), **pedido** (itens com − / + → "Vou buscar"/"Quero saber da entrega" → observação → lista "• 2x Calabresa"),
+  **orcamento** (serviço + descrição; placeholder de carro/ótica) e borracharia com **🆘 socorro com localização**
+  (`navigator.geolocation` → link do Maps; sem permissão, manda sem). `conversa` (lojas etc.) não tem assistente. Nada de
+  preço/disponibilidade: "confirmado pelo WhatsApp". Teste de navegador: `testes/navegador/assistente.mjs` (precisa do
+  `npm run dev`).
 - **🧪 `npm test`** (`testes/`): `horarios.mjs`, `site-cliente.mjs` (Aberto agora + ação por ramo; transforma o JSX com o esbuild do Vite), `castor.mjs`, `tigre-respostas.mjs` (38 respostas de WhatsApp), `tigre-auto.mjs` (20 casos: webhook,
   assinatura, senha, preço, Pix, desconto, pagou, parar, dedupe, IA inventando valor) e `buscadores.mjs` (fila, 11 casos) —
   tudo com fetch falso, sem gastar crédito.
