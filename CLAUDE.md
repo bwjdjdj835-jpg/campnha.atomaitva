@@ -412,6 +412,12 @@ e "Leão Dourado" foi unificado como **Leão**.
   lançar (pedido do usuário: "conectar vários agentes"). O upload do usuário em `multis-gentes` perdeu as pastas; a cópia
   aqui veio do repositório original do autor.
 
+- **Orquestrador em loop** (`prompts/07-orquestrador-loop.md`, pedido do usuário): prompt para colar numa sessão **Local**
+  do Claude Code no notebook. Roda Pinguim → Leão → Gato → Tigre (CSV salvo em `~/Documents/Central de Agentes/envios/`) →
+  teste da WhatsApp Cloud API oficial só para o número do dono. Tem 5 critérios com prova em `.loop/provas/`, checkpoint em
+  `.loop/estado.json` (crédito acabou = pausa e retoma dali), troca de fonte de busca (Apify → SerpApi → Firecrawl → OSM)
+  e relatório final em `.loop/RELATORIO.md`. Nunca manda mensagem para cliente, nunca faz merge, nunca cria conta.
+
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.
 2. ~~Leão~~ — feito, com fotos hospedadas no Vercel Blob (pasta online).
