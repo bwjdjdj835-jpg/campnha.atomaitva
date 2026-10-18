@@ -440,6 +440,10 @@ e "Leão Dourado" foi unificado como **Leão**.
   importa `services/automatico.js` por `import()` (`carregarAutomatico`, começa a baixar ao abrir a tela para o clique de
   "Iniciar" ainda poder pedir a gravação da aba) e o vigia do Tigre importa `tigreTrabalho.js` só na hora de vigiar.
   Pacote de abertura: 825 KB → 309 KB (gzip 260 → 102 KB).
+  Ciclo 6 (API, 168 pedidos ruins em 24 rotas: vazio, JSON quebrado, `null`, lista, texto, tipos errados): `corpoDe(c)` em
+  `server/app.js` (todas as 27 leituras) sempre devolve objeto — `null` derrubava 14 rotas com 500; `/pinguim/conferir` e
+  `/tigre/classificar` aceitam só texto (número dava "trim is not a function"); `/zap/ler` sem telefone responde 400 em vez
+  de abrir o navegador. Nenhum 500 nos 168.
 
 ## Próximos passos (em ordem)
 1. ~~Backend~~ e ~~Pinguim real~~ — feitos.

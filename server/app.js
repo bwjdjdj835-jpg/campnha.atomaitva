@@ -39,6 +39,12 @@ apelido('APIFY_TOKEN', /ap[iy]f[iy]/i, /^apify_api_/) // "apify", "apyfi"…
 apelido('SERPAPI_KEY', /serp/i, /^[0-9a-f]{64}$/)
 apelido('BLOB_READ_WRITE_TOKEN', /blob/i, /^vercel_blob_rw_/)
 
+// Corpo do pedido sempre como objeto: JSON quebrado, `null`, lista ou texto viram {} (antes `null` derrubava a rota com 500).
+async function corpoDe(c) {
+  const b = await c.req.json().catch(() => null)
+  return b && typeof b === 'object' && !Array.isArray(b) ? b : {}
+}
+
 export const app = new Hono().basePath('/api')
 
 const keys = () => ({
@@ -68,7 +74,7 @@ app.get('/status', async (c) => {
 })
 
 app.post('/pinguim/buscar', async (c) => {
-  const { categoria, cidade } = await c.req.json().catch(() => ({}))
+  const { categoria, cidade } = await corpoDe(c)
   if (!categoria?.trim() || !cidade?.trim()) {
     return c.json({ error: 'Informe a categoria e a cidade.' }, 400)
   }
@@ -77,8 +83,9 @@ app.post('/pinguim/buscar', async (c) => {
 
 // Confere um negócio por vez (o app controla o ritmo para caber no limite por minuto do Firecrawl).
 app.post('/pinguim/conferir', async (c) => {
-  const { nome, cidade, telefone } = await c.req.json().catch(() => ({}))
-  if (!nome?.trim()) return c.json({ error: 'Faltou o nome do negócio.' }, 400)
+  const { nome: nomeBruto, cidade, telefone } = await corpoDe(c)
+  const nome = typeof nomeBruto === 'string' ? nomeBruto : ''
+  if (!nome.trim()) return c.json({ error: 'Faltou o nome do negócio.' }, 400)
   if (!keys().firecrawl) return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
   try {
     return c.json(await conferirSite({ nome: nome.trim(), cidade, telefone }))
@@ -90,14 +97,14 @@ app.post('/pinguim/conferir', async (c) => {
 })
 
 app.post('/leao/fotos', async (c) => {
-  const { fotos } = await c.req.json().catch(() => ({}))
+  const { fotos } = await corpoDe(c)
   if (!Array.isArray(fotos) || !fotos.length) return c.json({ fotos: [] })
   return c.json({ fotos: await buscarFotos(fotos) })
 })
 
 // Dados + todas as fotos de um lugar do Google Maps pelo Apify (não gasta Firecrawl).
 app.post('/leao/lugar', async (c) => {
-  const { url } = await c.req.json().catch(() => ({}))
+  const { url } = await corpoDe(c)
   if (!linkDoMaps(url)) return c.json({ error: 'Mande o link do Google Maps do negócio.' }, 400)
   if (!keys().apify) return c.json({ error: 'APIFY_TOKEN não configurado no servidor.', code: 'NO_KEY' }, 503)
   try {
@@ -109,7 +116,7 @@ app.post('/leao/lugar', async (c) => {
 })
 
 app.post('/leao/print', async (c) => {
-  const { url } = await c.req.json().catch(() => ({}))
+  const { url } = await corpoDe(c)
   if (!linkPermitidoParaPrint(url)) {
     return c.json({ error: 'Só tiro print de links do Google Maps, Instagram ou Facebook.' }, 400)
   }
@@ -124,7 +131,7 @@ app.post('/leao/hospedar', async (c) => {
   if (!temPasta()) {
     return c.json({ error: 'Pasta online desligada: conecte um Blob Store ao projeto no Vercel.', code: 'NO_KEY' }, 503)
   }
-  const corpo = await c.req.json().catch(() => ({}))
+  const corpo = await corpoDe(c)
   try {
     return c.json(await hospedar(corpo))
   } catch (e) {
@@ -138,7 +145,7 @@ app.get('/leao/pastas', async (c) => {
 })
 
 app.post('/gato/video', async (c) => {
-  const { html, segundos, salvarComo } = await c.req.json().catch(() => ({}))
+  const { html, segundos, salvarComo } = await corpoDe(c)
   if (typeof html !== 'string' || !html.includes('<html')) return c.json({ error: 'Prévia inválida.' }, 400)
   if (html.length > 20_000_000) return c.json({ error: 'Prévia grande demais para gravar.' }, 413)
   // Sem navegador neste servidor (Vercel): quem chama aqui é uma versão antiga do app guardada no cache.
@@ -161,7 +168,7 @@ app.post('/gato/video', async (c) => {
 
 // Vídeo gravado na nuvem (ScreenshotOne): devolve o link do MP4; o navegador baixa direto de lá.
 app.post('/gato/video-nuvem', async (c) => {
-  const { html, segundos } = await c.req.json().catch(() => ({}))
+  const { html, segundos } = await corpoDe(c)
   if (typeof html !== 'string' || !html.includes('<html')) return c.json({ error: 'Prévia inválida.' }, 400)
   if (!temVideoNuvem()) return c.json({ error: 'Falta a SCREENSHOTONE_ACCESS_KEY no servidor.', code: 'NO_KEY' }, 503)
   try {
@@ -188,7 +195,7 @@ app.get('/zap/status', async (c) => (await soNoNotebook(c)) || c.json(await stat
 app.post('/zap/enviar', async (c) => {
   const nega = await soNoNotebook(c)
   if (nega) return nega
-  const { telefone, texto, video, tipoVideo, aprovado } = await c.req.json().catch(() => ({}))
+  const { telefone, texto, video, tipoVideo, aprovado } = await corpoDe(c)
   if (aprovado !== true) return c.json({ error: 'Envio só com a sua aprovação.' }, 403)
   if (!telefone || (!texto && !video)) return c.json({ error: 'Faltou o telefone ou a mensagem.' }, 400)
   try {
@@ -200,7 +207,8 @@ app.post('/zap/enviar', async (c) => {
 app.post('/zap/ler', async (c) => {
   const nega = await soNoNotebook(c)
   if (nega) return nega
-  const { telefone } = await c.req.json().catch(() => ({}))
+  const { telefone } = await corpoDe(c)
+  if (String(telefone || '').replace(/\D/g, '').length < 10) return c.json({ error: 'Faltou o telefone do cliente.' }, 400)
   try {
     return c.json(await lerConversaZap(telefone))
   } catch (e) {
@@ -216,7 +224,7 @@ app.get('/dados', async (c) => {
   return c.json({ dados: await lerDados(codigo) })
 })
 app.put('/dados', async (c) => {
-  const { codigo, dados } = await c.req.json().catch(() => ({}))
+  const { codigo, dados } = await corpoDe(c)
   if (!temNuvem()) return c.json({ error: 'Nuvem desligada.', code: 'NO_KEY' }, 503)
   if (!codigoValido(codigo) || !dados || typeof dados !== 'object') return c.json({ error: 'Pedido inválido.' }, 400)
   return c.json(await gravarDados(codigo, dados))
@@ -226,7 +234,7 @@ app.put('/dados', async (c) => {
 // 🍌 Imagem de um modelo do Castor (Nano Banana). Uma por pedido (limite de ~4,5 MB da função do Vercel).
 app.post('/castor/imagem', async (c) => {
   if (!temImagem()) return c.json({ error: 'GEMINI_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
-  const { categoria, design } = await c.req.json().catch(() => ({}))
+  const { categoria, design } = await corpoDe(c)
   if (!design?.paleta_cores) return c.json({ error: 'Mande o design do Castor.' }, 400)
   try {
     return c.json(await imagemDoCastor({ categoria: String(categoria || '').slice(0, 60), design }))
@@ -238,7 +246,7 @@ app.post('/castor/imagem', async (c) => {
 // 📤 Lê uma imagem de modelo de site (feita no Gemini) e devolve o design + nota (Groq com visão).
 app.post('/castor/ler-imagem', async (c) => {
   if (!process.env.GROQ_API_KEY) return c.json({ error: 'Sem GROQ_API_KEY — as cores são tiradas da imagem no navegador.', code: 'NO_KEY' }, 503)
-  const { imagem, categoria } = await c.req.json().catch(() => ({}))
+  const { imagem, categoria } = await corpoDe(c)
   if (!/^data:image\/(png|jpe?g|webp);base64,/.test(String(imagem || ''))) return c.json({ error: 'Mande a imagem (PNG, JPG ou WEBP).' }, 400)
   try {
     return c.json(await designDaImagem({ imagem, categoria: String(categoria || '').slice(0, 60) }))
@@ -250,7 +258,7 @@ app.post('/castor/ler-imagem', async (c) => {
 // 🐈‍⬛ Gato monta o site igual à imagem escolhida no Castor (layout + estilo), com os dados e fotos reais.
 app.post('/gato/site-da-imagem', async (c) => {
   if (!temSiteDaImagem()) return c.json({ error: 'Configure GEMINI_API_KEY ou GROQ_API_KEY para o Gato montar o site pela imagem.', code: 'NO_KEY' }, 503)
-  const { imagem, negocio, conteudo, fotos, antesDepois, agendamento, licoes } = await c.req.json().catch(() => ({}))
+  const { imagem, negocio, conteudo, fotos, antesDepois, agendamento, licoes } = await corpoDe(c)
   if (!/^data:image\/(png|jpe?g|webp);base64,/.test(String(imagem || ''))) return c.json({ error: 'Mande a imagem do modelo.' }, 400)
   try {
     const n = Math.max(0, Math.min(12, Number(fotos) || 0))
@@ -266,7 +274,7 @@ app.post('/gato/site-da-imagem', async (c) => {
 
 // 📚 Biblioteca do Gato: ler um link (sem Firecrawl) e tirar lições de um material (link, PDF ou texto colado).
 app.post('/gato/biblioteca/ler-link', async (c) => {
-  const { url } = await c.req.json().catch(() => ({}))
+  const { url } = await corpoDe(c)
   try {
     return c.json(await lerLink(String(url || '').trim()))
   } catch (e) {
@@ -275,7 +283,7 @@ app.post('/gato/biblioteca/ler-link', async (c) => {
 })
 
 app.post('/gato/biblioteca/licoes', async (c) => {
-  const b = await c.req.json().catch(() => ({}))
+  const b = await corpoDe(c)
   if (!String(b.texto || '').trim()) return c.json({ error: 'Material vazio.' }, 400)
   try {
     return c.json(await licoesDe({ titulo: String(b.titulo || '').slice(0, 150), tipo: b.tipo, texto: b.texto, tecnicas: (b.tecnicas || []).slice(0, 30), fontes: (b.fontes || []).slice(0, 6) }))
@@ -285,7 +293,7 @@ app.post('/gato/biblioteca/licoes', async (c) => {
 })
 
 app.post('/castor/design', async (c) => {
-  const b = await c.req.json().catch(() => ({}))
+  const b = await corpoDe(c)
   if (!process.env.GROQ_API_KEY) return c.json({ error: 'Sem GROQ_API_KEY — o Castor usa a matriz por nicho.', code: 'NO_KEY' }, 503)
   try {
     return c.json({ propostas: await designsDoCastor(b), fonte: 'groq' })
@@ -296,7 +304,7 @@ app.post('/castor/design', async (c) => {
 
 // 🦅 Águia: relatório do processo por e-mail.
 app.post('/aguia/email', async (c) => {
-  const { assunto, texto, para } = await c.req.json().catch(() => ({}))
+  const { assunto, texto, para } = await corpoDe(c)
   if (!temEmail()) return c.json({ error: 'Falta a chave do Resend (RESEND_API_KEY) no servidor.', code: 'NO_KEY' }, 503)
   try {
     return c.json(await enviarRelatorio({ assunto, texto, para }))
@@ -307,14 +315,14 @@ app.post('/aguia/email', async (c) => {
 
 // Abre no Explorador de Arquivos a pasta onde o vídeo foi salvo (só no notebook, só dentro da pasta dos vídeos).
 app.post('/gato/abrir-pasta', async (c) => {
-  const { arquivo } = await c.req.json().catch(() => ({}))
+  const { arquivo } = await corpoDe(c)
   if (!(await servidorGrava())) return c.json({ error: 'Só funciona com o app rodando no seu computador.' }, 501)
   const ok = await abrirPasta(arquivo)
   return ok ? c.json({ ok: true }) : c.json({ error: 'Pasta não encontrada.' }, 404)
 })
 
 app.post('/gato/estudar', async (c) => {
-  const { categoria, modelos } = await c.req.json().catch(() => ({}))
+  const { categoria, modelos } = await corpoDe(c)
   if (!keys().firecrawl) {
     return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
   }
@@ -323,7 +331,7 @@ app.post('/gato/estudar', async (c) => {
 
 // Uma rodada do estudo longo do Gato (o app chama uma por minuto).
 app.post('/gato/aprofundar', async (c) => {
-  const { categoria, rodada, lidos } = await c.req.json().catch(() => ({}))
+  const { categoria, rodada, lidos } = await corpoDe(c)
   if (!keys().firecrawl) {
     return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
   }
@@ -331,14 +339,15 @@ app.post('/gato/aprofundar', async (c) => {
 })
 
 app.post('/tigre/mensagem', async (c) => {
-  const { tipo, negocio, historico, url } = await c.req.json().catch(() => ({}))
+  const { tipo, negocio, historico, url } = await corpoDe(c)
   if (!negocio?.nome) return c.json({ error: 'Faltam os dados do negócio.' }, 400)
   return c.json(await gerarMensagem({ tipo: tipo || 'primeiro', negocio, historico, url }))
 })
 
 app.post('/tigre/classificar', async (c) => {
-  const { texto } = await c.req.json().catch(() => ({}))
-  if (!texto?.trim()) return c.json({ error: 'Cole a resposta do cliente.' }, 400)
+  const { texto: textoBruto } = await corpoDe(c)
+  const texto = typeof textoBruto === 'string' ? textoBruto : ''
+  if (!texto.trim()) return c.json({ error: 'Cole a resposta do cliente.' }, 400)
   return c.json(await classificarResposta(texto.trim()))
 })
 
@@ -347,20 +356,20 @@ app.post('/tigre/enviar', async (c) => {
   if (!keys().whatsapp) {
     return c.json({ error: 'Envio pelo WhatsApp não configurado no servidor (Z-API ou Meta).', code: 'NO_KEY' }, 503)
   }
-  const { telefone, texto, primeiroContato, nome, aprovado } = await c.req.json().catch(() => ({}))
+  const { telefone, texto, primeiroContato, nome, aprovado } = await corpoDe(c)
   if (aprovado !== true) return c.json({ error: 'Mensagem sem aprovação do usuário.' }, 400)
   return c.json(await enviarWhatsApp({ telefone, texto, primeiroContato, nome }))
 })
 
 app.post('/tigre/video', async (c) => {
-  const { telefone, video, legenda, aprovado } = await c.req.json().catch(() => ({}))
+  const { telefone, video, legenda, aprovado } = await corpoDe(c)
   if (aprovado !== true) return c.json({ error: 'Vídeo sem aprovação do usuário.' }, 400)
   return c.json(await enviarVideoZapi({ telefone, video, legenda }))
 })
 
 app.post('/tigre/publicar', async (c) => {
   if (!keys().vercel) return c.json({ error: 'VERCEL_TOKEN não configurado no servidor.', code: 'NO_KEY' }, 503)
-  const { nome, arquivos, pagamentoConfirmado } = await c.req.json().catch(() => ({}))
+  const { nome, arquivos, pagamentoConfirmado } = await corpoDe(c)
   if (pagamentoConfirmado !== true) return c.json({ error: 'Confirme o pagamento antes de publicar.' }, 400)
   if (!Array.isArray(arquivos) || !arquivos.length) return c.json({ error: 'Nenhum arquivo para publicar.' }, 400)
   const slug = String(nome || 'site').toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 90)
@@ -368,7 +377,7 @@ app.post('/tigre/publicar', async (c) => {
 })
 
 app.post('/abelha/enriquecer', async (c) => {
-  const { negocio } = await c.req.json().catch(() => ({}))
+  const { negocio } = await corpoDe(c)
   if (!negocio?.nome) return c.json({ error: 'Faltam os dados do negócio.' }, 400)
   if (!keys().firecrawl) {
     return c.json({ error: 'FIRECRAWL_API_KEY não configurada no servidor.', code: 'NO_KEY' }, 503)
